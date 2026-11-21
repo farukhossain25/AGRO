@@ -22,7 +22,9 @@ import type {
   Review,
 } from "./types";
 
-async function withFallback<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
+const warned = new Set<string>();
+
+async function withFallback<T>(fn: () => Promise<T>, fallback: T, key = "catalogue"): Promise<T> {
   if (!isDbConfigured()) return fallback;
   try {
     const value = await fn();
@@ -30,8 +32,13 @@ async function withFallback<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
     if (value === null || value === undefined) return fallback;
     return value;
   } catch (error) {
-    if (process.env.NODE_ENV !== "test") {
-      console.warn("[data] falling back to static catalogue:", (error as Error).message);
+    // Network-level failures are expected when developing offline — warn once.
+    if (process.env.NODE_ENV !== "test" && !warned.has(key)) {
+      warned.add(key);
+      console.warn(
+        `[data] Supabase unreachable — serving static catalogue for "${key}". ` +
+          "This is fine for local/dev; production should reach the database."
+      );
     }
     return fallback;
   }
@@ -40,14 +47,14 @@ async function withFallback<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
 /* --------------------------------------------------------------- categories */
 export function getCategories(activeOnly = true): Promise<Category[]> {
   const fallback = activeOnly ? seed.seedCategories : seed.seedCategories;
-  return withFallback(() => q.getCategories(activeOnly), fallback);
+  return withFallback(() => q.getCategories(activeOnly), fallback, "categories");
 }
 
 /* ----------------------------------------------------------------- products */
 export type ProductFilters = q.ProductFilters;
 
 export function getProducts(filters: ProductFilters = {}): Promise<Product[]> {
-  return withFallback(() => q.getProducts(filters), filterSeedProducts(filters));
+  return withFallback(() => q.getProducts(filters), filterSeedProducts(filters), "products");
 }
 
 function filterSeedProducts(f: ProductFilters): Product[] {
@@ -138,12 +145,12 @@ export async function getComboBySlug(slug: string): Promise<Combo | null> {
 }
 
 export function getPackages(): Promise<Package[]> {
-  return withFallback(() => q.getPackages(), seed.seedPackages);
+  return withFallback(() => q.getPackages(), seed.seedPackages, "packages");
 }
 
 /* ------------------------------------------------------------------ content */
 export function getBlogPosts(limit = 12): Promise<BlogPost[]> {
-  return withFallback(() => q.getBlogPosts(limit), seed.seedBlogPosts.slice(0, limit));
+  return withFallback(() => q.getBlogPosts(limit), seed.seedBlogPosts.slice(0, limit), "blog");
 }
 
 export async function getBlogPost(slug: string): Promise<BlogPost | null> {
@@ -154,22 +161,22 @@ export async function getBlogPost(slug: string): Promise<BlogPost | null> {
 }
 
 export function getFarmers(): Promise<Farmer[]> {
-  return withFallback(() => q.getFarmers(), seed.seedFarmers);
+  return withFallback(() => q.getFarmers(), seed.seedFarmers, "farmers");
 }
 
 export function getBanners(placement = "home_hero"): Promise<Banner[]> {
-  return withFallback(() => q.getBanners(placement), seed.seedBanners as Banner[]);
+  return withFallback(() => q.getBanners(placement), seed.seedBanners as Banner[], "banners");
 }
 
 export function getApprovedReviews(productId?: string, limit = 8): Promise<Review[]> {
   let fb = seed.seedReviews;
   if (productId) fb = fb.filter((r) => r.product_id === productId);
-  return withFallback(() => q.getApprovedReviews(productId, limit), fb.slice(0, limit));
+  return withFallback(() => q.getApprovedReviews(productId, limit), fb.slice(0, limit), "reviews");
 }
 
 /* ---------------------------------------------------------------- logistics */
 export function getDeliveryZones(): Promise<DeliveryZone[]> {
-  return withFallback(() => q.getDeliveryZones(), seed.seedZones);
+  return withFallback(() => q.getDeliveryZones(), seed.seedZones, "zones");
 }
 
 export async function getCouponByCode(code: string): Promise<Coupon | null> {

@@ -27,11 +27,26 @@ export function handleError(error: unknown) {
       { status: 422 }
     );
   }
+  const raw = error instanceof Error ? error.message : String(error);
+  const offline = /fetch failed|ECONNRESET|ENOTFOUND|ETIMEDOUT|socket hang up/i.test(raw);
+
+  // Offline/DB-unreachable is an ops problem, not a code bug — log it quietly
+  // and give the visitor an actionable Bangla message.
+  if (offline) {
+    console.warn("[api] database unreachable:", raw);
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "ডেটাবেসে সংযোগ করা যাচ্ছে না। কিছুক্ষণ পর আবার চেষ্টা করুন অথবা আমাদের হটলাইনে কল করুন।",
+        code: "DB_UNREACHABLE",
+      },
+      { status: 503 }
+    );
+  }
+
   console.error("[api]", error);
   const message =
-    error instanceof Error && process.env.NODE_ENV !== "production"
-      ? error.message
-      : "সার্ভারে সমস্যা হয়েছে, আবার চেষ্টা করুন";
+    process.env.NODE_ENV !== "production" ? raw : "সার্ভারে সমস্যা হয়েছে, আবার চেষ্টা করুন";
   return NextResponse.json({ ok: false, message }, { status: 500 });
 }
 

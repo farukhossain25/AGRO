@@ -79,10 +79,38 @@ npm run dev
 | `npm run db:migrate` | `supabase/migrations/*.sql` প্রয়োগ |
 | `npm run db:seed` | ৪৭ পণ্য + ক্যাটাগরি + কম্বো + কুপন সিড (idempotent) |
 | `npm run db:admin` | অ্যাডমিন অ্যাকাউন্ট তৈরি/আপডেট |
+| `npm run db:seed:sql` | সিড SQL জেনারেট → `supabase/seed.sql` |
 
 ---
 
-## ৩. Supabase সেটআপ (একবার)
+## ৩. ডেটাবেসের বর্তমান অবস্থা (ইতিমধ্যে লাইভ)
+
+প্রজেক্ট `biswas-agro` (ref `lyihdzgmtjkkhybpkqot`, region `ap-southeast-1`) ইতিমধ্যে তৈরি,
+মাইগ্রেশন প্রয়োগ এবং সিড করা হয়েছে:
+
+| টেবিল | রো |
+|-------|-----|
+| categories | 9 |
+| products | 47 |
+| combos | 4 |
+| packages | 3 |
+| delivery_zones | 11 |
+| coupons | 3 |
+| farmers | 4 |
+| reviews | 6 |
+| blog_posts | 6 |
+| banners | 3 |
+| users (admin) | 1 |
+
+স্টোরেজ বাকেট `product-images` (public, 4 MB limit) তৈরি করা আছে।
+আপনার শুধু দরকার `.env.local` (বা Vercel env) বসানো — বাকি সব প্রস্তুত।
+
+`supabase/seed.sql` ফাইলে পুরো সিডটা এক ফাইলে আছে — Supabase → SQL Editor-এ পেস্ট করে
+যেকোনো সময় পুনরায় চালানো যায় (idempotent)। নতুন করে জেনারেট করতে: `npm run db:seed:sql`।
+
+---
+
+## ৪. Supabase সেটআপ (নতুন প্রজেক্টে)
 
 1. [supabase.com](https://supabase.com) → **New project** → নাম `biswas-agro`, region `ap-southeast-1`.
 2. **SQL Editor → New query** → `supabase/migrations/0001_init.sql` পেস্ট করে **Run**।
@@ -129,7 +157,7 @@ URL:      /admin/login
 
 ---
 
-## ৪. Vercel ডিপ্লয়
+## ৫. Vercel ডিপ্লয়
 
 ### ক) GitHub → Vercel
 
@@ -169,7 +197,7 @@ vercel --prod
 
 ---
 
-## ৫. ডোমেইন + SSL
+## ৬. ডোমেইন + SSL
 
 1. Vercel → Project → **Settings → Domains** → `bishwasagro.com` যোগ করুন।
 2. `www.bishwasagro.com`-ও যোগ করুন (redirect → apex)।
@@ -192,7 +220,7 @@ curl -I https://bishwasagro.com
 
 ---
 
-## ৬. পেমেন্ট ও SMS (লাইভ করার আগে)
+## ৭. পেমেন্ট ও SMS (লাইভ করার আগে)
 
 `lib/payments.ts`-এ প্রতিটি গেটওয়ের adapter আছে। স্যান্ডবক্সে `PAYMENTS_SANDBOX=true` থাকলে
 `/payment/simulate` ফ্লো ব্যবহার হয়, যাতে পুরো checkout → order → tracking চেইন টেস্ট করা যায়।
@@ -206,7 +234,7 @@ curl -I https://bishwasagro.com
 
 ---
 
-## ৭. প্রজেক্ট স্ট্রাকচার
+## ৮. প্রজেক্ট স্ট্রাকচার
 
 ```
 app/
@@ -234,7 +262,7 @@ data/seed.mjs           # ৪৭ বাংলা পণ্য + ক্যাট�
 
 ---
 
-## ৮. সিকিউরিটি
+## ৯. সিকিউরিটি
 
 - পাসওয়ার্ড **bcrypt** (cost 12)
 - সেশন **JWT (jose)**, `httpOnly` + `sameSite=lax` + `secure` কুকি
@@ -247,7 +275,7 @@ data/seed.mjs           # ৪৭ বাংলা পণ্য + ক্যাট�
 
 ---
 
-## ৯. ডিপ্লয়-পরবর্তী চেকলিস্ট
+## ১০. ডিপ্লয়-পরবর্তী চেকলিস্ট
 
 - [ ] `/admin/login` → `admin@bishwasagro.com` দিয়ে লগইন
 - [ ] অ্যাডমিন পাসওয়ার্ড বদলানো হয়েছে

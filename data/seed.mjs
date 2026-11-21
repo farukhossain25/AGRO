@@ -135,7 +135,7 @@ export const seedProducts = [
     desc: "দিনাজপুরের রসালো লিচু — ছোট বিচি, পাতলা খোসা, অত্যন্ত মিষ্টি।" }),
   P({ slug: "deshi-kola", cat: "folmul", name_bn: "সবরি দেশি কলা", name_en: "Sabri Banana", unit: "ডজন", price: 60, compare_price: 75, stock: 90, image: F, badge_bn: null, farm: "যশোর সদর", featured: false,
     desc: "দেশি সবরি কলা — প্রাকৃতিকভাবে সিরা, কোনো রাসায়নিক ক্যালসিয়াম কার্বাইড নয়।" }),
-  P({ slug: "peyara", cat: "folmul", name_bn: "pezায়ারা", name_en: "Guava", unit: "কেজি", price: 90, compare_price: 110, stock: 45, image: F, badge_bn: null, farm: "বরিশাল সদর", featured: false,
+  P({ slug: "peyara", cat: "folmul", name_bn: "পেয়ারা", name_en: "Guava", unit: "কেজি", price: 90, compare_price: 110, stock: 45, image: F, badge_bn: null, farm: "বরিশাল সদর", featured: false,
     desc: "ভিটামিন সি সমৃদ্ধ রসালো পেয়ারা, খেতে মিষ্টি ও সুগন্ধি।" }),
   P({ slug: "papaya", cat: "folmul", name_bn: "পেঁপে", name_en: "Papaya", unit: "কেজি", price: 45, compare_price: 55, stock: 50, image: F, badge_bn: null, farm: "গাজীপুর সদর", featured: false,
     desc: "হলুদ-লাল শাঁসের পাকা পেঁপে — হজমে সহায়ক ও স্কিনের জন্য ভালো।" }),
@@ -502,7 +502,6 @@ export const seedPosts = [
 ### ৪. দেশি কলা
 প্রাকৃতিক শর্করা ও পটাশিয়াম। ক্লান্ত পেশিতে ভালো।
 
-### ৫. বাদাম ও ঘি
 ### ৫. ঘি ও বাদাম
 এক চামচ দেশি ঘি রুটিতে মাখিয়ে খান — ভালো চর্বি শক্তি দেয় এবং ভিটামিন D শোষণে সাহায্য করে।`,
   },
