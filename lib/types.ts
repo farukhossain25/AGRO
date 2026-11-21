@@ -169,6 +169,118 @@ export type Review = {
   created_at: string;
 };
 
+/* ------------------------------------------------------- reviews (0005) */
+
+export type ReviewStatus = "published" | "hidden";
+
+/** A single verified-purchase review of one product inside one order. */
+export type OrderReview = {
+  id: string;
+  order_id: string;
+  sub_order_id: string | null;
+  product_id: string;
+  seller_id: string | null;
+  user_id: string;
+  rating: number;
+  seller_rating: number | null;
+  title_bn: string | null;
+  comment: string | null;
+  photos: string[];
+  tags: string[];
+  is_verified_purchase: boolean;
+  status: ReviewStatus;
+  hidden_reason: string | null;
+  seller_reply: string | null;
+  seller_replied_at: string | null;
+  created_at: string;
+  updated_at: string;
+  edited_at: string | null;
+};
+
+/** Review row joined with the display fields the product page needs. */
+export type ReviewWithProfile = OrderReview & {
+  products: { name_bn: string; slug: string; image: string | null } | null;
+  sellers: { name_bn: string; slug: string } | null;
+  reviewer: { full_name: string | null; avatar_url: string | null } | null;
+};
+
+export type RatingBreakdown = {
+  total: number;
+  r5: number;
+  r4: number;
+  r3: number;
+  r2: number;
+  r1: number;
+  avg_rating: number;
+};
+
+export type ReviewSort = "newest" | "highest" | "lowest";
+
+export type ProblemType = "spoiled" | "short_weight" | "wrong_item" | "late" | "other";
+export type Resolution = "refund" | "replacement" | "inform";
+export type ComplaintStatus = "open" | "in_review" | "resolved" | "rejected";
+
+export type Complaint = {
+  id: string;
+  ticket_no: string;
+  order_id: string;
+  sub_order_id: string | null;
+  order_item_id: string | null;
+  product_id: string | null;
+  seller_id: string | null;
+  user_id: string;
+  problem_type: ProblemType;
+  description: string;
+  photos: string[];
+  preferred_resolution: Resolution;
+  status: ComplaintStatus;
+  /** what was actually granted once resolved */
+  resolution: Resolution | "none" | null;
+  resolution_note: string | null;
+  resolved_by: string | null;
+  resolved_at: string | null;
+  rejected_by: string | null;
+  rejected_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ComplaintMessage = {
+  id: string;
+  complaint_id: string;
+  author_role: "customer" | "seller" | "admin";
+  author_id: string | null;
+  body: string;
+  is_internal: boolean;
+  created_at: string;
+};
+
+export type SupplierQuality = {
+  seller_id: string;
+  slug: string;
+  name_bn: string;
+  status: SellerStatus;
+  review_count: number;
+  avg_rating: number;
+  avg_seller_rating: number;
+  low_rating_count: number;
+  complaint_count: number;
+  resolved_count: number;
+  sub_order_count: number;
+  delivered_count: number;
+  complaint_rate: number;
+  on_time_rate: number;
+  quality_score: number;
+};
+
+export type ReviewTag = {
+  slug: string;
+  label_bn: string;
+  label_en: string;
+  sentiment: "positive" | "negative";
+  sort_order: number;
+};
+
 export type BlogPost = {
   id: string;
   slug: string;

@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, Heart, Layers, LogOut, MapPin, Package, Repeat, ShieldCheck, Sparkles, User } from "lucide-react";
+import { Bell, Heart, Layers, LifeBuoy, LogOut, MapPin, Package, Repeat, ShieldCheck, Sparkles, User } from "lucide-react";
 import { useLocale } from "@/lib/locale";
 
 const links = [
   { href: "/account", labelBn: "ড্যাশবোর্ড", labelEn: "Dashboard", Icon: User },
   { href: "/account/profile", labelBn: "আমার প্রোফাইল", labelEn: "My profile", Icon: User },
   { href: "/account/orders", labelBn: "আমার অর্ডার", labelEn: "My orders", Icon: Package },
+  { href: "/account/complaints", labelBn: "আমার অভিযোগ", labelEn: "Complaints", Icon: LifeBuoy },
   { href: "/account/subscriptions", labelBn: "সাবস্ক্রিপশন", labelEn: "Subscriptions", Icon: Repeat },
   { href: "/account/addresses", labelBn: "সেভ করা ঠিকানা", labelEn: "Saved addresses", Icon: MapPin },
   { href: "/account/wishlist", labelBn: "পছন্দের তালিকা", labelEn: "Wishlist", Icon: Heart },
@@ -33,7 +34,7 @@ export function AccountNav() {
     <nav aria-label="অ্যাকাউন্ট মেনু" className="lg:sticky lg:top-24 lg:self-start">
       <ul className="no-scrollbar flex gap-1.5 overflow-x-auto rounded-2xl border border-white/[0.06] bg-ink-850/60 p-1.5 lg:flex-col lg:gap-0.5">
         {links.map(({ href, labelBn, labelEn, Icon }) => {
-          const active = pathname === href;
+          const active = pathname === href || (href !== "/account" && pathname.startsWith(`${href}/`));
           return (
             <li key={href} className="shrink-0 lg:w-full">
               <Link

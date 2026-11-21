@@ -71,9 +71,14 @@ export default async function SellerDashboard() {
             {seller.district} · কমিশন {Number(seller.commission_percent)}%
           </p>
         </div>
-        <Link href={`/market/${seller.slug}`} className="btn-ghost btn-sm">
-          পাবলিক স্টোর দেখুন →
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/seller/reviews" className="btn-ghost btn-sm min-h-[44px]">
+            রিভিউ ও অভিযোগ
+          </Link>
+          <Link href={`/market/${seller.slug}`} className="btn-ghost btn-sm min-h-[44px]">
+            পাবলিক স্টোর দেখুন →
+          </Link>
+        </div>
       </div>
 
       {seller.status === "pending" && (

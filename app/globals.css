@@ -16,6 +16,8 @@
   html {
     scroll-behavior: smooth;
     -webkit-text-size-adjust: 100%;
+    /* iOS Safari: stop the rubber-band from revealing a white gutter */
+    background-color: #111312;
   }
 
   body {
@@ -54,6 +56,50 @@
 
   input, select, textarea {
     @apply font-bn;
+    /*
+     * iOS Safari zooms the page whenever a focused field is under 16px. Every
+     * text field must therefore render at 16px on phones — the utility sizes
+     * below opt back in from sm: upward, where zoom does not happen.
+     */
+    font-size: 16px;
+  }
+
+  /* Native tap highlight looks accidental on a dark surface */
+  a, button, [role="button"], label, summary {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Number/date inputs: keep spinners from eating the field width on phones */
+  input[type="number"],
+  input[type="date"],
+  input[type="time"] {
+    min-height: 44px;
+  }
+
+  /* iOS renders date inputs as empty boxes without an explicit height */
+  input[type="date"],
+  input[type="datetime-local"] {
+    -webkit-appearance: none;
+    appearance: none;
+    min-width: 0;
+  }
+
+  /* Long unbroken Bangla/English tokens must not blow out a 360px screen */
+  h1, h2, h3, p, li, dd, td, th {
+    overflow-wrap: anywhere;
+  }
+
+  /*
+   * Touch targets: 44px minimum on coarse pointers. Applied to the interactive
+   * primitives rather than every element so dense desktop tables stay compact.
+   */
+  @media (pointer: coarse) {
+    a.btn,
+    button.btn,
+    .btn,
+    .badge[role="button"] {
+      min-height: 44px;
+    }
   }
 
   input[type="date"]::-webkit-calendar-picker-indicator {
@@ -179,6 +225,86 @@
   }
   .mask-fade-r {
     mask-image: linear-gradient(to right, black 85%, transparent);
+  }
+
+  /* Full-height sections that actually shrink with the iOS toolbar */
+  .h-viewport {
+    height: 100vh;
+    height: 100dvh;
+  }
+  .min-h-viewport {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  /* Safe-area aware padding for the notch / home indicator */
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .px-safe {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+  /* Sticky bottom bars (cart on mobile) must clear the home indicator */
+  .bottom-safe {
+    bottom: 0;
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
+}
+
+/*
+ * Sticky hover is broken on touch: tapping a tile leaves it "hovered" forever.
+ * Only apply hover styles where a real pointer can hover.
+ */
+@media (hover: none) {
+  .hover-lift:hover,
+  .card-hover:hover {
+    transform: none !important;
+    box-shadow: var(--tw-shadow, none);
+  }
+  .link-underline:hover::after {
+    width: 0;
+  }
+}
+
+/*
+ * 360px — the smallest Android/iPhone-in-Safari width we support. Tailwind's
+ * default sm: breakpoint is 640px, so phones between 360 and 640 all use the
+ * base styles; these rules tighten the few multi-column grids that would
+ * otherwise squash.
+ */
+@media (max-width: 380px) {
+  .container-x {
+    padding-left: 0.875rem;
+    padding-right: 0.875rem;
+  }
+  .h-section {
+    font-size: 22px;
+  }
+  .card {
+    border-radius: 1.25rem;
+  }
+  /* two-column stat rows become one column on very small phones */
+  .grid-cols-3 > .min-w-0 {
+    min-width: 0;
+  }
+}
+
+/* Tablets — 768px to 1024px gets a little more breathing room than a phone */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .container-x {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+
+/* Large desktop — do not let text lines run past a comfortable measure */
+@media (min-width: 1536px) {
+  .container-x {
+    max-width: 84rem;
   }
 }
 

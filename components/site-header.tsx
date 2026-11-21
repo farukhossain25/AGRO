@@ -83,13 +83,16 @@ export function SiteHeader({
       </div>
 
       {/* ── Header */}
-      <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-ink-900/85 backdrop-blur-xl">
+      <header
+        className="sticky top-0 z-50 border-b border-white/[0.06] bg-ink-900/85 backdrop-blur-xl"
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+      >
         <div className="container-x">
           <div className="flex h-[62px] items-center gap-2 sm:h-[72px] sm:gap-4">
             {/* Mobile menu button */}
             <button
               onClick={() => setMenuOpen(true)}
-              className="grid h-10 w-10 place-items-center rounded-xl text-sand-100/80 transition hover:bg-white/[0.06] lg:hidden"
+              className="grid h-11 w-11 place-items-center rounded-xl text-sand-100/80 transition hover:bg-white/[0.06] lg:hidden"
               aria-label={t("মেনু খুলুন", "Open menu")}
               aria-expanded={menuOpen}
             >

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import {
+  AlertTriangle,
   BarChart3,
   Camera,
   FileText,
@@ -15,6 +16,7 @@ import {
   Package,
   Percent,
   Repeat,
+  ShieldCheck,
   ShoppingCart,
   Sparkles,
   Sprout,
@@ -56,6 +58,7 @@ const navGroups = [
     title: "মার্কেটপ্লেস",
     items: [
       { href: "/admin/sellers", label: "সেলার", Icon: Store },
+      { href: "/admin/suppliers/quality", label: "কোয়ালিটি স্কোর", Icon: ShieldCheck },
       { href: "/admin/camera-requests", label: "ক্যামেরা রিকোয়েস্ট", Icon: Camera },
     ],
   },
@@ -65,6 +68,7 @@ const navGroups = [
       { href: "/admin/products", label: "পণ্য", Icon: Package },
       { href: "/admin/categories", label: "ক্যাটাগরি", Icon: Tags },
       { href: "/admin/reviews", label: "রিভিউ", Icon: MessageSquare },
+      { href: "/admin/complaints", label: "অভিযোগ", Icon: AlertTriangle },
     ],
   },
   {
@@ -170,7 +174,10 @@ export function AdminShell({ user, children }: { user: SessionUser; children: Re
       ) : null}
 
       <div className="min-w-0 flex-1">
-        <header className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-white/[0.06] bg-ink-900/90 px-4 backdrop-blur">
+        <header
+          className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-white/[0.06] bg-ink-900/90 px-4 backdrop-blur"
+          style={{ paddingTop: "env(safe-area-inset-top)" }}
+        >
           <button onClick={() => setOpen(true)} className="rounded-lg p-2 text-sand-100/70 hover:bg-white/10 lg:hidden" aria-label="মেনু">
             <Menu className="h-5 w-5" />
           </button>

@@ -14,6 +14,8 @@ import { resolvePremiumState } from "@/lib/premium";
 import { getWishlistProductIds } from "@/lib/wishlist";
 import { ProductGrid } from "@/components/product-card";
 import { ReviewForm } from "@/components/review-form";
+import { ReviewList } from "@/components/shop/review-list";
+import { getProductReviews } from "@/lib/reviews";
 import { SectionHeader, StarRating } from "@/components/ui";
 import { site } from "@/lib/site";
 import { formatDateBn } from "@/lib/format";
@@ -50,15 +52,33 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   };
 }
 
-export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
+const REVIEW_SORTS = ["newest", "highest", "lowest"] as const;
+type ReviewSortParam = (typeof REVIEW_SORTS)[number];
+
+function normaliseSort(value: string | string[] | undefined): ReviewSortParam {
+  const first = Array.isArray(value) ? value[0] : value;
+  return (REVIEW_SORTS as readonly string[]).includes(first ?? "")
+    ? (first as ReviewSortParam)
+    : "newest";
+}
+
+export default async function ProductPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ rsort?: string | string[] }>;
+}) {
   const { slug } = await params;
+  const sort = normaliseSort((await searchParams).rsort);
   const product = await getProductBySlug(slug);
   if (!product) notFound();
 
-  const [categories, related, reviews] = await Promise.all([
+  const [categories, related, reviews, verified] = await Promise.all([
     getCategories(),
     getRelatedProducts(product, 4),
     getApprovedReviews(product.id, 5),
+    getProductReviews(product.id, { sort: "newest", limit: 5 }).catch(() => []),
   ]);
 
   const category = categories.find((c) => c.id === product.category_id);
@@ -106,10 +126,34 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       product.review_count > 0
         ? {
             "@type": "AggregateRating",
-            ratingValue: product.rating,
+            ratingValue: Number(product.rating),
             reviewCount: product.review_count,
+            bestRating: 5,
+            worstRating: 1,
           }
         : undefined,
+    review: verified.length
+      ? verified.slice(0, 5).map((r) => ({
+          "@type": "Review",
+          reviewRating: {
+            "@type": "Rating",
+            ratingValue: r.rating,
+            bestRating: 5,
+            worstRating: 1,
+          },
+          author: {
+            "@type": "Person",
+            name: r.reviewer?.full_name?.trim() || "Verified customer",
+          },
+          datePublished: r.created_at.slice(0, 10),
+          ...(r.comment ? { reviewBody: r.comment } : {}),
+          ...(r.is_verified_purchase
+            ? {
+                publisher: { "@type": "Organization", name: site.nameBn },
+              }
+            : {}),
+        }))
+      : undefined,
   };
 
   const breadcrumbLd = {
@@ -184,44 +228,48 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           }}
         />
 
-        {/* reviews */}
+        {/* reviews — verified purchases first, legacy testimonials below */}
         <section className="mt-14" aria-labelledby="product-reviews">
           <SectionHeader
             eyebrow="গ্রাহক রিভিউ"
             title={<span id="product-reviews">এই পণ্য নিয়ে গ্রাহকেরা কী বলছেন</span>}
-            subtitle={`${product.review_count} জনের রেটিং · গড় ${Number(product.rating).toFixed(1)}/৫`}
+            subtitle={`${product.review_count} জনের ভেরিফাইড রেটিং · গড় ${Number(product.rating).toFixed(1)}/৫`}
           />
 
           <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-            <div className="space-y-3">
-              {reviews.length ? (
-                reviews.map((r) => (
-                  <article key={r.id} className="card p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-2.5">
-                        <span className="grid h-9 w-9 place-items-center rounded-full bg-leaf-600/20 text-xs font-bold text-leaf-200">
-                          {r.name_bn.slice(0, 1)}
-                        </span>
-                        <div>
-                          <p className="text-[13px] font-semibold">{r.name_bn}</p>
-                          <p className="text-[10.5px] text-sand-100/40">{r.location_bn}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <StarRating value={r.rating} size={12} />
-                        <p className="mt-0.5 text-[10px] text-sand-100/35">{formatDateBn(r.created_at)}</p>
-                      </div>
-                    </div>
-                    <p className="mt-2.5 text-[13px] leading-relaxed text-sand-100/70">{r.comment}</p>
-                  </article>
-                ))
-              ) : (
-                <div className="card p-6 text-center text-[13px] text-sand-100/50">
-                  এখনও কোনো অনুমোদিত রিভিউ নেই — তিনিই প্রথম হোন!
-                </div>
-              )}
+            <div className="min-w-0">
+              <ReviewList
+                productId={product.id}
+                sort={sort}
+                limit={8}
+                href={`/products/${product.slug}`}
+              />
             </div>
-            <ReviewForm productId={product.id} />
+
+            <div className="space-y-4">
+              <ReviewForm productId={product.id} />
+
+              {reviews.length ? (
+                <div className="card p-4">
+                  <p className="text-[11px] uppercase tracking-wide text-sand-100/35">
+                    পুরোনো সাইটের মতামত
+                  </p>
+                  <ul className="mt-2 space-y-2.5">
+                    {reviews.slice(0, 3).map((r) => (
+                      <li key={r.id} className="border-t border-white/[0.07] pt-2.5 first:border-0 first:pt-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-[12px] font-semibold text-sand-50">{r.name_bn}</p>
+                          <StarRating value={r.rating} size={11} />
+                        </div>
+                        <p className="mt-1 line-clamp-3 text-[11.5px] leading-5 text-sand-100/55">
+                          {r.comment}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
           </div>
         </section>
 

@@ -21,7 +21,13 @@ export function FloatingActions() {
     <>
       <BackToTop />
 
-      <div className="fixed bottom-5 left-4 z-40 flex flex-col items-start gap-2 sm:bottom-6 sm:left-6">
+      <div
+        className="fixed left-4 z-40 flex flex-col items-start gap-2 sm:left-6"
+        style={{
+          bottom: "calc(1.25rem + env(safe-area-inset-bottom))",
+          paddingLeft: "env(safe-area-inset-left)",
+        }}
+      >
         {open ? (
           <div className="animate-fade-up space-y-2">
             <a

@@ -54,6 +54,8 @@ export function LiveStream({
   const destroyedRef = useRef(false);
 
   const [status, setStatus] = useState<"loading" | "playing" | "locked" | "offline" | "error">("loading");
+  const statusRef = useRef(status);
+  statusRef.current = status;
   const [message, setMessage] = useState<string>("লাইভ স্ট্রিম লোড হচ্ছে…");
 
   const teardown = useCallback(() => {
@@ -166,6 +168,35 @@ export function LiveStream({
       teardown();
     };
   }, [attach, teardown]);
+
+  /**
+   * Section B: a player scrolling out of view must stop playing (and buffering)
+   * — it burns mobile data and battery otherwise. We pause rather than tear the
+   * stream down so scrolling back is instant. Pausing is also polite for
+   * prefers-reduced-motion users.
+   */
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || typeof IntersectionObserver === "undefined") return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            if (autoPlay && video.paused && statusRef.current === "playing") {
+              video.play().catch(() => {});
+            }
+          } else if (!video.paused) {
+            video.pause();
+          }
+        }
+      },
+      { threshold: 0.25 }
+    );
+
+    observer.observe(video);
+    return () => observer.disconnect();
+  }, [autoPlay]);
 
   return (
     <div

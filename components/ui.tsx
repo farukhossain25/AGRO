@@ -253,7 +253,10 @@ export function BackToTop() {
 /* ------------------------------------------------------------------- toast */
 export function Toast({ message }: { message: string }) {
   return (
-    <div className="fixed inset-x-4 bottom-4 z-50 animate-fade-up rounded-2xl border border-leaf-500/40 bg-ink-850/95 px-4 py-3 text-sm shadow-soft backdrop-blur">
+    <div
+      className="fixed inset-x-4 z-50 animate-fade-up rounded-2xl border border-leaf-500/40 bg-ink-850/95 px-4 py-3 text-sm shadow-soft backdrop-blur"
+      style={{ bottom: "calc(1rem + env(safe-area-inset-bottom))" }}
+    >
       {message}
     </div>
   );

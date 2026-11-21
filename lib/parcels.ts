@@ -1,3 +1,4 @@
+import { notify } from "./notify";
 import { createHash, randomBytes } from "node:crypto";
 import { db } from "./db";
 
@@ -123,6 +124,31 @@ export async function parcelByToken(token: string) {
   return data;
 }
 
+/**
+ * Sent once when the parcel is scanned delivered: a single notification with a
+ * deep link into the per-supplier review screen.
+ */
+async function notifyReviewInvite(orderId: string, orderNo: string) {
+  const { data: order } = await db()
+    .from("orders")
+    .select("user_id")
+    .eq("id", orderId)
+    .maybeSingle();
+
+  if (!order?.user_id) return;
+
+  await notify({
+    userId: order.user_id as string,
+    audience: "user",
+    kind: "order",
+    title: "পণ্য পেয়েছেন? রিভিউ দিন ⭐",
+    body: `অর্ডার ${orderNo} ডেলিভারি সম্পন্ন। প্রতিটি সেলার ও পণ্যকে আলাদাভাবে রেটিং দিন — ৭ দিনের মধ্যে সম্পাদনা করা যাবে।`,
+    link: `/account/orders/${orderId}/review`,
+    meta: { orderId, orderNo, cta: "review" },
+    push: true,
+  });
+}
+
 export async function markDelivered(token: string, userId?: string | null) {
   const client = db();
   const now = new Date().toISOString();
@@ -137,6 +163,9 @@ export async function markDelivered(token: string, userId?: string | null) {
   if (parcel?.order_id) {
     await client.from("orders").update({ status: "delivered", delivered_at: now }).eq("id", parcel.order_id);
     await client.from("sub_orders").update({ status: "delivered" }).eq("order_id", parcel.order_id);
+
+    // invite the customer to review each supplier/product (section A)
+    await notifyReviewInvite(parcel.order_id as string, parcel.order_no as string).catch(() => undefined);
   }
 
   return parcel;

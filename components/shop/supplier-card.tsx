@@ -125,6 +125,46 @@ export function SupplierCard({ supplier }: { supplier: SupplierInfo }) {
           </p>
         ) : null}
 
+        {/* supplier quality — v_supplier_quality (migration 0005) */}
+        {supplier.quality && supplier.quality.review_count > 0 ? (
+          <div className="mt-3 rounded-xl border border-white/[0.07] bg-white/[0.02] p-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[10px] uppercase tracking-wide text-sand-100/35">
+                {t("সেলার কোয়ালিটি", "Seller quality")}
+              </p>
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-leaf-200">
+                <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                {toBn(Number(supplier.quality.avg_rating).toFixed(1))}
+                <span className="font-normal text-sand-100/40">
+                  ({toBn(supplier.quality.review_count)})
+                </span>
+              </span>
+            </div>
+
+            <dl className="mt-2 grid grid-cols-3 gap-2 text-center">
+              <div>
+                <dt className="text-[9.5px] text-sand-100/35">{t("অভিযোগ", "Complaints")}</dt>
+                <dd className="text-[12px] font-semibold text-sand-100/80">
+                  {toBn(Math.round(Number(supplier.quality.complaint_rate) * 100))}%
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[9.5px] text-sand-100/35">{t("সময়মতো", "On time")}</dt>
+                <dd className="text-[12px] font-semibold text-leaf-200">
+                  {toBn(Math.round(Number(supplier.quality.on_time_rate) * 100))}%
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[9.5px] text-sand-100/35">{t("স্কোর", "Score")}</dt>
+                <dd className="text-[12px] font-semibold text-sand-100/80">
+                  {toBn(Number(supplier.quality.quality_score).toFixed(0))}
+                  <span className="text-[9px] text-sand-100/30">/100</span>
+                </dd>
+              </div>
+            </dl>
+          </div>
+        ) : null}
+
         {/* harvest + source */}
         <dl className="mt-3 grid grid-cols-2 gap-2">
           <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] px-2.5 py-2">

@@ -6,6 +6,30 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
  */
 let adminClient: SupabaseClient | null = null;
 
+/**
+ * Every server-side query gets a hard deadline.
+ *
+ * Without this, one unreachable Supabase call stalls the whole render and the
+ * page ships with an empty section. Callers already degrade gracefully on
+ * errors, so a fast failure is the right outcome: the page still paints and the
+ * fallback content appears. 8s is far above a healthy round-trip (p99 ≈ 200ms).
+ */
+const DB_TIMEOUT_MS = Number(process.env.SUPABASE_TIMEOUT_MS ?? 8000);
+
+const timeoutFetch: typeof fetch = (input, init) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), DB_TIMEOUT_MS);
+
+  // respect a caller-supplied signal as well
+  if (init?.signal) {
+    init.signal.addEventListener("abort", () => controller.abort(), { once: true });
+  }
+
+  return fetch(input, { ...init, signal: controller.signal }).finally(() =>
+    clearTimeout(timer)
+  );
+};
+
 export function db(): SupabaseClient {
   if (adminClient) return adminClient;
 
@@ -20,7 +44,7 @@ export function db(): SupabaseClient {
 
   adminClient = createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
-    global: { headers: { "X-Client-Info": "biswas-agro-server" } },
+    global: { headers: { "X-Client-Info": "biswas-agro-server" }, fetch: timeoutFetch },
   });
 
   return adminClient;

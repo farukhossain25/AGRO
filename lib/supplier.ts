@@ -1,5 +1,7 @@
 import { db, isDbConfigured } from "./db";
 import { farmIds, seedCameras, seedFarms } from "./seed-premium";
+import { getSupplierQuality } from "./reviews";
+import type { SupplierQuality } from "./types";
 
 /* ==========================================================================
    Public supplier details for a product page (section D)
@@ -44,6 +46,11 @@ export type SupplierInfo = {
   reviewCount: number;
   /** the farm page slug to link "এই সেলারের সব পণ্য দেখুন" */
   storeHref: string;
+  /**
+   * Supplier-level quality from v_supplier_quality (migration 0005).
+   * Null for farm-only products or when the view has no rows yet.
+   */
+  quality: SupplierQuality | null;
 };
 
 function num(value: unknown): number | null {
@@ -77,6 +84,8 @@ export async function getProductSupplier(product: {
       if (!error && data) {
         const row = data as Record<string, unknown>;
         const sellerSlug = row.seller_slug as string | null;
+        const sellerId = (row.seller_id as string | null) ?? null;
+        const quality = sellerId ? await getSupplierQuality(sellerId).catch(() => null) : null;
 
         return {
           sellerId: (row.seller_id as string | null) ?? null,
@@ -106,6 +115,7 @@ export async function getProductSupplier(product: {
           rating: product.rating ?? 5,
           reviewCount: product.review_count ?? 0,
           storeHref: sellerSlug ? `/market/${sellerSlug}` : row.farm_slug ? `/live/farms/${row.farm_slug}` : "/market",
+          quality,
         };
       }
     } catch {
@@ -148,6 +158,7 @@ export async function getProductSupplier(product: {
     rating: product.rating ?? 5,
     reviewCount: product.review_count ?? 0,
     storeHref: `/live/farms/${farm.slug}`,
+    quality: null,
   };
 }
 

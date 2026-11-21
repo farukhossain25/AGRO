@@ -3,6 +3,7 @@ import { currentUser } from "@/lib/api";
 import { getOrdersForUser } from "@/lib/data";
 import { formatDateBn, money } from "@/lib/format";
 import { EmptyState } from "@/components/ui";
+import { OrderItemActions } from "@/components/shop/order-item-actions";
 import type { Order, OrderItem } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -79,6 +80,17 @@ export default async function OrdersPage() {
                 </Link>
               ) : null}
             </div>
+
+            {order.status === "delivered" && order.order_items?.length ? (
+              <OrderItemActions
+                orderId={order.id}
+                items={order.order_items.map((it) => ({
+                  id: it.id,
+                  productId: it.product_id ?? null,
+                  nameBn: it.name_bn,
+                }))}
+              />
+            ) : null}
           </article>
         );
       })}
