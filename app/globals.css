@@ -225,3 +225,91 @@
     box-shadow: none !important;
   }
 }
+
+/* ==========================================================================
+   Light theme (profile → সেটিংস → থিম)
+   --------------------------------------------------------------------------
+   The app is dark-first. Rather than rewrite every utility class, the light
+   theme remaps the ink/sand tokens. Components keep using bg-ink-900 /
+   text-sand-100 and simply render light.
+   ========================================================================== */
+[data-theme="light"] {
+  color-scheme: light;
+}
+
+[data-theme="light"] body {
+  background-color: #f6f7f5;
+  @apply text-ink-900;
+  background-image: radial-gradient(70% 45% at 50% -10%, rgba(31, 122, 77, 0.12), transparent 70%);
+}
+
+[data-theme="light"] .card {
+  background-color: #ffffff;
+  border-color: rgba(17, 19, 18, 0.09);
+  box-shadow: 0 1px 2px rgba(17, 19, 18, 0.06), 0 12px 32px -24px rgba(17, 19, 18, 0.35);
+  color: #111312;
+}
+
+/* invert the most common translucent surfaces */
+[data-theme="light"] .bg-ink-850\/70,
+[data-theme="light"] .bg-ink-850\/60,
+[data-theme="light"] .bg-ink-850\/98,
+[data-theme="light"] .bg-ink-850 {
+  background-color: #ffffff !important;
+}
+
+[data-theme="light"] .bg-ink-800,
+[data-theme="light"] .bg-ink-900 {
+  background-color: #f2f4f1 !important;
+}
+
+[data-theme="light"] .bg-white\/\[0\.02\],
+[data-theme="light"] .bg-white\/\[0\.03\],
+[data-theme="light"] .bg-white\/\[0\.05\],
+[data-theme="light"] .bg-white\/\[0\.06\] {
+  background-color: rgba(17, 19, 18, 0.04) !important;
+}
+
+/* text tokens */
+[data-theme="light"] .text-sand-100,
+[data-theme="light"] .text-sand-100\/80,
+[data-theme="light"] .text-sand-100\/75,
+[data-theme="light"] .text-sand-100\/70,
+[data-theme="light"] .text-sand-100\/65,
+[data-theme="light"] .text-sand-100\/60,
+[data-theme="light"] .text-sand-100\/55,
+[data-theme="light"] .text-sand-100\/50,
+[data-theme="light"] .text-sand-100\/45 {
+  color: #2b312e !important;
+}
+
+[data-theme="light"] .text-sand-100\/40,
+[data-theme="light"] .text-sand-100\/35,
+[data-theme="light"] .text-sand-100\/30,
+[data-theme="light"] .text-sand-100\/25 {
+  color: #6b7370 !important;
+}
+
+/* borders */
+[data-theme="light"] .border-white\/\[0\.06\],
+[data-theme="light"] .border-white\/\[0\.07\],
+[data-theme="light"] .border-white\/10,
+[data-theme="light"] .border-white\/15 {
+  border-color: rgba(17, 19, 18, 0.12) !important;
+}
+
+/* keep the header legible */
+[data-theme="light"] header.bg-ink-900\/85 {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  border-color: rgba(17, 19, 18, 0.1) !important;
+}
+
+[data-theme="light"] .input {
+  background-color: #ffffff;
+  border-color: rgba(17, 19, 18, 0.14);
+  color: #111312;
+}
+
+[data-theme="light"] .input::placeholder {
+  color: #9aa19e;
+}

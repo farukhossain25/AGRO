@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, Heart, Layers, LogOut, MapPin, Package, Repeat, Sparkles, User } from "lucide-react";
+import { Bell, Heart, Layers, LogOut, MapPin, Package, Repeat, ShieldCheck, Sparkles, User } from "lucide-react";
 import { useLocale } from "@/lib/locale";
 
 const links = [
   { href: "/account", labelBn: "ড্যাশবোর্ড", labelEn: "Dashboard", Icon: User },
+  { href: "/account/profile", labelBn: "আমার প্রোফাইল", labelEn: "My profile", Icon: User },
   { href: "/account/orders", labelBn: "আমার অর্ডার", labelEn: "My orders", Icon: Package },
   { href: "/account/subscriptions", labelBn: "সাবস্ক্রিপশন", labelEn: "Subscriptions", Icon: Repeat },
   { href: "/account/addresses", labelBn: "সেভ করা ঠিকানা", labelEn: "Saved addresses", Icon: MapPin },
@@ -14,6 +15,7 @@ const links = [
   { href: "/account/combos", labelBn: "আমার কম্বো", labelEn: "My combos", Icon: Layers },
   { href: "/account/premium", labelBn: "প্রিমিয়াম", labelEn: "Premium", Icon: Sparkles },
   { href: "/account/notifications", labelBn: "নোটিফিকেশন", labelEn: "Notifications", Icon: Bell },
+  { href: "/account/security", labelBn: "নিরাপত্তা", labelEn: "Security", Icon: ShieldCheck },
 ];
 
 export function AccountNav() {

@@ -20,7 +20,8 @@ export async function GET(req: Request) {
     if (unreadOnly) q = q.eq("is_read", false);
 
     const { data, error } = await q;
-    if (error) throw error;
+    // DB unreachable is not an error the notification bell should surface.
+    if (error) return ok({ items: [], unread: 0 });
 
     const { count } = await db()
       .from("notifications")

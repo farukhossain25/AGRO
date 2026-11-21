@@ -2,6 +2,8 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { FloatingActions } from "@/components/floating-actions";
 import { currentUser } from "@/lib/api";
+import { getProfileByLegacyId } from "@/lib/profile";
+import { resolvePremiumState } from "@/lib/premium";
 import { getCategories } from "@/lib/data";
 
 /**
@@ -14,6 +16,14 @@ export default async function StorefrontLayout({ children }: { children: React.R
     currentUser().catch(() => null),
   ]);
 
+  // Header avatar + premium badge — one extra read, fails soft.
+  const [profile, premium] = user
+    ? await Promise.all([
+        getProfileByLegacyId(user.id).catch(() => null),
+        resolvePremiumState(user.id, user.role).catch(() => null),
+      ])
+    : [null, null];
+
   const navCats = categories.map((c) => ({
     slug: c.slug,
     name_bn: c.name_bn,
@@ -23,7 +33,19 @@ export default async function StorefrontLayout({ children }: { children: React.R
 
   return (
     <>
-      <SiteHeader categories={navCats} user={user ? { name: user.name, role: user.role } : null} />
+      <SiteHeader
+        categories={navCats}
+        user={
+          user
+            ? {
+                name: user.name,
+                role: user.role,
+                avatar: profile?.avatar_url ?? null,
+                premium: premium?.canWatch ?? false,
+              }
+            : null
+        }
+      />
       <main id="main" className="min-h-[60vh]">
         {children}
       </main>

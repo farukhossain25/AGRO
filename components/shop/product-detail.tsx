@@ -22,9 +22,18 @@ import { useLocale } from "@/lib/locale";
 import { useToast } from "@/lib/toast";
 import { discountPercent, formatDateBn, money } from "@/lib/format";
 import { Badge, StarRating } from "@/components/ui";
+import { WishlistButton } from "@/components/shop/recently-viewed";
 import type { Product } from "@/lib/types";
 
-export function ProductDetail({ product, categoryName }: { product: Product; categoryName: string }) {
+export function ProductDetail({
+  product,
+  categoryName,
+  initialSaved = false,
+}: {
+  product: Product;
+  categoryName: string;
+  initialSaved?: boolean;
+}) {
   const { t, isBn } = useLocale();
   const cart = useCart();
   const toast = useToast();
@@ -223,13 +232,7 @@ export function ProductDetail({ product, categoryName }: { product: Product; cat
           <button onClick={buyNow} disabled={soldOut} className="btn-mint flex-1 sm:flex-none">
             {t("এখনই অর্ডার", "Buy now")}
           </button>
-          <button
-            onClick={() => toast.info(t("উইশলিস্টে যোগ হয়েছে", "Added to wishlist"))}
-            className="btn-ghost !px-3"
-            aria-label={t("পছন্দের তালিকায় যোগ", "Add to wishlist")}
-          >
-            <Heart className="h-4 w-4" />
-          </button>
+          <WishlistButton productId={product.id} initial={initialSaved} />
         </div>
 
         {/* assurances */}

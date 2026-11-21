@@ -447,6 +447,252 @@ CAPACITOR_SERVER_URL=http://10.0.2.2:3000 npx cap sync android
 
 ---
 
+## ১৪. ধাপে ধাপে সেটআপ গাইড (কোড না জানলেও পারবেন)
+
+এই অংশটি একদম শুরু থেকে লাইভ করা পর্যন্ত। প্রতিটি ধাপে **কী ক্লিক করবেন** সেটাই লেখা আছে।
+এর বাইরে কিছু করার দরকার নেই।
+
+> **গুরুত্বপূর্ণ আর্কিটেকচার নোট**
+> - এই সাইট Next.js ১৫ — **Vercel**-এ হোস্ট হয় (Netlify নয়)। তাই `netlify.toml` নেই।
+> - `.env` ফাইলে ভ্যারিয়েবলের নাম `NEXT_PUBLIC_*`, `VITE_*` নয়।
+> - লগইন **Supabase Auth** (Google + ইমেইল/পাসওয়ার্ড) দিয়ে হয়। পুরোনো পাসওয়ার্ড-অ্যাকাউন্টগুলোও
+>   কাজ করে, তাই আগের কোনো ইউজার হারাবে না।
+> - Admin প্যানেলের ঠিকানা `bishwasagro.com/admin/login`, লগইন **শুধু ইমেইল + পাসওয়ার্ড**
+>   (সেখানে Google বাটন নেই — ইচ্ছাকৃতভাবে)।
+
+### ধাপ ১ — কম্পিউটারে প্রজেক্ট চালু করা
+
+**যা লাগবে:** [Node.js 20+](https://nodejs.org) ও [Git](https://git-scm.com)
+
+```bash
+# ১. কোড নামান
+git clone https://github.com/farukhossain25/AGRO.git
+cd AGRO
+
+# ২. প্যাকেজ ইনস্টল (২-৩ মিনিট লাগে)
+npm install
+
+# ৩. এনভায়রনমেন্ট ফাইল তৈরি করুন
+cp .env.example .env.local
+```
+
+এখন `.env.local` ফাইলটি Notepad/VS Code দিয়ে খুলে নিচের ৪টি মান বসান
+(Supabase থেকে পাবেন — ধাপ ২ দেখুন):
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://xxxxxxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGci...
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGci...
+JWT_SECRET=any-long-random-text-at-least-32-characters
+```
+
+```bash
+# ৪. চালু করুন
+npm run dev
+```
+
+ব্রাউজারে যান → **http://localhost:3000**। সাইট দেখা যাবে।
+👇 বন্ধ করতে টার্মিনালে `Ctrl + C`।
+
+> সাইট দেখা যাচ্ছে কিন্তু পণ্য নেই? → `npm run db:seed`
+
+### ধাপ ২ — Supabase সেটআপ
+
+**ক)** [supabase.com](https://supabase.com) → Sign in → **New project**
+- Name: `biswas-agro` · Region: **Southeast Asia (Singapore)** · Database Password: একটা শক্তিশালী পাসওয়ার্ড (নিরাপদে লিখে রাখুন)
+
+**খ)** প্রজেক্ট তৈরি হওয়ার পর বাঁ দিকের মেনু থেকে **SQL Editor** → **New query** →
+প্রজেক্টের `supabase/migrations/` ফোল্ডারের ফাইলগুলো **ক্রম অনুযায়ী** পেস্ট করে **Run** করুন:
+
+| ক্রম | ফাইল | কী করে |
+|---|---|---|
+| ১ | `0001_init.sql` | মূল ১৯টি টেবিল (পণ্য, অর্ডার, ঠিকানা) |
+| ২ | `0002_otp.sql` | ফোন OTP |
+| ৩ | `0003_premium_multivendor.sql` | খামার, ক্যামেরা, প্রিমিয়াম, সেলার |
+| ৪ | `0004_profiles_auth_rls.sql` | **profiles, wishlist, RLS, স্টোরেজ বাকেট, অ্যাডমিন 2FA** |
+
+তারপর `supabase/seed.sql` এবং `supabase/seed-premium.sql` রান করলে ডেমো ডেটা বসবে।
+
+**গ)** **Storage** → **New bucket** — ৩টি বাকেট (সবগুলো **Public**):
+
+| নাম | Public | Size limit | Allowed types |
+|---|---|---|---|
+| `avatars` | ✅ | 2 MB | `image/jpeg, image/png, image/webp` |
+| `product-images` | ✅ | 5 MB | `image/jpeg, image/png, image/webp, image/avif` |
+| `farm-images` | ✅ | 8 MB | `image/jpeg, image/png, image/webp` |
+
+> `0004` ফাইলটি নিজেই এই ৩টি বাকেট তৈরি করে ও পলিসি বসায়। উপরের টেবিলটি যাচাই করার জন্য।
+
+**ঘ)** **Project Settings → API** থেকে ৩টি মান কপি করুন:
+- `Project URL` → `NEXT_PUBLIC_SUPABASE_URL`
+- `anon` / `publishable` key → `NEXT_PUBLIC_SUPABASE_ANON_KEY` *(পাবলিক — ব্রাউজারে যাবে)*
+- `service_role` / `secret` key → `SUPABASE_SERVICE_ROLE_KEY` *(⚠️ কখনো ব্রাউজারে দেবেন না)*
+
+### ধাপ ৩ — Google লগইন চালু করা
+
+**ক) Google Cloud Console**
+1. [console.cloud.google.com](https://console.cloud.google.com) → উপরে প্রজেক্ট সিলেক্ট → **New Project** → নাম `Biswas Agro`
+2. বাঁ মেনু → **APIs & Services → OAuth consent screen**
+   - User Type: **External** → **Create**
+   - App name: `Biswas Agro` · User support email: আপনার জিমেইল · Developer email: আপনার জিমেইল
+   - **Save and Continue** (Scopes-এ কিছু বদলাবেন না) → **Save and Continue** → **Back to Dashboard**
+   - **Publish App** চাপুন (না চাপলে শুধু টেস্ট ইউজার লগইন করতে পারবে)
+
+**খ) OAuth Client ID তৈরি**
+1. **APIs & Services → Credentials → + Create Credentials → OAuth client ID**
+2. Application type: **Web application**
+3. Name: `Biswas Agro Web`
+4. **Authorized JavaScript origins** — দুটি যোগ করুন:
+   ```
+   http://localhost:3000
+   https://bishwasagro.com
+   ```
+5. **Authorized redirect URIs** — এখানে Supabase-এর callback URL বসবে (নিজের প্রজেক্ট রেফ বসান):
+   ```
+   https://<project-ref>.supabase.co/auth/v1/callback
+   ```
+   > উদাহরণ: `https://lyihdzgmtjkkhybpkqot.supabase.co/auth/v1/callback`
+   > ⚠️ **এখানে সাইটের ডোমেইন দেবেন না** — এটা Supabase-এর ঠিকানা। ভুল হলেই `redirect_uri_mismatch`।
+6. **Create** → **Client ID** ও **Client Secret** কপি করুন
+
+**গ) Supabase-এ বসানো**
+1. Supabase → **Authentication → Providers → Google** → **Enable**
+2. উপরের Client ID ও Client Secret পেস্ট → **Save**
+
+**ঘ) URL Configuration**
+Supabase → **Authentication → URL Configuration**:
+
+- **Site URL:** `https://bishwasagro.com`
+- **Redirect URLs** (প্রতিটি আলাদা লাইনে যোগ করুন):
+  ```
+  http://localhost:3000/auth/callback
+  https://bishwasagro.com/auth/callback
+  https://www.bishwasagro.com/auth/callback
+  https://*-bishwas-agro.vercel.app/auth/callback
+  biswasagro://auth-callback
+  ```
+
+শেষের লাইনটি **Android অ্যাপের** জন্য — Google লগইন শেষ হলে অ্যাপে ফিরে আসবে।
+
+### ধাপ ৪ — Vercel-এ ডিপ্লয়
+
+**ক)** [vercel.com](https://vercel.com) → **Add New → Project** → **Import Git Repository** →
+`farukhossain25/AGRO` সিলেক্ট করুন
+
+**খ)** সেটিংস (সাধারণত নিজে থেকেই ঠিক থাকে):
+- Framework Preset: **Next.js**
+- Build Command: `npm run build`
+- Output Directory: *(খালি রাখুন)*
+- Install Command: `npm install`
+
+**গ) Environment Variables** — **Settings → Environment Variables** → নিচের ৭টি যোগ করুন
+(Production + Preview + Development তিনটিতেই টিক দিন):
+
+| Name | Value | গোপন? |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://xxx.supabase.co` | না |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | anon key | না |
+| `SUPABASE_SERVICE_ROLE_KEY` | service_role key | ✅ **Sensitive** |
+| `JWT_SECRET` | `openssl rand -base64 48` এর আউটপুট | ✅ **Sensitive** |
+| `NEXT_PUBLIC_SITE_URL` | `https://bishwasagro.com` | না |
+| `ADMIN_EMAIL` | আপনার জিমেইল | না |
+| `ADMIN_PASSWORD` | শক্ত পাসওয়ার্ড (১২+ অক্ষর) | ✅ **Sensitive** |
+| `SEED_SECRET` | `openssl rand -hex 24` এর আউটপুট | ✅ **Sensitive** |
+
+`openssl rand` কমান্ড দুটি টার্মিনালে চালিয়ে আউটপুট কপি করুন।
+
+**ঘ)** **Deploy** চাপুন → ২-৩ মিনিট → ✅ **Congratulations**
+
+### ধাপ ৫ — অ্যাডমিন অ্যাকাউন্ট তৈরি (একবারই)
+
+```bash
+curl -X POST https://bishwasagro.com/api/setup/seed-admin \
+  -H "Authorization: Bearer <আপনার SEED_SECRET>"
+```
+
+সফল হলে এমন উত্তর আসবে:
+
+```json
+{ "ok": true, "data": { "created": true, "email": "you@gmail.com",
+  "next": "Now sign in at /admin/login and then remove SEED_SECRET from Vercel." } }
+```
+
+**এবার `/admin/login`** → ইমেইল + পাসওয়ার্ড দিয়ে লগইন করুন।
+
+**✅ অত্যন্ত জরুরি — ফাংশনটি বন্ধ করুন:**
+Vercel → Settings → Environment Variables → **`SEED_SECRET`** ও **`ADMIN_PASSWORD`** → **Delete**
+→ তারপর **Deployments → ⋯ → Redeploy**।
+
+> এরপর ওই URL কেউ ডাকলে `503 SEED_SECRET সেট করা নেই` — অক্ষম হয়ে যাবে।
+> একইভাবে দ্বিতীয়বার ডাকলে `409 অ্যাডমিন ইতিমধ্যে তৈরি হয়েছে`।
+
+### ধাপ ৬ — খামার, ক্যামেরা ও পণ্য যোগ করা
+
+**ক) খামার** — `/admin/farms` → **+ নতুন**
+- নাম (বাংলা), স্লাগ (ইংরেজি ছোট হাতের, যেমন `savar-greens`), ধরন (শাকসবজি/দুধ/পোল্ট্রি/মাছ/ফল)
+- জেলা, উপজেলা, ঠিকানা, অক্ষাংশ/দ্রাঘিমাংশ (`23.8384`, `90.2667`)
+- **সংরক্ষণ**
+
+**খ) ক্যামেরা** — `/admin/cameras` → **+ নতুন**
+- **খামার** ড্রপডাউন থেকে ধাপ (ক)-এর খামারটি বেছে নিন ← *এই লিংকটাই সবচেয়ে জরুরি*
+- নাম (যেমন `জমি ক্যামেরা ১`), জোন, `stream_key` (MediaMTX-এ দেওয়া নাম, যেমন `savar-1`)
+- Status: `online` · Protocol: `hls`
+
+**গ) পণ্যের সাথে খামার জোড়া** — `/admin/products` → পণ্য সম্পাদনা
+- **Farm** ড্রপডাউনে খামার, **Seller**-এ সেলার (ঐচ্ছিক)
+- **সংরক্ষণ**
+
+এরপর ওই পণ্যের পেজে (`/products/<slug>`) নিচে **সরবরাহকারীর তথ্য** কার্ড ও **লাইভ ফুটেজ** ব্লক দেখা যাবে।
+
+### ধাপ ৭ — কীভাবে পরীক্ষা করবেন
+
+| # | কী করবেন | কী দেখা উচিত |
+|---|---|---|
+| ১ | লগআউট অবস্থায় `/admin` খুলুন | `/admin/login` এ পাঠাবে |
+| ২ | **সাধারণ গ্রাহক** দিয়ে লগইন করে `/admin` খুলুন | **403 "প্রবেশাধিকার নেই"** পেজ (লগইন পেজে ফেরত নয়) |
+| ৩ | লগইন না করে একটি পণ্যের পেজ | লাইভ ব্লকে **"লাইভ দেখতে লগইন করুন"** |
+| ৪ | লগইন করে (প্রিমিয়াম ছাড়া) পণ্যের পেজ | ব্লার ছবি + 🔒 + **"প্রিমিয়াম কিনে লাইভ দেখুন"** |
+| ৫ | `/live/trial` → ১০ মিনিটের ট্রায়াল শুরু → পণ্যের পেজ | ✅ আসল লাইভ ভিডিও + ক্যামেরা সুইচার |
+| ৬ | `/admin/farms` এ ক্যামেরাহীন খামারের পণ্য | **"এই খামারে এখনো ক্যামেরা নেই"** |
+| ৭ | `/admin/cameras` এ status `offline` করুন → পেজ রিফ্রেশ | **"ক্যামেরা অফলাইন"** + সর্বশেষ সময় |
+| ৮ | `/account/profile` → ছবি আপলোড, naam, থিম বদল | হেডারে অ্যাভাটার ও থিম সাথে সাথে বদলায় |
+| ৯ | `/login` → **Google দিয়ে চালিয়ে যান** | Google অ্যাকাউন্ট বেছে নেওয়ার স্ক্রিন |
+| ১০ | `/admin/login` → পাসওয়ার্ড ভুল দিন ৬ বার | "অনেকবার ভুল চেষ্টা — ১৫ মিনিট পর" |
+
+> **RLS প্রমাণ (ডেভেলপার হলে):** দুটি আলাদা ব্রাউজারে দুইজন গ্রাহক লগইন করুন। একজন
+> `/api/wishlist` ডাকলে শুধু নিজের আইটেম পাবে — অন্যেরটা কখনো আসবে না, কারণ
+> `profiles` ও `wishlists`-এ RLS `auth.uid()` দিয়ে সীমাবদ্ধ।
+
+### ধাপ ৮ — সমস্যা হলে (Troubleshooting)
+
+| সমস্যা | কারণ ও সমাধান |
+|---|---|
+| **`redirect_uri_mismatch`** | Google Console-এ redirect URI-তে **সাইটের ডোমেইন** দেওয়া হয়েছে। সেখানে হবে `https://<project-ref>.supabase.co/auth/v1/callback` — হুবহু, শেষে স্ল্যাশ ছাড়া। |
+| **Google লগইনের পর `localhost`-এ ফিরছে** | Supabase → URL Configuration → **Site URL** এখনো `localhost:3000` আছে। সেটি `https://bishwasagro.com` করুন এবং Redirect URLs-এ Vercel ডোমেইন যোগ করুন। |
+| **`Invalid login credentials`** | পাসওয়ার্ড ভুল, অথবা অ্যাকাউন্টটি এখনো `auth.users`-এ নেই (পুরোনো bcrypt অ্যাকাউন্ট)। সমাধান: `/login` → **পাসওয়ার্ড ভুলে গেছি** দিয়ে নতুন পাসওয়ার্ড সেট করুন — তখনই অ্যাকাউন্টটি Supabase Auth-এ যুক্ত হবে। |
+| **`Email not confirmed`** | Supabase → Authentication → Providers → Email → **Confirm email** বন্ধ করুন (ডেমোর জন্য), অথবা ইনবক্সের লিঙ্কে ক্লিক করুন। স্প্যাম ফোল্ডারও দেখুন। |
+| **`new row violates row-level security policy`** | কোনো টেবিলে পলিসি নেই বা `auth.uid()` মিলছে না। `0004` ফাইলটি সম্পূর্ণ রান করেছেন কি না দেখুন: SQL Editor → `select tablename, policyname from pg_policies where schemaname='public';` |
+| **`permission denied for table cameras`** | ঠিক আছে — `stream_key` ইচ্ছাকৃতভাবে ব্রাউজার থেকে বন্ধ। ক্যামেরার নিরাপদ কলামগুলো সার্ভার API দিয়ে পড়ুন। |
+| **CORS / `blocked by CORS policy`** | API কল করুন **নিজের ডোমেইন থেকেই** (`/api/...`), সরাসরি `supabase.co`-তে নয়। `NEXT_PUBLIC_SITE_URL` ঠিক আছে কি না দেখুন। |
+| **অ্যাডমিন লগইনে `503 কনফিগার করা হয়নি`** | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` সেট নেই, অথবা ধাপ ৫-এর seed এখনো চালাননি। |
+| **`503 Supabase unreachable`** | Vercel-এ `SUPABASE_SERVICE_ROLE_KEY` ভুল/মুছে গেছে। ঠিক করে **Redeploy** করুন। |
+| **ছবি আপলোড হচ্ছে না** | `avatars` বাকেট নেই বা public নয়। Storage → Buckets দেখুন; ২ MB-এর ছোট JPG দিন। |
+| **লাইভ ভিডিও কালো** | `STREAM_PROXY_TARGET` সেট নেই বা MediaMTX চলছে না। `docker compose -f docker-compose.mediamtx.yml up -d` চালান। |
+
+### ধাপ ৯ — নিরাপত্তা চেকলিস্ট (লাইভের আগে)
+
+- [ ] `SUPABASE_SERVICE_ROLE_KEY` কোথাও `NEXT_PUBLIC_` দিয়ে শুরু হয়নি
+- [ ] `SEED_SECRET` ও `ADMIN_PASSWORD` Vercel থেকে **মুছে ফেলা হয়েছে**
+- [ ] `/admin` এ সাধারণ গ্রাহক **403** পাচ্ছে (ধাপ ৭ এর ২ নম্বর)
+- [ ] অ্যাডমিন প্যানেল → **নিরাপত্তা** → **2FA সেটআপ** করা হয়েছে (QR স্ক্যান + ৬ ডিজিট কোড)
+- [ ] রিকভারি কোডগুলো প্রিন্ট করে নিরাপদে রাখা হয়েছে
+- [ ] Supabase → Authentication → **Leaked password protection** চালু
+- [ ] Supabase → Authentication → Sessions → **Time-box user sessions** চালু
+- [ ] Google Cloud Console-এ OAuth consent screen **Published**
+- [ ] `select tablename from pg_tables where schemaname='public' and not rowsecurity;` → **খালি** আসছে
+
+---
+
 ## License
 
 Proprietary — © 2026 বিশ্বাস এগ্রো / Biswas Agro. All rights reserved.

@@ -4,6 +4,14 @@ import { notFound } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { getApprovedReviews, getCategories, getProductBySlug, getProducts, getRelatedProducts } from "@/lib/data";
 import { ProductDetail } from "@/components/shop/product-detail";
+import { SupplierCard } from "@/components/shop/supplier-card";
+import { ProductLiveBlock } from "@/components/live/product-live-block";
+import { RecentlyViewed } from "@/components/shop/recently-viewed";
+import { TrackView } from "@/components/shop/track-view";
+import { currentUser } from "@/lib/api";
+import { getProductSupplier, getSupplierCameras } from "@/lib/supplier";
+import { resolvePremiumState } from "@/lib/premium";
+import { getWishlistProductIds } from "@/lib/wishlist";
 import { ProductGrid } from "@/components/product-card";
 import { ReviewForm } from "@/components/review-form";
 import { SectionHeader, StarRating } from "@/components/ui";
@@ -54,6 +62,27 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   ]);
 
   const category = categories.find((c) => c.id === product.category_id);
+
+  // ── supplier + live footage (section D)
+  const [supplier, session] = await Promise.all([
+    getProductSupplier(product).catch(() => null),
+    currentUser().catch(() => null),
+  ]);
+
+  const cameras = supplier?.farmId
+    ? await getSupplierCameras(supplier.farmId).catch(() => [])
+    : [];
+
+  const premium = session
+    ? await resolvePremiumState(session.id, session.role).catch(() => null)
+    : null;
+
+  const canWatch = Boolean(premium?.canWatch);
+
+  // wishlist state for the heart button (guests get an empty list)
+  const savedProductIds = session
+    ? await getWishlistProductIds(session.id).catch(() => [])
+    : [];
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -116,7 +145,44 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           <span className="text-sand-100/80">{product.name_bn}</span>
         </nav>
 
-        <ProductDetail product={product} categoryName={category?.name_bn ?? "পণ্য"} />
+        <ProductDetail
+          product={product}
+          categoryName={category?.name_bn ?? "পণ্য"}
+          initialSaved={savedProductIds.includes(product.id)}
+        />
+
+        {/* ── supplier details + live farm footage */}
+        <div className="mt-8 grid gap-5 lg:grid-cols-2">
+          {supplier ? <SupplierCard supplier={supplier} /> : null}
+          <ProductLiveBlock
+            cameras={cameras}
+            farmSlug={supplier?.farmSlug ?? null}
+            farmName={supplier?.farmNameBn ?? null}
+            poster={supplier?.cover ?? supplier?.photo ?? null}
+            loggedIn={Boolean(session)}
+            canWatch={canWatch}
+            reason={premium?.reason ?? "anonymous"}
+          />
+        </div>
+
+        {/* ── recently viewed (section E) */}
+        <RecentlyViewed excludeId={product.id} currentProduct={product} />
+        <TrackView
+          productId={product.id}
+          item={{
+            id: product.id,
+            slug: product.slug,
+            name_bn: product.name_bn,
+            name_en: product.name_en,
+            price: product.price,
+            compare_price: product.compare_price,
+            image: product.image,
+            unit: product.unit,
+            stock: product.stock,
+            rating: product.rating,
+            review_count: product.review_count,
+          }}
+        />
 
         {/* reviews */}
         <section className="mt-14" aria-labelledby="product-reviews">

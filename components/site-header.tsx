@@ -20,6 +20,7 @@ import { useLocale } from "@/lib/locale";
 import { nav, site } from "@/lib/site";
 import { Logo } from "./icon-logo";
 import { CartDrawer } from "./cart-drawer";
+import { UserMenu } from "./account/user-menu";
 
 type Cat = { slug: string; name_bn: string; name_en: string; icon: string | null };
 
@@ -28,7 +29,7 @@ export function SiteHeader({
   user,
 }: {
   categories: Cat[];
-  user: { name: string | null; role?: string } | null;
+  user: { name: string | null; role?: string; avatar?: string | null; premium?: boolean } | null;
 }) {
   const { isBn, t, toggle, locale } = useLocale();
   const cart = useCart();
@@ -188,13 +189,7 @@ export function SiteHeader({
                 <Heart className="h-5 w-5" />
               </Link>
 
-              <Link
-                href={user ? "/account" : "/login"}
-                className="grid h-10 w-10 place-items-center rounded-xl text-sand-100/80 transition hover:bg-white/[0.06] hover:text-sand-100"
-                aria-label={user ? t("আমার অ্যাকাউন্ট", "My account") : t("লগইন", "Login")}
-              >
-                <User className="h-5 w-5" />
-              </Link>
+              <UserMenu user={user} />
 
               <button
                 onClick={() => setCartOpen(true)}
