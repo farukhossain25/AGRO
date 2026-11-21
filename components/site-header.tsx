@@ -23,7 +23,13 @@ import { CartDrawer } from "./cart-drawer";
 
 type Cat = { slug: string; name_bn: string; name_en: string; icon: string | null };
 
-export function SiteHeader({ categories, user }: { categories: Cat[]; user: { name: string | null } | null }) {
+export function SiteHeader({
+  categories,
+  user,
+}: {
+  categories: Cat[];
+  user: { name: string | null; role?: string } | null;
+}) {
   const { isBn, t, toggle, locale } = useLocale();
   const cart = useCart();
   const router = useRouter();

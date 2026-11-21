@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import {
   BarChart3,
+  Camera,
   FileText,
   Image as ImageIcon,
   LayoutGrid,
@@ -15,8 +16,11 @@ import {
   Percent,
   Repeat,
   ShoppingCart,
+  Sparkles,
+  Sprout,
   Store,
   Tags,
+  Ticket,
   Truck,
   Users,
   X,
@@ -36,6 +40,23 @@ const navGroups = [
       { href: "/admin/subscriptions", label: "সাবস্ক্রিপশন", Icon: Repeat },
       { href: "/admin/customers", label: "কাস্টমার", Icon: Users },
       { href: "/admin/reports", label: "রিপোর্ট", Icon: BarChart3 },
+    ],
+  },
+  {
+    title: "প্রিমিয়াম",
+    items: [
+      { href: "/admin/premium", label: "সাবস্ক্রিপশন", Icon: Sparkles },
+      { href: "/admin/plans", label: "প্ল্যান", Icon: Ticket },
+      { href: "/admin/codes", label: "অ্যাক্সেস কোড", Icon: Ticket },
+      { href: "/admin/farms", label: "খামার", Icon: Sprout },
+      { href: "/admin/cameras", label: "ক্যামেরা", Icon: Camera },
+    ],
+  },
+  {
+    title: "মার্কেটপ্লেস",
+    items: [
+      { href: "/admin/sellers", label: "সেলার", Icon: Store },
+      { href: "/admin/camera-requests", label: "ক্যামেরা রিকোয়েস্ট", Icon: Camera },
     ],
   },
   {

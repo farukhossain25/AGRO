@@ -1,0 +1,94 @@
+# ============================================================================
+# MediaMTX config — one entry per farm camera
+# ----------------------------------------------------------------------------
+# `cameras.stream_key` in the database must match a `paths:` key here.
+# Cameras publish RTSP into MediaMTX; the app never sees those credentials.
+# ============================================================================
+
+logLevel: info
+logDestinations: [stdout]
+
+api: yes
+apiAddress: :9997
+
+# ---- RTSP ingest -----------------------------------------------------------
+rtsp: yes
+rtspAddress: :8554
+rtspTransports: [tcp]
+rtspEncryption: "no"
+
+# ---- HLS playback (what the browser consumes via the app proxy) -----------
+hls: yes
+hlsAddress: :8888
+hlsAlwaysRemux: no
+hlsVariant: lowLatency
+hlsSegmentDuration: 1s
+hlsPartDuration: 200ms
+hlsSegmentCount: 7
+hlsAlwaysRemoveSegments: yes
+hlsAllowOrigin: "*"
+hlsDirectory: /tmp/hls
+
+# ---- WebRTC playback (low latency, via go2rtc in front) ------------------
+webrtc: yes
+webrtcAddress: :8889
+webrtcAllowOrigin: "*"
+webrtcICEServers2:
+  - url: stun:stun.l.google.com:19302
+webrtcAdditionalHosts: []
+
+# ---- No on-disk recording (privacy + disk) -------------------------------
+pathDefaults:
+  # Reject publishers that don't use the shared secret below.
+  publishUser: publisher
+  publishPass: CHANGE_ME_PUBLISH_PASSWORD
+  publishIPs: []
+  record: no
+
+paths:
+  # --- Savar Greens (vegetables) ---
+  savar-greens-field-01:
+    source: rtsp://admin:CAM_PASSWORD@192.168.10.11:554/Streaming/Channels/101
+    sourceOnDemand: yes
+    sourceOnDemandStartTimeout: 10s
+    sourceOnDemandCloseAfter: 30s
+
+  savar-greens-field-02:
+    source: rtsp://admin:CAM_PASSWORD@192.168.10.12:554/Streaming/Channels/101
+    sourceOnDemand: yes
+
+  savar-greens-packing-01:
+    source: rtsp://admin:CAM_PASSWORD@192.168.10.13:554/Streaming/Channels/101
+    sourceOnDemand: yes
+
+  # --- Tangail Dairy ---
+  tangail-dairy-milking-01:
+    source: rtsp://admin:CAM_PASSWORD@192.168.20.11:554/Streaming/Channels/101
+    sourceOnDemand: yes
+
+  tangail-dairy-feed-01:
+    source: rtsp://admin:CAM_PASSWORD@192.168.20.12:554/Streaming/Channels/101
+    sourceOnDemand: yes
+
+  tangail-dairy-coldroom-01:
+    source: rtsp://admin:CAM_PASSWORD@192.168.20.13:554/Streaming/Channels/101
+    sourceOnDemand: yes
+
+  # --- Gazipur Poultry ---
+  gazipur-poultry-shed-01:
+    source: rtsp://admin:CAM_PASSWORD@192.168.30.11:554/Streaming/Channels/101
+    sourceOnDemand: yes
+
+  gazipur-poultry-egg-01:
+    source: rtsp://admin:CAM_PASSWORD@192.168.30.12:554/Streaming/Channels/101
+    sourceOnDemand: yes
+
+  # --- Khulna Shrimp ---
+  khulna-shrimp-pond-01:
+    source: rtsp://admin:CAM_PASSWORD@192.168.40.11:554/Streaming/Channels/101
+    sourceOnDemand: yes
+
+  # --- Rajshahi Mango ---
+  rajshahi-mango-orchard-01:
+    source: rtsp://admin:CAM_PASSWORD@192.168.50.11:554/Streaming/Channels/101
+    sourceOnDemand: yes

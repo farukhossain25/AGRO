@@ -26,28 +26,11 @@ export default async function AdminCategoriesPage() {
       dbReady={isDbConfigured()}
       emptyRow={{ slug: "", name_bn: "", name_en: "", description_bn: "", icon: "🌿", sort_order: 0, is_active: true }}
       columns={[
-        { key: "icon", label: "আইকন", render: (r) => <span className="text-lg">{String(r.icon ?? "🌿")}</span> },
-        {
-          key: "name_bn",
-          label: "নাম",
-          render: (r) => (
-            <div>
-              <p className="font-medium">{String(r.name_bn)}</p>
-              <p className="text-[9.5px] text-sand-100/35">{String(r.slug)}</p>
-            </div>
-          ),
-        },
+        { key: "icon", label: "আইকন", format: "icon" },
+        { key: "name_bn", label: "নাম", format: "stack", subKey: "slug" },
         { key: "name_en", label: "English" },
-        { key: "sort_order", label: "ক্রম" },
-        {
-          key: "is_active",
-          label: "স্টেটাস",
-          render: (r) => (
-            <span className={`badge !text-[9px] ${r.is_active ? "bg-leaf-600/20 text-leaf-200" : "bg-white/[0.07] text-sand-100/50"}`}>
-              {r.is_active ? "সক্রিয়" : "নিষ্ক্রিয়"}
-            </span>
-          ),
-        },
+        { key: "sort_order", label: "ক্রম", format: "number" },
+        { key: "is_active", label: "স্টেটাস", format: "badge" },
       ]}
       fields={[
         { name: "name_bn", label: "বাংলা নাম", type: "text", required: true },

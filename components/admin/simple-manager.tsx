@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Edit3, Plus, Trash2, X } from "lucide-react";
 import { useToast } from "@/lib/toast";
+import { formatDateBn, money, toBn } from "@/lib/format";
 import { Spinner } from "@/components/ui";
 
 export type Field = {
@@ -17,11 +18,101 @@ export type Field = {
   colSpan?: 1 | 2;
 };
 
+/**
+ * Cells are described declaratively (never with functions) because this file is
+ * a Client Component and Server Components cannot pass functions across the
+ * boundary.
+ *
+ *   format: how to render `key`
+ *   subKey / subPrefix: second line for "stack"
+ *   trueLabel / falseLabel: labels for "badge"
+ */
 export type Column = {
   key: string;
   label: string;
-  render?: (row: Record<string, unknown>) => React.ReactNode;
+  format?:
+    | "text"
+    | "money"
+    | "number"
+    | "code"
+    | "icon"
+    | "date"
+    | "stack"
+    | "badge"
+    | "coupon_value"
+    | "usage"
+    | "scope";
+  subKey?: string;
+  subPrefix?: string;
+  trueLabel?: string;
+  falseLabel?: string;
 };
+
+const GREEN = "bg-leaf-600/20 text-leaf-200";
+const MUTED = "bg-white/[0.07] text-sand-100/50";
+
+function Cell({ row, col }: { row: Record<string, unknown>; col: Column }) {
+  const raw = row[col.key];
+  const label = (r: Record<string, unknown>) => String(r.id);
+
+  switch (col.format) {
+    case "icon":
+      return <span className="text-lg">{String(raw ?? "🌿")}</span>;
+
+    case "money":
+      return <>{money(Number(raw ?? 0), true)}</>;
+
+    case "number":
+      return <>{toBn(Number(raw ?? 0))}</>;
+
+    case "code":
+      return <span className="font-mono text-[10.5px] text-leaf-200">{String(raw ?? "—")}</span>;
+
+    case "date":
+      return <span className="whitespace-nowrap text-[11px]">{raw ? formatDateBn(String(raw)) : "—"}</span>;
+
+    case "stack":
+      return (
+        <div>
+          <p className="line-clamp-1 font-medium">{String(raw ?? "—")}</p>
+          {col.subKey ? (
+            <p className="truncate text-[9.5px] text-sand-100/35">
+              {col.subPrefix ?? ""}
+              {String(row[col.subKey] ?? "")}
+            </p>
+          ) : null}
+        </div>
+      );
+
+    case "badge":
+      return (
+        <span className={`badge !text-[9px] ${raw ? GREEN : MUTED}`}>
+          {raw ? (col.trueLabel ?? "সক্রিয়") : (col.falseLabel ?? "নিষ্ক্রিয়")}
+        </span>
+      );
+
+    case "coupon_value":
+      return <>{row.type === "percent" ? `${toBn(Number(raw ?? 0))}%` : money(Number(raw ?? 0), true)}</>;
+
+    case "usage":
+      return (
+        <>
+          {toBn(Number(row.used_count ?? 0))}
+          <span className="text-sand-100/35">/{raw ? toBn(Number(raw)) : "∞"}</span>
+        </>
+      );
+
+    case "scope":
+      return (
+        <span className={`badge !text-[9px] ${raw === "inside_dhaka" ? GREEN : "bg-white/[0.07] text-sand-100/60"}`}>
+          {raw === "inside_dhaka" ? "ঢাকার ভেতরে" : "ঢাকার বাইরে"}
+        </span>
+      );
+
+    default:
+      return <>{raw === null || raw === undefined || raw === "" ? "—" : label(row) && String(raw)}</>;
+  }
+}
 
 /**
  * Reusable admin CRUD table + modal form for the simpler entities
@@ -136,7 +227,7 @@ export function SimpleManager({
                 <tr key={String(row.id)} className="hover:bg-white/[0.02]">
                   {columns.map((c) => (
                     <td key={c.key} className="px-3 py-2.5">
-                      {c.render ? c.render(row) : String(row[c.key] ?? "—")}
+                      <Cell row={row} col={c} />
                     </td>
                   ))}
                   <td className="px-3 py-2.5">

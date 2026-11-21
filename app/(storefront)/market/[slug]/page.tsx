@@ -1,0 +1,110 @@
+import type { Metadata } from "next";
+import Image from "next/image";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { BadgeCheck, MapPin, Phone, ShieldCheck } from "lucide-react";
+import { getSellerBySlug } from "@/lib/sellers";
+import { ProductCard } from "@/components/product-card";
+import type { Product } from "@/lib/types";
+
+/**
+ * Seller storefronts are DB-driven and their parent layout reads the session
+ * cookie, so they must not be baked statically — prerendering them would flip
+ * static → dynamic at request time.
+ */
+export const dynamic = "force-dynamic";
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const data = await getSellerBySlug(slug).catch(() => null);
+  if (!data) return { title: "বিক্রেতা পাওয়া যায়নি" };
+
+  return {
+    title: `${data.seller.name_bn} — মার্কেটপ্লেস`,
+    description: `${data.seller.district} জেলার ${data.seller.name_bn}। বিশ্বাস এগ্রো মার্কেটপ্লেসে যাচাইকৃত বিক্রেতা।`,
+    alternates: { canonical: `/market/${data.seller.slug}` },
+  };
+}
+
+const TYPES_BN: Record<string, string> = {
+  vegetables: "শাকসবজি",
+  dairy: "দুধ ও দুগ্ধ",
+  poultry: "মুরগি ও ডিম",
+  fish: "মাছ",
+  fruits: "ফল",
+  rice: "চাল ও ডাল",
+  honey: "মধু",
+  spices: "মসলা",
+  agri: "কৃষি উপকরণ",
+};
+
+export default async function SellerStorePage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const data = await getSellerBySlug(slug).catch(() => null);
+  if (!data) notFound();
+
+  const { seller, products } = data;
+  const cover = seller.farm_photos?.[0] ?? "/images/hero/farm.jpg";
+
+  return (
+    <div>
+      {/* banner */}
+      <section className="relative h-44 overflow-hidden sm:h-56">
+        <Image src={cover} alt="" fill sizes="100vw" priority className="object-cover opacity-40" />
+        <div className="absolute inset-0 bg-gradient-to-t from-ink-900 via-ink-900/70 to-ink-900/20" />
+        <div className="container-x absolute inset-x-0 bottom-0 pb-5">
+          <nav className="mb-2 flex items-center gap-1.5 text-[11.5px] text-sand-100/40">
+            <Link href="/market" className="hover:text-mint">মার্কেটপ্লেস</Link>
+            <span>/</span>
+            <span className="text-sand-100/70">{seller.name_bn}</span>
+          </nav>
+          <h1 className="flex items-center gap-2 text-[24px] font-bold text-white sm:text-3xl">
+            {seller.name_bn}
+            <BadgeCheck className="h-5 w-5 text-leaf-400" />
+          </h1>
+          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-sand-100/55">
+            <span className="inline-flex items-center gap-1">
+              <MapPin className="h-3 w-3" /> {seller.district}
+            </span>
+            {seller.farm_address_bn && <span>{seller.farm_address_bn}</span>}
+            {seller.phone && (
+              <a href={`tel:${seller.phone}`} className="inline-flex items-center gap-1 text-mint">
+                <Phone className="h-3 w-3" /> {seller.phone}
+              </a>
+            )}
+          </p>
+        </div>
+      </section>
+
+      <div className="container-x py-8">
+        <div className="mb-6 flex flex-wrap gap-1.5">
+          {(seller.product_types ?? []).map((t) => (
+            <span key={t} className="chip">
+              {TYPES_BN[t] ?? t}
+            </span>
+          ))}
+          <span className="chip chip-active">
+            <ShieldCheck className="h-3 w-3" /> যাচাইকৃত
+          </span>
+        </div>
+
+        <h2 className="mb-4 text-[16px] font-bold text-white">
+          বিক্রেতার পণ্য{" "}
+          <span className="text-[12px] font-normal text-sand-100/40">({products.length}টি)</span>
+        </h2>
+
+        {products.length === 0 ? (
+          <p className="card p-10 text-center text-[13px] text-sand-100/50">
+            এই বিক্রেতার কোনো পণ্য এখন তালিকায় নেই।
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {products.map((p, i) => (
+              <ProductCard key={p.id as string} product={p as unknown as Product} priority={i < 4} />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

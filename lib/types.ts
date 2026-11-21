@@ -206,14 +206,18 @@ export type Banner = {
   sort_order: number;
 };
 
+export type UserRole = "customer" | "premium" | "seller" | "admin";
+
 export type User = {
   id: string;
   name: string | null;
   email: string | null;
   phone: string | null;
-  role: "customer" | "admin";
+  role: UserRole;
   phone_verified: boolean;
   is_active: boolean;
+  premium_until?: string | null;
+  is_seller?: boolean;
   created_at: string;
 };
 
@@ -228,5 +232,300 @@ export type Address = {
   upazila: string;
   address: string;
   is_default: boolean;
+  created_at: string;
+};
+
+/* ==========================================================================
+   Premium multi-vendor platform
+   ========================================================================== */
+
+export type FarmType = "vegetables" | "dairy" | "poultry" | "fish" | "fruits";
+
+/** Calendar month + what is harvested — shown on the farm detail page. */
+export type HarvestSlot = { month: string; crops: string[] };
+
+/** Dairy production numbers rendered on /dairy-live. */
+export type DailyOutput = {
+  cows?: number;
+  litres_today?: number;
+  litres_week?: number;
+  sold_today?: number;
+  updated_at?: string;
+  note_bn?: string;
+};
+
+export type Farm = {
+  id: string;
+  slug: string;
+  name_bn: string;
+  name_en: string | null;
+  type: FarmType;
+  owner_user_id: string | null;
+  owner_name_bn: string | null;
+  owner_phone: string | null;
+  owner_photo: string | null;
+  owner_bio_bn: string | null;
+  division: string;
+  district: string;
+  upazila: string | null;
+  address_bn: string | null;
+  lat: number | null;
+  lng: number | null;
+  /** [[lng, lat], …] closed ring */
+  boundary: number[][] | null;
+  harvest_calendar: HarvestSlot[] | null;
+  description_bn: string | null;
+  story_bn: string | null;
+  cover: string | null;
+  images: string[] | null;
+  daily_output: DailyOutput | null;
+  established_year: number | null;
+  certifications: string[] | null;
+  is_active: boolean;
+  is_premium: boolean;
+  sort_order: number;
+  created_at: string;
+  /** added by v_farm_stats / joined queries */
+  camera_count?: number;
+  online_cameras?: number;
+  product_count?: number;
+  cameras?: Camera[];
+};
+
+export type CameraStatus = "online" | "offline" | "maintenance";
+
+/**
+ * Public camera shape. stream_key / stream_url are NEVER included — the browser
+ * only receives a signed playback URL from /api/stream/token.
+ */
+export type Camera = {
+  id: string;
+  farm_id: string;
+  name_bn: string;
+  zone_bn: string;
+  protocol: "hls" | "webrtc";
+  poster: string | null;
+  location_lat: number | null;
+  location_lng: number | null;
+  status: CameraStatus;
+  last_heartbeat: string | null;
+  is_active: boolean;
+  is_premium: boolean;
+  max_viewers: number;
+  sort_order: number;
+};
+
+export type PremiumTier = "basic" | "full";
+export type PremiumInterval = "monthly" | "half_yearly" | "yearly";
+
+export type PremiumPlan = {
+  id: string;
+  slug: string;
+  name_bn: string;
+  name_en: string | null;
+  tier: PremiumTier;
+  interval: PremiumInterval;
+  price: number;
+  compare_price: number | null;
+  duration_days: number;
+  max_devices: number;
+  features: string[];
+  is_active: boolean;
+  is_popular: boolean;
+  sort_order: number;
+};
+
+export type PremiumStatus = "pending" | "active" | "grace" | "expired" | "cancelled";
+
+export type PremiumSubscription = {
+  id: string;
+  sub_no: string;
+  user_id: string;
+  plan_id: string | null;
+  plan_name_bn: string;
+  tier: PremiumTier;
+  amount: number;
+  status: PremiumStatus;
+  started_at: string | null;
+  expires_at: string | null;
+  grace_until: string | null;
+  platform: "web" | "android";
+  payment_method: string | null;
+  payment_ref: string | null;
+  auto_renew: boolean;
+  device_limit: number;
+  created_at: string;
+};
+
+export type AccessCodeStatus = "unused" | "used" | "revoked" | "expired";
+
+export type PremiumAccessCode = {
+  id: string;
+  code: string;
+  plan_id: string | null;
+  user_id: string | null;
+  subscription_id: string | null;
+  status: AccessCodeStatus;
+  issued_at: string;
+  used_at: string | null;
+  expires_at: string | null;
+  note: string | null;
+};
+
+/** What /api/premium/status returns to the browser. */
+export type PremiumState = {
+  isPremium: boolean;
+  role: UserRole;
+  subscription: PremiumSubscription | null;
+  daysLeft: number | null;
+  hoursLeft: number | null;
+  trial: { active: boolean; expiresAt: string | null; minutes: number } | null;
+  canWatch: boolean;
+  reason: "premium" | "trial" | "locked" | "anonymous";
+  deviceLimit: number;
+};
+
+export type SellerStatus = "pending" | "approved" | "rejected" | "suspended";
+
+export type Seller = {
+  id: string;
+  /** null for admin-created/demo stores that no login owns yet */
+  user_id: string | null;
+  slug: string;
+  farm_id: string | null;
+  name_bn: string;
+  phone: string;
+  email: string | null;
+  nid: string | null;
+  farm_address_bn: string | null;
+  division: string;
+  district: string;
+  farm_photos: string[] | null;
+  product_types: string[] | null;
+  payout_method: "bkash" | "nagad" | "bank";
+  payout_number: string | null;
+  bank_name: string | null;
+  bank_account: string | null;
+  commission_percent: number;
+  status: SellerStatus;
+  rejection_reason: string | null;
+  approved_at: string | null;
+  created_at: string;
+  /** joined */
+  farm?: Farm | null;
+  stats?: { orders: number; gross: number; commission: number; earnings: number };
+};
+
+export type ProductApproval = "pending" | "approved" | "rejected";
+
+export type SubOrder = {
+  id: string;
+  order_id: string;
+  sub_no: string;
+  seller_id: string | null;
+  farm_id: string | null;
+  seller_name: string | null;
+  subtotal: number;
+  commission: number;
+  seller_earning: number;
+  status: OrderStatus;
+  created_at: string;
+  items?: OrderItem[];
+  parcel?: Parcel | null;
+};
+
+export type CustomComboItem = {
+  productId: string;
+  slug: string;
+  name_bn: string;
+  unit: string;
+  price: number;
+  qty: number;
+  sellerId: string | null;
+  image: string | null;
+};
+
+export type CustomCombo = {
+  id: string;
+  user_id: string;
+  name_bn: string;
+  items: CustomComboItem[];
+  item_count: number;
+  price_cached: number;
+  repeat_interval: "none" | "weekly" | "monthly";
+  is_active: boolean;
+  created_at: string;
+};
+
+export type NotificationKind =
+  | "order"
+  | "status"
+  | "premium"
+  | "seller"
+  | "product"
+  | "camera"
+  | "system";
+
+export type Notification = {
+  id: string;
+  user_id: string;
+  audience: "user" | "seller" | "admin";
+  kind: NotificationKind;
+  title_bn: string;
+  body_bn: string | null;
+  link: string | null;
+  meta: Record<string, unknown> | null;
+  is_read: boolean;
+  created_at: string;
+};
+
+/** Everything printed on the A6 / thermal parcel label. */
+export type ParcelLabel = {
+  orderId: string;
+  orderNo: string;
+  subNo: string;
+  couponCode?: string | null;
+  customerName: string;
+  customerPhone: string;
+  address: string;
+  area: string;
+  district: string;
+  items: { name_bn: string; qty: number; unit: string; weight_grams?: number | null }[];
+  totalWeightGrams: number;
+  sellerName: string;
+  sellerPhone: string;
+  farmName: string;
+  farmAddress: string;
+  harvestDate: string;
+  packingDate: string;
+  deliveryDate: string;
+  paymentMethod: string;
+  codAmount: number;
+  qrToken: string;
+  qrUrl: string;
+};
+
+export type Parcel = {
+  id: string;
+  order_id: string;
+  sub_order_id: string | null;
+  order_no: string;
+  qr_token: string;
+  label: ParcelLabel | Record<string, never>;
+  printed_count: number;
+  delivered_at: string | null;
+  delivered_by: string | null;
+  created_at: string;
+};
+
+export type AuditLog = {
+  id: number;
+  actor_id: string | null;
+  actor_email: string | null;
+  action: string;
+  entity: string | null;
+  entity_id: string | null;
+  meta: Record<string, unknown> | null;
+  ip: string | null;
   created_at: string;
 };

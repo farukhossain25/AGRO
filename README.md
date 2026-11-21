@@ -31,6 +31,13 @@ A production-ready, mobile-first, Bangla-first e-commerce storefront for fresh f
 | 15 | ফুটার, নিউজলেটার, পলিসি পেজ | `/policies/privacy`, `/policies/terms`, `/policies/refund` |
 | 16 | ইউজার অ্যাকাউন্ট — OTP / ইমেইল লগইন, অর্ডার, ঠিকানা, সাবস্ক্রিপশন | `/login`, `/account/**` |
 | 17 | অ্যাডমিন প্যানেল | `/admin/**` |
+| 18 | **লাইভ খামার ক্যামেরা** (প্রিমিয়াম CCTV, ১০ মিনিট ফ্রি ট্রায়াল) | `/live`, `/live/farms`, `/live/farms/[slug]` |
+| 19 | **ডেইরি লাইভ** — আজকের দুধ উৎপাদন ও বিক্রি রিয়েল-টাইমে | `/live/dairy` |
+| 20 | **প্রিমিয়াম প্ল্যান + পেমেন্ট + অ্যাক্সেস কোড** | `/live/plans`, `/live/trial`, `/account/premium` |
+| 21 | **মাল্টি-ভেন্ডর মার্কেটপ্লেস** — সেলার স্টোর, আবেদন, ড্যাশবোর্ড | `/market`, `/market/[slug]`, `/seller/**` |
+| 22 | **কাস্টম কম্বো বিল্ডার** (৫%/৮% বান্ডল ছাড়) | `/combos/build`, `/account/combos` |
+| 23 | **QR শিপিং লেবেল + রাইডার স্ক্যান পেজ** | `/admin/orders/[orderNo]/label`, `/p/[token]` |
+| 24 | **PWA + Web Push + Android (Capacitor) শেল** | `/manifest.webmanifest`, `/sw.js`, `capacitor.config.ts` |
 
 **Extras:** ফ্লোটিং WhatsApp/কল, back-to-top, লোডিং স্কেলিটন, টোস্ট, বাংলা/English টগল, idempotent seed (৪৭ পণ্য), Zod ভ্যালিডেশন, bcrypt পাসওয়ার্ড, JWT সেশন, in-memory rate limiting।
 
@@ -50,6 +57,14 @@ A production-ready, mobile-first, Bangla-first e-commerce storefront for fresh f
 | `/admin/blog` | ব্লগ CRUD |
 | `/admin/reviews` | রিভিউ মডারেশন (approve / hide / delete) |
 | `/admin/reports` | দৈনিক/সাপ্তাহিক/মাসিক বিক্রয় + CSV |
+| `/admin/premium` | প্রিমিয়াম সাবস্ক্রিপশন, লাইভ দর্শক, ডিভাইস |
+| `/admin/plans` | প্রিমিয়াম প্ল্যান CRUD (দাম, ফিচার, মেয়াদ) |
+| `/admin/codes` | অ্যাক্সেস কোড ব্যাচ তৈরি, কপি, CSV এক্সপোর্ট |
+| `/admin/farms` | খামার CRUD (ম্যাপ কোঅর্ডিনেট, সার্টিফিকেশন) |
+| `/admin/cameras` | ক্যামেরা CRUD (stream key, প্রোটোকল, স্টেটাস) |
+| `/admin/sellers` | সেলার অনুমোদন, কমিশন, পেমেন্ট তথ্য |
+| `/admin/camera-requests` | ক্যামেরা ইনস্টল রিকোয়েস্ট |
+| `/admin/orders/[orderNo]/label` | A6 শিপিং লেবেল + QR প্রিন্ট |
 
 ---
 
@@ -101,12 +116,32 @@ npm run dev
 | blog_posts | 6 |
 | banners | 3 |
 | users (admin) | 1 |
+| **farms** | **5** |
+| **cameras** | **10** |
+| **premium_plans** | **4** |
+| **sellers** | **3** (approved, ২২টি পণ্য সংযুক্ত) |
 
-স্টোরেজ বাকেট `product-images` (public, 4 MB limit) তৈরি করা আছে।
+স্টোরেজ বাকেট `product-images` ও `farm-media` (public) তৈরি করা আছে।
 আপনার শুধু দরকার `.env.local` (বা Vercel env) বসানো — বাকি সব প্রস্তুত।
 
-`supabase/seed.sql` ফাইলে পুরো সিডটা এক ফাইলে আছে — Supabase → SQL Editor-এ পেস্ট করে
-যেকোনো সময় পুনরায় চালানো যায় (idempotent)। নতুন করে জেনারেট করতে: `npm run db:seed:sql`।
+### ১৯টি অতিরিক্ত টেবিল (0003)
+
+`farms`, `cameras`, `camera_view_logs`, `premium_plans`, `premium_subscriptions`,
+`premium_access_codes`, `premium_devices`, `trial_grants`, `stream_sessions`, `sellers`,
+`seller_payouts`, `camera_requests`, `sub_orders`, `custom_combos`, `notifications`,
+`push_subscriptions`, `fcm_tokens`, `parcels`, `audit_logs` — সাথে ভিউ
+`v_farm_stats`, `v_premium_revenue`, `v_seller_leaderboard`।
+
+সিড ফাইল দুইটি:
+
+```bash
+npm run db:seed        # মূল ক্যাটালগ (৪৭ পণ্য …)
+npm run db:seed:sql    # supabase/seed.sql পুনরায় জেনারেট
+
+# প্রিমিয়াম ফার্ম/ক্যামেরা/প্ল্যান/সেলার (idempotent)
+node --experimental-strip-types scripts/seed-premium-sql.mjs > supabase/seed-premium.sql
+# তারপর supabase/seed-premium.sql ফাইলটি Supabase SQL Editor-এ চালান
+```
 
 ---
 
@@ -205,8 +240,12 @@ vercel --prod
 
 | Type | Name | Value |
 |------|------|-------|
-| `A` | `@` | `76.76.21.21` |
-| `CNAME` | `www` | `cname.vercel-dns.com` |
+| `A` | `@` | `216.198.79.1` |
+| `A` | `@` | `64.29.17.1` |
+| `CNAME` | `www` | `76459bf9cdc9b57f.vercel-dns-017.com` |
+
+> পুরোনো রেকর্ড থাকলে `A @ → 76.76.21.21` এবং `CNAME www → cname.vercel-dns.com`-ও কাজ করে।
+> Vercel → Project → Settings → Domains পেজে সবসময় সর্বশেষ প্রয়োজনীয় রেকর্ড দেখায় — সেটাই authoritative।
 
 4. SSL সার্টিফিকেট Vercel অটো ইস্যু করে (Let's Encrypt) — সাধারণত ১–৫ মিনিট।
 5. `NEXT_PUBLIC_SITE_URL` `https://bishwasagro.com` কিনা যাচাই করে **Redeploy** করুন (canonical/OG URL এর জন্য)।
@@ -249,9 +288,22 @@ app/
     …
 components/             # UI, home/, shop/, admin/
 lib/                    # data access, auth, orders, payments, validation, seed
-supabase/migrations/    # 0001_init.sql, 0002_otp.sql
-scripts/                # migrate, seed, create-admin
+  (storefront)/live/    # লাইভ খামার, ডেইরি, প্ল্যান, ট্রায়াল
+  (storefront)/market/  # মার্কেটপ্লেস + সেলার স্টোর
+  (storefront)/seller/  # সেলার আবেদন, ড্যাশবোর্ড, ক্যামেরা রিকোয়েস্ট
+  api/stream/           # টোকেন ইস্যু + HLS/WHEP প্রক্সি
+  api/premium/          # state, trial, subscribe, activate, codes
+  api/sellers/          # apply, products, camera-request
+  api/farms/dairy/      # আজকের দুধ বোর্ড
+components/live/        # LiveStream, FarmCameras, DairyBoard, PlanCheckout
+components/maps/        # FarmMap (Leaflet 2D), FarmMap3D (MapLibre terrain)
+components/seller/      # ApplyForm, ProductManager, CameraRequestForm
+supabase/migrations/    # 0001_init.sql, 0002_otp.sql, 0003_premium_multivendor.sql
+scripts/                # migrate, seed, create-admin, seed-premium-sql
 data/seed.mjs           # ৪৭ বাংলা পণ্য + ক্যাটাগরি + কম্বো + কুপন
+docker-compose.mediamtx.yml  # MediaMTX + go2rtc + Caddy স্ট্রিম স্ট্যাক
+mediamtx.yml / go2rtc.yaml / Caddyfile
+capacitor.config.ts     # Android শেল
 ```
 
 ### ডেটা লেয়ার
@@ -262,7 +314,106 @@ data/seed.mjs           # ৪৭ বাংলা পণ্য + ক্যাট�
 
 ---
 
-## ৯. সিকিউরিটি
+## ৯. লাইভ খামার ক্যামেরা (প্রিমিয়াম CCTV)
+
+### কীভাবে কাজ করে
+
+```
+ব্রাউজার ──POST /api/stream/token──▶ Next.js
+                                     │ ১. rate limit
+                                     │ ২. resolvePremiumState()  (সাব → ট্রায়াল → লক)
+                                     │ ৩. per-camera viewer cap
+                                     │ ৪. stream_sessions row + ৫ মিনিটের JWT
+                                     ▼
+                             { url: "/api/stream/hls/<key>/index.m3u8?t=<jwt>" }
+ব্রাউজার ──GET /api/stream/hls/…──▶ Next.js ──▶ MediaMTX / go2rtc
+                                     │ টোকেন যাচাই + সেশন রিভোক চেক
+                                     │ URL-এর stream_key ক্যামেরার সাথে মিলছে?
+                                     │ প্লেলিস্টের প্রতিটি লাইন rewrite (t= যোগ)
+                                     ▼
+                                  RTSP ক্যামেরা (প্রাইভেট নেটওয়ার্ক)
+```
+
+**RTSP/IP ক্যামেরার ঠিকানা কখনো ব্রাউজারে যায় না** — `cameras.stream_key` লুকানো কলাম,
+শুধু server-side পড়া হয়।
+
+### স্ট্রিমিং সার্ভার চালু করা
+
+```bash
+# নিজের VPS বা খামারের রাস্পবেরি পাই-তে
+cp mediamtx.yml.example mediamtx.yml   # আসল ফাইলটি ইতিমধ্যে আছে — পাসওয়ার্ড বদলান
+docker compose -f docker-compose.mediamtx.yml up -d
+
+# Vercel-এ এনভায়রনমেন্ট ভেরিয়েবল
+STREAM_PROXY_TARGET=http://<vps-ip>:8080
+GO2RTC_WHEP_URL=http://<vps-ip>:1984/api/webrtc
+STREAM_PROXY_SECRET=<random-32-chars>
+```
+
+`STREAM_PROXY_TARGET` খালি থাকলে ফিচারটি নীরবে বন্ধ থাকে: UI-তে "স্ট্রিমিং সার্ভার কনফিগার
+করা হয়নি" দেখায়, কোনো ক্র্যাশ হয় না। `/admin/cameras`-এ একটি সতর্কবার্তাও দেখাবে।
+
+### এনটাইটেলমেন্ট (কে দেখতে পারবে)
+
+| অবস্থা | ফলাফল |
+|-------|--------|
+| সক্রিয় প্রিমিয়াম | সব ক্যামেরা (বেসিক টিয়ার: প্রতি খামারের প্রথম ক্যামেরা) |
+| গ্রেস পিরিয়ড (৩ দিন) | অ্যাক্সেস চালু, রিনিউ ব্যানার |
+| ফ্রি ট্রায়াল (১০ মিনিট) | সব ক্যামেরা, `trial_grants` টেবিলে ট্র্যাক (একবার/ডিভাইস) |
+| কিছু নেই | 402 → "ফ্রি ট্রায়াল শুরু করুন" |
+
+ট্রায়াল ব্যবহারকারীর fingerprint = `sha256(IP + UA + accept-language + screen/timezone)`।
+ব্রাউজারের localStorage-এ কিছুই থাকে না, তাই "স্টোরেজ ক্লিয়ার" করে ট্রায়াল রিসেট করা যায় না।
+
+### প্ল্যান ও দাম (লাইভ)
+
+| প্ল্যান | দাম | ডিভাইস | মেয়াদ |
+|--------|-----|--------|-------|
+| বেসিক — মাসিক | ৳১৪৯ | ১ | ৩০ দিন |
+| ফুল অ্যাক্সেস — মাসিক | ৳২৯৯ | ২ | ৩০ দিন |
+| ফুল — ষান্মাসিক | ৳১,৫৯৯ | ২ | ১৮২ দিন |
+| ফুল — বাৎসরিক | ৳২,৮৯৯ | ৩ | ৩৬৫ দিন |
+
+---
+
+## ১০. মাল্টি-ভেন্ডর মার্কেটপ্লেস
+
+- **আবেদন** → `/seller/apply` → `sellers` টেবিলে `pending`
+- **অ্যাডমিন অনুমোদন** → `/admin/sellers` (স্টেটাস বদলালেই পাবলিক স্টোর চালু)
+- **সেলার ড্যাশবোর্ড** → `/seller` — পণ্য CRUD, বিক্রি/কমিশন, পেআউট ইতিহাস
+- **পণ্য অনুমোদন কিউ** — সেলারের নতুন পণ্য বা দাম পরিবর্তন `approval_status = 'pending'`;
+  অনুমোদনের আগে গ্রাহক দেখতে পান না
+- **পাবলিক স্টোর** → `/market`, `/market/[slug]`
+- **কমিশন** — `sellers.commission_percent` (ডিফল্ট ১০%), প্রতি অর্ডারে `sub_orders`-এ ভাগ হয়
+
+## ১১. PWA, পুশ নোটিফিকেশন ও Android অ্যাপ
+
+```bash
+# VAPID কী (একবার)
+node -e "const c=require('crypto');const {publicKey,privateKey}=c.generateKeyPairSync('ec',{namedCurve:'prime256v1'});console.log(publicKey.export({type:'spki',format:'der'}).toString('base64url'));console.log(privateKey.export({type:'pkcs8',format:'der'}).toString('base64url'))"
+```
+
+- `/manifest.webmanifest` (Next.js `app/manifest.ts`) — installable PWA
+- `/sw.js` — **API ও স্ট্রিম কখনো ক্যাশ করে না**; নেভিগেশন network-first, ছবি cache-first
+- পুশ: RFC 8291/8292 VAPID, কোনো এক্সটার্নাল লাইব্রেরি ছাড়াই (`lib/push.ts`)
+
+Android শেল:
+
+```bash
+npm i -D @capacitor/cli @capacitor/core @capacitor/android
+npx cap add android
+npx cap sync android
+npx cap open android
+```
+
+`capacitor.config.ts`-এ `server.url` ডিপ্লয় করা সাইটে পয়েন্ট করা আছে — Server Components ও
+API রুট কাজ করবে। এমুলেটরে লোকাল টেস্টের জন্য:
+
+```bash
+CAPACITOR_SERVER_URL=http://10.0.2.2:3000 npx cap sync android
+```
+
+## ১২. সিকিউরিটি
 
 - পাসওয়ার্ড **bcrypt** (cost 12)
 - সেশন **JWT (jose)**, `httpOnly` + `sameSite=lax` + `secure` কুকি
@@ -275,7 +426,7 @@ data/seed.mjs           # ৪৭ বাংলা পণ্য + ক্যাট�
 
 ---
 
-## ১০. ডিপ্লয়-পরবর্তী চেকলিস্ট
+## ১৩. ডিপ্লয়-পরবর্তী চেকলিস্ট
 
 - [ ] `/admin/login` → `admin@bishwasagro.com` দিয়ে লগইন
 - [ ] অ্যাডমিন পাসওয়ার্ড বদলানো হয়েছে
@@ -286,6 +437,13 @@ data/seed.mjs           # ৪৭ বাংলা পণ্য + ক্যাট�
 - [ ] `https://bishwasagro.com` এ SSL লক দেখাচ্ছে
 - [ ] WhatsApp ফ্লোটিং বাটন সঠিক নম্বরে যাচ্ছে
 - [ ] `PAYMENTS_SANDBOX=false` + লাইভ কী (যখন প্রস্তুত)
+- [ ] `/live/farms` এ ৫টি খামার ও ক্যামেরা কাউন্ট দেখা যাচ্ছে
+- [ ] `/live/trial` → ১০ মিনিটের ট্রায়াল শুরু হচ্ছে
+- [ ] `/market` এ ৩টি যাচাইকৃত সেলার স্টোর দেখা যাচ্ছে
+- [ ] `/seller/apply` → আবেদন জমা → `/admin/sellers` এ দেখা যাচ্ছে
+- [ ] `/admin/orders` → একটি অর্ডারে "শিপিং লেবেল + QR" → প্রিন্ট প্রিভিউ ঠিক আছে
+- [ ] মোবাইলে "Add to Home Screen" — আইকন ও নাম ঠিক আছে
+- [ ] (স্ট্রিমিং) `docker compose -f docker-compose.mediamtx.yml up -d` + `STREAM_PROXY_TARGET` সেট
 
 ---
 

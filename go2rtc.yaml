@@ -1,0 +1,43 @@
+# ============================================================================
+# go2rtc — WebRTC fan-out for the low-latency camera mode
+# ----------------------------------------------------------------------------
+# Reuses the same RTSP sources as MediaMTX so a single camera feed serves both
+# HLS (broad compatibility) and WebRTC (sub-second latency).
+#
+# The app calls:  POST /api/stream/whep/<stream_key>?t=<token>
+# → proxied to     http://<host>:1984/api/webrtc?src=<stream_key>
+# ============================================================================
+
+log:
+  level: info
+
+api:
+  listen: ":1984"
+  origin: "*"
+
+rtsp:
+  listen: ":8555"
+
+webrtc:
+  listen: ":8556"
+  candidates:
+    - stun:8555
+  ice_servers:
+    - urls: ["stun:stun.l.google.com:19302"]
+
+# Keys must match cameras.stream_key in the database.
+streams:
+  savar-greens-field-01: rtsp://admin:CAM_PASSWORD@192.168.10.11:554/Streaming/Channels/101
+  savar-greens-field-02: rtsp://admin:CAM_PASSWORD@192.168.10.12:554/Streaming/Channels/101
+  savar-greens-packing-01: rtsp://admin:CAM_PASSWORD@192.168.10.13:554/Streaming/Channels/101
+
+  tangail-dairy-milking-01: rtsp://admin:CAM_PASSWORD@192.168.20.11:554/Streaming/Channels/101
+  tangail-dairy-feed-01: rtsp://admin:CAM_PASSWORD@192.168.20.12:554/Streaming/Channels/101
+  tangail-dairy-coldroom-01: rtsp://admin:CAM_PASSWORD@192.168.20.13:554/Streaming/Channels/101
+
+  gazipur-poultry-shed-01: rtsp://admin:CAM_PASSWORD@192.168.30.11:554/Streaming/Channels/101
+  gazipur-poultry-egg-01: rtsp://admin:CAM_PASSWORD@192.168.30.12:554/Streaming/Channels/101
+
+  khulna-shrimp-pond-01: rtsp://admin:CAM_PASSWORD@192.168.40.11:554/Streaming/Channels/101
+
+  rajshahi-mango-orchard-01: rtsp://admin:CAM_PASSWORD@192.168.50.11:554/Streaming/Channels/101

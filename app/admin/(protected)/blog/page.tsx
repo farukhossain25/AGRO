@@ -1,7 +1,6 @@
 import { db, isDbConfigured } from "@/lib/db";
 import { getBlogPosts } from "@/lib/data";
 import { SimpleManager } from "@/components/admin/simple-manager";
-import { formatDateBn } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -36,32 +35,11 @@ export default async function AdminBlogPage() {
         is_active: true,
       }}
       columns={[
-        {
-          key: "title_bn",
-          label: "শিরোনাম",
-          render: (r) => (
-            <div className="max-w-[280px]">
-              <p className="line-clamp-1 font-medium">{String(r.title_bn)}</p>
-              <p className="truncate text-[9.5px] text-sand-100/35">/{String(r.slug)}</p>
-            </div>
-          ),
-        },
+        { key: "title_bn", label: "শিরোনাম", format: "stack", subKey: "slug", subPrefix: "/" },
         { key: "tag_bn", label: "ট্যাগ" },
         { key: "author_bn", label: "লেখক" },
-        {
-          key: "published_at",
-          label: "প্রকাশ",
-          render: (r) => <span className="text-[11px]">{formatDateBn(String(r.published_at ?? ""))}</span>,
-        },
-        {
-          key: "is_active",
-          label: "স্টেটাস",
-          render: (r) => (
-            <span className={`badge !text-[9px] ${r.is_active ? "bg-leaf-600/20 text-leaf-200" : "bg-white/[0.07] text-sand-100/50"}`}>
-              {r.is_active ? "প্রকাশিত" : "খসড়া"}
-            </span>
-          ),
-        },
+        { key: "published_at", label: "প্রকাশ", format: "date" },
+        { key: "is_active", label: "স্টেটাস", format: "badge", trueLabel: "প্রকাশিত", falseLabel: "খসড়া" },
       ]}
       fields={[
         { name: "title_bn", label: "শিরোনাম", type: "text", required: true, colSpan: 2 },

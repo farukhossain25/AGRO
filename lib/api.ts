@@ -112,6 +112,16 @@ export function clientKey(req: Request, scope: string): string {
   return `${scope}:${ip}`;
 }
 
+/**
+ * One-liner guard for API routes:
+ *   const guard = limitGuard(req, "scope", 10, 60_000);
+ *   if (guard) return guard;
+ */
+export function limitGuard(req: Request, scope: string, limit = 10, windowMs = 60_000) {
+  const result = rateLimit(clientKey(req, scope), limit, windowMs);
+  return result.ok ? null : tooMany(result.retryAfter);
+}
+
 export function tooMany(retryAfter: number) {
   return NextResponse.json(
     { ok: false, message: "অনেকবার চেষ্টা করা হয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন।" },

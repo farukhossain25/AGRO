@@ -23,7 +23,7 @@ export default async function StorefrontLayout({ children }: { children: React.R
 
   return (
     <>
-      <SiteHeader categories={navCats} user={user ? { name: user.name } : null} />
+      <SiteHeader categories={navCats} user={user ? { name: user.name, role: user.role } : null} />
       <main id="main" className="min-h-[60vh]">
         {children}
       </main>

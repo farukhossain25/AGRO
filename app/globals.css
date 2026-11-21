@@ -1,3 +1,9 @@
+/* Map stack — Leaflet's stylesheet lives here (not in the map component) so
+   panes/controls are painted even when the map is code-split behind
+   dynamic(..., { ssr: false }). CSS @import must precede every other rule. */
+@import "leaflet/dist/leaflet.css";
+@import "maplibre-gl/dist/maplibre-gl.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

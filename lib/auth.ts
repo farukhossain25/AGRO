@@ -1,4 +1,5 @@
 import { SignJWT, jwtVerify, type JWTPayload } from "jose";
+import type { UserRole } from "./types";
 
 const COOKIE_NAME = "ba_session";
 const ADMIN_COOKIE = "ba_admin";
@@ -9,7 +10,7 @@ export type SessionUser = {
   name: string | null;
   email: string | null;
   phone: string | null;
-  role: "customer" | "admin";
+  role: UserRole;
 };
 
 function secret(): Uint8Array {

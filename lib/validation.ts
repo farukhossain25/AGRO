@@ -127,6 +127,37 @@ export const productSchema = z.object({
   is_active: z.coerce.boolean().default(true),
 });
 
+export const sellerApplySchema = z.object({
+  name_bn: z.string().trim().min(3, "খামার বা ব্যবসার নাম দিন").max(120),
+  phone: bdPhone,
+  email: email.optional().or(z.literal("")),
+  nid: z.string().trim().regex(/^\d{10,17}$/, "NID নম্বর ১০–১৭ ডিজিট").optional().or(z.literal("")),
+  farm_address_bn: z.string().trim().min(8, "ঠিকানা বিস্তারিত লিখুন").max(240),
+  division: z.string().trim().min(2),
+  district: z.string().trim().min(2),
+  product_types: z.array(z.string().trim()).min(1, "কমপক্ষে একটি পণ্যের ধরন বেছে নিন").max(12),
+  payout_method: z.enum(["bkash", "nagad", "bank"]).default("bkash"),
+  payout_number: z.string().trim().min(6, "পেমেন্ট নম্বর দিন").max(40),
+  bank_name: z.string().trim().max(80).optional().or(z.literal("")),
+  bank_account: z.string().trim().max(40).optional().or(z.literal("")),
+  farm_id: z.string().uuid().optional().nullable(),
+});
+
+export const sellerProductSchema = z.object({
+  id: z.string().uuid().optional(),
+  category_id: z.string().uuid("ক্যাটাগরি নির্বাচন করুন"),
+  name_bn: z.string().trim().min(2, "বাংলা নাম দিন").max(120),
+  name_en: z.string().trim().min(2).max(120),
+  description_bn: z.string().trim().max(2000).optional().or(z.literal("")),
+  unit: z.string().trim().min(1).default("কেজি"),
+  unit_en: z.string().trim().default("kg"),
+  price: z.coerce.number().min(1, "দাম দিন"),
+  compare_price: z.coerce.number().min(0).optional().nullable(),
+  stock: z.coerce.number().int().min(0),
+  image: z.string().trim().optional().or(z.literal("")),
+  weight_grams: z.coerce.number().int().min(0).optional().nullable(),
+});
+
 export const categorySchema = z.object({
   id: z.string().uuid().optional(),
   slug: z.string().trim().min(2).regex(/^[a-z0-9-]+$/, "slug: ইংরেজি অক্ষর/হাইফেন"),

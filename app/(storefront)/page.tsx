@@ -10,6 +10,7 @@ import { CombosStrip } from "@/components/home/combos-strip";
 import { PackagesPreview } from "@/components/home/packages-preview";
 import { Testimonials } from "@/components/home/testimonials";
 import { TrustStrip } from "@/components/home/trust-strip";
+import { LiveFarmsStrip } from "@/components/home/live-farms";
 import { money } from "@/lib/format";
 import { whyChooseUs } from "@/lib/site";
 
@@ -153,6 +154,8 @@ export default async function HomePage() {
         />
         <ProductGrid products={freshPicks} />
       </section>
+
+      <LiveFarmsStrip />
 
       <PackagesPreview packages={packages} />
 

@@ -25,6 +25,16 @@ const config: Config = {
           800: "#124a32",
           900: "#0d3625",
         },
+        // brand alias — the spec calls this "mint"; it maps to leaf-200 so
+        // `text-mint` / `border-mint/40` work alongside the leaf scale.
+        mint: {
+          DEFAULT: "#b7ead2",
+          50: "#f2fbf6",
+          100: "#d6f3e3",
+          200: "#b7ead2",
+          300: "#8eddb9",
+          400: "#5ac797",
+        },
         sand: { 100: "#f7f4ec", 200: "#efe8d8", 300: "#e2d6bd" },
       },
       fontFamily: {

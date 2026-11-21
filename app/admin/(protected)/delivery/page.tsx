@@ -1,6 +1,5 @@
 import { db, isDbConfigured } from "@/lib/db";
 import { SimpleManager } from "@/components/admin/simple-manager";
-import { money } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -27,17 +26,9 @@ export default async function AdminDeliveryPage() {
       columns={[
         { key: "district", label: "জেলা" },
         { key: "division", label: "বিভাগ" },
-        {
-          key: "scope",
-          label: "এলাকা",
-          render: (r) => (
-            <span className={`badge !text-[9px] ${r.scope === "inside_dhaka" ? "bg-leaf-600/20 text-leaf-200" : "bg-white/[0.07] text-sand-100/60"}`}>
-              {r.scope === "inside_dhaka" ? "ঢাকার ভেতরে" : "ঢাকার বাইরে"}
-            </span>
-          ),
-        },
-        { key: "charge", label: "চার্জ", render: (r) => money(Number(r.charge), true) },
-        { key: "free_over", label: "ফ্রি (৳+)", render: (r) => (r.free_over ? money(Number(r.free_over), true) : "—") },
+        { key: "scope", label: "এলাকা", format: "scope" },
+        { key: "charge", label: "চার্জ", format: "money" },
+        { key: "free_over", label: "ফ্রি (৳+)", format: "money" },
         { key: "eta_days", label: "সময়" },
       ]}
       fields={[

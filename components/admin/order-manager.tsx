@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Download, Printer, Search, X } from "lucide-react";
+import Link from "next/link";
+import { Download, Printer, QrCode, Search, X } from "lucide-react";
 import { useToast } from "@/lib/toast";
 import { formatDateTimeBn, money, toBn } from "@/lib/format";
 import type { Order } from "@/lib/types";
@@ -298,9 +299,16 @@ export function OrderManager({ initial, dbReady }: { initial: Order[]; dbReady: 
                   পরিশোধিত চিহ্নিত করুন
                 </button>
               ) : null}
-              <button onClick={() => window.print()} className="btn-primary btn-sm">
+              <button onClick={() => window.print()} className="btn-ghost btn-sm">
                 <Printer className="h-3.5 w-3.5" /> ইনভয়েস প্রিন্ট
               </button>
+              <Link
+                href={`/admin/orders/${selected.order_no}/label`}
+                className="btn-primary btn-sm"
+                target="_blank"
+              >
+                <QrCode className="h-3.5 w-3.5" /> শিপিং লেবেল + QR
+              </Link>
             </div>
           </div>
         </div>

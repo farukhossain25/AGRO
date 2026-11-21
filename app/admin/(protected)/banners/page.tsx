@@ -24,28 +24,11 @@ export default async function AdminBannersPage() {
       dbReady={isDbConfigured()}
       emptyRow={{ title_bn: "", subtitle_bn: "", image: "", link: "/products", placement: "home_hero", is_active: true, sort_order: 0 }}
       columns={[
-        {
-          key: "title_bn",
-          label: "শিরোনাম",
-          render: (r) => (
-            <div>
-              <p className="font-medium">{String(r.title_bn)}</p>
-              <p className="line-clamp-1 text-[9.5px] text-sand-100/35">{String(r.subtitle_bn ?? "")}</p>
-            </div>
-          ),
-        },
+        { key: "title_bn", label: "শিরোনাম", format: "stack", subKey: "subtitle_bn" },
         { key: "placement", label: "স্থান" },
-        { key: "link", label: "লিংক", render: (r) => <span className="font-mono text-[10px] text-leaf-200">{String(r.link)}</span> },
-        { key: "sort_order", label: "ক্রম" },
-        {
-          key: "is_active",
-          label: "স্টেটাস",
-          render: (r) => (
-            <span className={`badge !text-[9px] ${r.is_active ? "bg-leaf-600/20 text-leaf-200" : "bg-white/[0.07] text-sand-100/50"}`}>
-              {r.is_active ? "সক্রিয়" : "নিষ্ক্রিয়"}
-            </span>
-          ),
-        },
+        { key: "link", label: "লিংক", format: "code" },
+        { key: "sort_order", label: "ক্রম", format: "number" },
+        { key: "is_active", label: "স্টেটাস", format: "badge" },
       ]}
       fields={[
         { name: "title_bn", label: "শিরোনাম", type: "text", required: true },

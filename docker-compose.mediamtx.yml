@@ -1,0 +1,61 @@
+# ============================================================================
+# Live farm streaming stack — MediaMTX (HLS) + go2rtc (WebRTC)
+# ----------------------------------------------------------------------------
+# Deploy this on any VPS / Raspberry Pi at the farm. Vercel then proxies
+# /api/stream/* to it (STREAM_PROXY_TARGET), so cameras stay on the private
+# network and are never exposed directly to the internet.
+#
+#   docker compose -f docker-compose.mediamtx.yml up -d
+#   # point the app at it:
+#   #   STREAM_PROXY_TARGET=http://<vps-host>:8888
+#   #   GO2RTC_WHEP_URL=http://<vps-host>:1984/api/webrtc
+#   #   STREAM_PROXY_SECRET=<random>
+# ============================================================================
+
+services:
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    container_name: ba-mediamtx
+    restart: unless-stopped
+    network_mode: host # RTSP + HLS + WebRTC on the same host
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml:ro
+    environment:
+      MTX_PROTOCOLS: tcp
+      MTX_HLS: "yes"
+      MTX_HLS_VARIANT: lowLatency
+      MTX_HLS_SEGMENTDURATION: 1s
+      MTX_HLS_SEGMENTCOUNT: 7
+      MTX_HLS_ALWAYSREMOVESEGMENTS: "yes"
+      MTX_HLS_ALLOWORIGIN: "*"
+      MTX_RTSPTRANSPORTS: tcp
+      MTX_AUTHINTERNALUSERS: "yes"
+      MTX_HLSDIRECTORY: /tmp/hls
+      MTX_LOGLEVEL: info
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8888/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  go2rtc:
+    image: alexxit/go2rtc:latest
+    container_name: ba-go2rtc
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./go2rtc.yaml:/config/go2rtc.yaml:ro
+    depends_on:
+      - mediamtx
+
+  # Optional: expose the proxy only to Vercel via a token-guarded Caddy hop.
+  caddy:
+    image: caddy:2-alpine
+    container_name: ba-stream-edge
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - mediamtx
