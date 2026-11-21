@@ -1,0 +1,221 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-ink-900 text-sand-100 font-bn antialiased;
+    background-image: radial-gradient(70% 45% at 50% -10%, rgba(31, 122, 77, 0.22), transparent 70%);
+    background-repeat: no-repeat;
+  }
+
+  ::selection {
+    @apply bg-leaf-600/60 text-white;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-ink-900;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-ink-600 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-leaf-700;
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-display tracking-tight;
+    text-wrap: balance;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-leaf-400 ring-offset-2 ring-offset-ink-900;
+  }
+
+  input, select, textarea {
+    @apply font-bn;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.85);
+  }
+}
+
+@layer components {
+  .container-x {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .card {
+    @apply rounded-3xl border border-white/[0.06] bg-ink-850/80 shadow-card backdrop-blur-sm;
+  }
+
+  .card-hover {
+    @apply transition-all duration-300 hover:-translate-y-1 hover:border-leaf-600/40 hover:shadow-glow;
+  }
+
+  .btn {
+    @apply inline-flex select-none items-center justify-center gap-2 rounded-full text-sm font-semibold transition-all duration-200 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply btn bg-leaf-600 px-5 py-3 text-white shadow-[0_10px_30px_-12px_rgba(31,122,77,.9)] hover:bg-leaf-500;
+  }
+
+  .btn-mint {
+    @apply btn bg-leaf-200 px-5 py-3 text-ink-900 hover:bg-leaf-100;
+  }
+
+  .btn-ghost {
+    @apply btn border border-white/10 bg-white/[0.03] px-5 py-3 text-sand-100 hover:border-leaf-500/50 hover:bg-white/[0.06];
+  }
+
+  .btn-outline {
+    @apply btn border border-leaf-500/60 px-5 py-3 text-leaf-200 hover:bg-leaf-600/15;
+  }
+
+  .btn-sm {
+    @apply px-3.5 py-2 text-[13px];
+  }
+
+  .input {
+    @apply w-full rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 text-sm text-sand-100 placeholder:text-sand-100/35 transition focus:border-leaf-500 focus:bg-ink-800 focus:ring-0;
+  }
+
+  .label {
+    @apply mb-1.5 block text-[13px] font-medium text-sand-100/70;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-sand-100/80 transition hover:border-leaf-500/50 hover:text-leaf-200;
+  }
+
+  .chip-active {
+    @apply border-leaf-500/70 bg-leaf-600/20 text-leaf-100;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold;
+  }
+
+  .section {
+    @apply py-14 sm:py-20;
+  }
+
+  .eyebrow {
+    @apply inline-flex items-center gap-2 rounded-full border border-leaf-500/25 bg-leaf-600/10 px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-leaf-200;
+  }
+
+  .h-section {
+    @apply text-[26px] font-bold leading-tight sm:text-4xl;
+  }
+
+  .link-underline {
+    @apply relative after:absolute after:-bottom-0.5 after:left-0 after:h-px after:w-0 after:bg-leaf-300 after:transition-all hover:after:w-full;
+  }
+
+  .skeleton {
+    @apply relative overflow-hidden rounded-2xl bg-ink-700/70;
+  }
+  .skeleton::after {
+    content: "";
+    @apply absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/[0.07] to-transparent;
+  }
+
+  .divider {
+    @apply h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent;
+  }
+
+  .prose-bn {
+    @apply text-[15px] leading-8 text-sand-100/80;
+  }
+  .prose-bn h2 {
+    @apply mt-8 mb-3 text-2xl font-bold text-sand-100;
+  }
+  .prose-bn h3 {
+    @apply mt-6 mb-2 text-lg font-semibold text-sand-100;
+  }
+  .prose-bn p {
+    @apply mb-4;
+  }
+  .prose-bn ul {
+    @apply mb-4 list-disc space-y-1.5 pl-5 marker:text-leaf-400;
+  }
+  .prose-bn strong {
+    @apply font-semibold text-leaf-200;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .mask-fade-r {
+    mask-image: linear-gradient(to right, black 85%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ==========================================================================
+   Admin panel — denser, cooler surface, distinct from the storefront
+   ========================================================================== */
+.admin-surface {
+  --admin-line: rgba(255, 255, 255, 0.07);
+}
+
+.admin-surface ::selection {
+  background: rgba(96, 165, 250, 0.28);
+}
+
+.admin-surface table th {
+  white-space: nowrap;
+}
+
+/* Print: invoices only */
+@media print {
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  header,
+  aside,
+  footer,
+  .print\:hidden {
+    display: none !important;
+  }
+  main {
+    padding: 0 !important;
+  }
+  .card {
+    box-shadow: none !important;
+  }
+}
