@@ -31,8 +31,8 @@ export function AccountNav() {
   }
 
   return (
-    <nav aria-label="অ্যাকাউন্ট মেনু" className="lg:sticky lg:top-24 lg:self-start">
-      <ul className="no-scrollbar flex gap-1.5 overflow-x-auto rounded-2xl border border-white/[0.06] bg-ink-850/60 p-1.5 lg:flex-col lg:gap-0.5">
+    <nav aria-label="অ্যাকাউন্ট মেনু" className="min-w-0 lg:sticky lg:top-24 lg:self-start">
+      <ul className="no-scrollbar flex w-full max-w-full gap-1.5 overflow-x-auto overscroll-x-contain rounded-2xl border border-white/[0.06] bg-ink-850/60 p-1.5 lg:flex-col lg:gap-0.5">
         {links.map(({ href, labelBn, labelEn, Icon }) => {
           const active = pathname === href || (href !== "/account" && pathname.startsWith(`${href}/`));
           return (
