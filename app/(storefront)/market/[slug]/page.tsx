@@ -6,6 +6,8 @@ import { BadgeCheck, MapPin, Phone, ShieldCheck } from "lucide-react";
 import { getSellerBySlug } from "@/lib/sellers";
 import { ProductCard } from "@/components/product-card";
 import type { Product } from "@/lib/types";
+import { breadcrumbLd, dynamicAlternates, jsonLdScript } from "@/lib/seo";
+import { site } from "@/lib/site";
 
 /**
  * Seller storefronts are DB-driven and their parent layout reads the session
@@ -22,7 +24,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return {
     title: `${data.seller.name_bn} — মার্কেটপ্লেস`,
     description: `${data.seller.district} জেলার ${data.seller.name_bn}। বিশ্বাস এগ্রো মার্কেটপ্লেসে যাচাইকৃত বিক্রেতা।`,
-    alternates: { canonical: `/market/${data.seller.slug}` },
+    alternates: dynamicAlternates(`/market/${data.seller.slug}`),
   };
 }
 
@@ -46,8 +48,53 @@ export default async function SellerStorePage({ params }: { params: Promise<{ sl
   const { seller, products } = data;
   const cover = seller.farm_photos?.[0] ?? "/images/hero/farm.jpg";
 
+  /* Storefront markup: a Store node (so Google can show the shop's name and
+     location) plus a BreadcrumbList. Seller NID / bank / phone never appear —
+     only the public marketplace fields. */
+  const sellerLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Store",
+        "@id": `${site.url}/market/${seller.slug}#store`,
+        name: seller.name_bn,
+        url: `${site.url}/market/${seller.slug}`,
+        image: cover.startsWith("http") ? cover : `${site.url}${cover}`,
+        description: seller.farm_address_bn ?? `${seller.district} জেলার যাচাইকৃত খামার ও বিক্রেতা।`,
+        address: {
+          "@type": "PostalAddress",
+          addressLocality: seller.district,
+          addressRegion: seller.division,
+          addressCountry: "BD",
+        },
+        parentOrganization: { "@id": `${site.url}/#organization` },
+        ...(products.length
+          ? {
+              hasOfferCatalog: {
+                "@type": "OfferCatalog",
+                name: "পণ্য",
+                numberOfItems: products.length,
+              },
+            }
+          : {}),
+      },
+      breadcrumbLd([
+        { name: "হোম", href: "/" },
+        { name: "মার্কেটপ্লেস", href: "/market" },
+        { name: seller.name_bn },
+      ]),
+    ].map((node) => {
+      const { "@context": _c, ...rest } = node as Record<string, unknown> & { "@context"?: string };
+      return rest;
+    }),
+  };
+
   return (
     <div>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(sellerLd) }}
+      />
       {/* banner */}
       <section className="relative h-44 overflow-hidden sm:h-56">
         <Image src={cover} alt="" fill sizes="100vw" priority className="object-cover opacity-40" />

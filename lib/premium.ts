@@ -1,4 +1,4 @@
-import { db, isDbConfigured } from "./db";
+import { db, dbUsable, markDbUnreachable } from "./db";
 import { seedPremiumPlans } from "./seed-premium";
 import type {
   PremiumPlan,
@@ -278,7 +278,7 @@ export async function sweepExpired(): Promise<{ subs: number; trials: number }> 
 export async function listPlans(activeOnly = true): Promise<PremiumPlan[]> {
   const fallback = activeOnly ? seedPremiumPlans.filter((p) => p.is_active) : seedPremiumPlans;
 
-  if (!isDbConfigured()) return fallback;
+  if (!dbUsable()) return fallback;
 
   try {
     let q = db().from("premium_plans").select("*").order("sort_order");
@@ -289,6 +289,7 @@ export async function listPlans(activeOnly = true): Promise<PremiumPlan[]> {
     return data as PremiumPlan[];
   } catch (error) {
     // Build-time / offline prerender must not fail on a pricing page.
+    markDbUnreachable();
     console.warn("[premium] plans fallback:", (error as Error).message);
     return fallback;
   }

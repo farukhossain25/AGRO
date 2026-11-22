@@ -64,6 +64,7 @@ const schemas: Record<string, LightSchema> = {
   payouts: lightSchema(["gross", "commission", "net", "orders_count"], ["paid_at"]),
   "camera-requests": lightSchema(["camera_count"]),
   notifications: lightSchema([]),
+  seo: lightSchema([], []),
 };
 
 const tables: Record<string, string> = {
@@ -80,6 +81,7 @@ const tables: Record<string, string> = {
   payouts: "seller_payouts",
   "camera-requests": "camera_requests",
   notifications: "notifications",
+  seo: "seo_meta",
 };
 
 function tableFor(resource: string): string | null {
@@ -95,6 +97,16 @@ function normalise(resource: string, input: Record<string, unknown>) {
   }
   if (resource === "blog") {
     out.is_active = out.is_active !== false;
+  }
+  if (resource === "seo") {
+    // keywords arrive as a comma separated string from the form
+    if (typeof out.keywords_bn === "string") {
+      out.keywords_bn = (out.keywords_bn as string)
+        .split(",")
+        .map((k) => k.trim())
+        .filter(Boolean);
+    }
+    out.noindex = out.noindex === true;
   }
   if (resource === "delivery") {
     delete out.district_en;

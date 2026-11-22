@@ -4,16 +4,22 @@ import { CalendarClock, CreditCard, PauseCircle, Sparkles, Truck, XCircle } from
 import { getPackages } from "@/lib/data";
 import { Accordion, SectionHeader } from "@/components/ui";
 import { SubscriptionForm } from "@/components/subscription-form";
+import { alternatesFor } from "@/lib/seo";
+import { withSeo } from "@/lib/seo-db";
 
 export const revalidate = 300;
 
-export const metadata: Metadata = {
-  title: "মাসিক ফুড সাবস্ক্রিপশন",
-  description:
-    "২–৩, ৪–৫ ও ৬+ সদস্যের পরিবারের জন্য মাসিক ফুড প্যাকেজ। সপ্তাহে তাজা সবজি, ডিম, মাছ ও দুধ আপনার দরজায়। যেকোনো সময় পজ বা বাতিল করুন।",
-  alternates: { canonical: "/subscription" },
-  openGraph: { title: "মাসিক ফুড সাবস্ক্রিপশন | বিশ্বাস এগ্রো", url: "/subscription" },
-};
+/* Built-in copy is the fallback; /admin/seo can override it per route
+   without a deploy (migration 0006). */
+export async function generateMetadata(): Promise<Metadata> {
+  return withSeo("/subscription", {
+    title: "মাসিক ফুড সাবস্ক্রিপশন",
+    description:
+      "২–৩, ৪–৫ ও ৬+ সদস্যের পরিবারের জন্য মাসিক ফুড প্যাকেজ। সপ্তাহে তাজা সবজি, ডিম, মাছ ও দুধ আপনার দরজায়। যেকোনো সময় পজ বা বাতিল করুন।",
+    alternates: alternatesFor("/subscription"),
+    openGraph: { title: "মাসিক ফুড সাবস্ক্রিপশন | বিশ্বাস এগ্রো", url: "/subscription" },
+  });
+}
 
 const benefits = [
   { Icon: CalendarClock, t: "নিজের সুবিধামতো শুরুর তারিখ", d: "আজ থেকে ৩০ দিনের মধ্যে যেকোনো দিন বেছে নিন" },

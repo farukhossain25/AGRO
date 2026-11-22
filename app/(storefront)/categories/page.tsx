@@ -3,15 +3,21 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { getCategories, getProducts } from "@/lib/data";
+import { alternatesFor } from "@/lib/seo";
+import { withSeo } from "@/lib/seo-db";
 
 export const revalidate = 300;
 
-export const metadata: Metadata = {
-  title: "ক্যাটাগরি",
-  description:
-    "তাজা শাকসবজি, ফলমূল, দেশি ডিম, মাংস, মাছ, দুধ, চাল-ডাল-তেল-মসলা, মধু ও কৃষি উপকরণ — সব ক্যাটাগরিতে খামার থেকে সরাসরি পণ্য।",
-  alternates: { canonical: "/categories" },
-};
+/* Built-in copy is the fallback; /admin/seo can override it per route
+   without a deploy (migration 0006). */
+export async function generateMetadata(): Promise<Metadata> {
+  return withSeo("/categories", {
+    title: "ক্যাটাগরি",
+    description:
+      "তাজা শাকসবজি, ফলমূল, দেশি ডিম, মাংস, মাছ, দুধ, চাল-ডাল-তেল-মসলা, মধু ও কৃষি উপকরণ — সব ক্যাটাগরিতে খামার থেকে সরাসরি পণ্য।",
+    alternates: alternatesFor("/categories"),
+  });
+}
 
 export default async function CategoriesPage() {
   const [categories, products] = await Promise.all([getCategories(), getProducts({})]);

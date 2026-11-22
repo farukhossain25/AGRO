@@ -25,9 +25,16 @@ const timeoutFetch: typeof fetch = (input, init) => {
     init.signal.addEventListener("abort", () => controller.abort(), { once: true });
   }
 
-  return fetch(input, { ...init, signal: controller.signal }).finally(() =>
-    clearTimeout(timer)
-  );
+  return fetch(input, { ...init, signal: controller.signal })
+    .then((response) => {
+      reachable = true;
+      return response;
+    })
+    .catch((error) => {
+      reachable = false;
+      throw error;
+    })
+    .finally(() => clearTimeout(timer));
 };
 
 export function db(): SupabaseClient {
@@ -48,6 +55,31 @@ export function db(): SupabaseClient {
   });
 
   return adminClient;
+}
+
+/**
+ * Set after the first failed round-trip in this process. Rendering an offline
+ * build is the point: once we know Supabase is unreachable, every later call
+ * returns its fallback immediately instead of burning 8 s on another timeout.
+ * Reset whenever a request succeeds.
+ */
+let reachable: boolean | null = null;
+
+export function markDbUnreachable() {
+  reachable = false;
+}
+
+export function markDbReachable() {
+  reachable = true;
+}
+
+/**
+ * True when it is worth attempting a query: credentials exist AND the last
+ * attempt in this process did not fail. Callers use it exactly like
+ * `isDbConfigured()` — data modules already fall back to seed content.
+ */
+export function dbUsable(): boolean {
+  return isDbConfigured() && reachable !== false;
 }
 
 /** True when Supabase credentials are present (used for graceful demo mode). */

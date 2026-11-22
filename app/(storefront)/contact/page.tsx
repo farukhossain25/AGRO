@@ -2,14 +2,20 @@ import type { Metadata } from "next";
 import { Clock, Facebook, Mail, MapPin, MessageCircle, Phone, Youtube } from "lucide-react";
 import { ContactForm } from "@/components/contact-form";
 import { site } from "@/lib/site";
+import { alternatesFor } from "@/lib/seo";
+import { withSeo } from "@/lib/seo-db";
 
-export const metadata: Metadata = {
-  title: "যোগাযোগ",
-  description:
-    "বিশ্বাস এগ্রোর সাথে যোগাযোগ করুন — ফোন, হোয়াটসঅ্যাপ, ইমেইল বা অফিসে। ঢাকা, ধানমন্ডি। সকাল ৭টা থেকে রাত ১০টা।",
-  alternates: { canonical: "/contact" },
-  openGraph: { title: "যোগাযোগ | বিশ্বাস এগ্রো", url: "/contact" },
-};
+/* Built-in copy is the fallback; /admin/seo can override it per route
+   without a deploy (migration 0006). */
+export async function generateMetadata(): Promise<Metadata> {
+  return withSeo("/contact", {
+    title: "যোগাযোগ",
+    description:
+      "বিশ্বাস এগ্রোর সাথে যোগাযোগ করুন — ফোন, হোয়াটসঅ্যাপ, ইমেইল বা অফিসে। ঢাকা, ধানমন্ডি। সকাল ৭টা থেকে রাত ১০টা।",
+    alternates: alternatesFor("/contact"),
+    openGraph: { title: "যোগাযোগ | বিশ্বাস এগ্রো", url: "/contact" },
+  });
+}
 
 export default function ContactPage() {
   const wa = `https://wa.me/${site.whatsapp}`;

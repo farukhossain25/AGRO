@@ -8,6 +8,7 @@ import {
   BarChart3,
   Camera,
   FileText,
+  Search,
   Image as ImageIcon,
   LayoutGrid,
   LogOut,
@@ -77,6 +78,7 @@ const navGroups = [
       { href: "/admin/coupons", label: "কুপন", Icon: Percent },
       { href: "/admin/banners", label: "ব্যানার", Icon: ImageIcon },
       { href: "/admin/blog", label: "ব্লগ", Icon: FileText },
+      { href: "/admin/seo", label: "SEO", Icon: Search },
     ],
   },
   {

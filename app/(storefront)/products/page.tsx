@@ -2,20 +2,26 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getCategories, getProducts } from "@/lib/data";
 import { ProductBrowser } from "@/components/shop/product-browser";
+import { alternatesFor } from "@/lib/seo";
+import { withSeo } from "@/lib/seo-db";
 
 export const revalidate = 60;
 
-export const metadata: Metadata = {
-  title: "সব পণ্য",
-  description:
-    "বিশ্বাস এগ্রোর সব তাজা ও অর্গানিক পণ্য — শাকসবজি, ফল, ডিম, মাংস, মাছ, দুধ, চাল-ডাল-তেল-মসলা ও মধু। সারা বাংলাদেশে হোম ডেলিভারি।",
-  alternates: { canonical: "/products" },
-  openGraph: {
-    title: "সব পণ্য | বিশ্বাস এগ্রো",
-    description: "খামার থেকে সরাসরি তাজা পণ্য — সারা বাংলাদেশে ডেলিভারি।",
-    url: "/products",
-  },
-};
+/* Built-in copy is the fallback; /admin/seo can override it per route
+   without a deploy (migration 0006). */
+export async function generateMetadata(): Promise<Metadata> {
+  return withSeo("/products", {
+    title: "সব পণ্য",
+    description:
+      "বিশ্বাস এগ্রোর সব তাজা ও অর্গানিক পণ্য — শাকসবজি, ফল, ডিম, মাংস, মাছ, দুধ, চাল-ডাল-তেল-মসলা ও মধু। সারা বাংলাদেশে হোম ডেলিভারি।",
+    alternates: alternatesFor("/products"),
+    openGraph: {
+      title: "সব পণ্য | বিশ্বাস এগ্রো",
+      description: "খামার থেকে সরাসরি তাজা পণ্য — সারা বাংলাদেশে ডেলিভারি।",
+      url: "/products",
+    },
+  });
+}
 
 export default async function ProductsPage({
   searchParams,

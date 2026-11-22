@@ -5,6 +5,7 @@ import { Award, Leaf, MapPin, ShieldCheck, Sprout, Truck, Users } from "lucide-r
 import { getFarmers } from "@/lib/data";
 import { SectionHeader } from "@/components/ui";
 import { site } from "@/lib/site";
+import { alternatesFor } from "@/lib/seo";
 
 export const revalidate = 600;
 
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
   title: "আমাদের খামার ও কৃষক",
   description:
     "বিশ্বাস এগ্রো ২৩০+ কৃষক পরিবারের সাথে সরাসরি কাজ করে। জানুন আমাদের খামার, সংগ্রহ প্রক্রিয়া, গুণমান পরীক্ষা ও সার্টিফিকেশন সম্পর্কে।",
-  alternates: { canonical: "/farm" },
+  alternates: alternatesFor("/farm"),
   openGraph: { title: "খামার থেকে টেবিল | বিশ্বাস এগ্রো", url: "/farm" },
 };
 

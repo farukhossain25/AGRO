@@ -1,4 +1,4 @@
-import { db, isDbConfigured } from "./db";
+import { db, dbUsable, markDbUnreachable } from "./db";
 import type { Camera, Farm, FarmType } from "./types";
 import { seedCameras, seedFarms } from "./seed-premium";
 
@@ -44,7 +44,7 @@ function stripFarm(row: Record<string, unknown>): Farm {
 export async function listFarms(filters: FarmFilters = {}): Promise<Farm[]> {
   const fallback = filterSeedFarms(filters);
 
-  if (!isDbConfigured()) return fallback;
+  if (!dbUsable()) return fallback;
 
   try {
     let q = db()
@@ -75,13 +75,14 @@ export async function listFarms(filters: FarmFilters = {}): Promise<Farm[]> {
       return farm;
     });
   } catch (error) {
+    markDbUnreachable();
     console.warn("[farms] falling back to seed data:", (error as Error).message);
     return fallback;
   }
 }
 
 export async function getFarmBySlug(slug: string): Promise<Farm | null> {
-  if (isDbConfigured()) {
+  if (dbUsable()) {
     try {
       const { data, error } = await db()
         .from("farms")
@@ -99,6 +100,7 @@ export async function getFarmBySlug(slug: string): Promise<Farm | null> {
         return farm;
       }
     } catch (error) {
+      markDbUnreachable();
       console.warn("[farms] detail fallback:", (error as Error).message);
     }
   }
@@ -111,7 +113,7 @@ export async function getDairyFarms(): Promise<Farm[]> {
 }
 
 export async function listCamerasByFarm(farmId: string): Promise<Camera[]> {
-  if (isDbConfigured()) {
+  if (dbUsable()) {
     try {
       const { data, error } = await db()
         .from("cameras")

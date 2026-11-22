@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Heart } from "lucide-react";
@@ -9,6 +10,12 @@ import { EmptyState } from "@/components/ui";
 import { RecentlyViewedStrip } from "@/components/shop/recently-viewed-strip";
 
 export const dynamic = "force-dynamic";
+
+/* Private surface — keep it out of the index and out of snippets. */
+export const metadata: Metadata = {
+  robots: { index: false, follow: false, nocache: true },
+};
+
 
 export default async function WishlistPage() {
   const user = await currentUser();

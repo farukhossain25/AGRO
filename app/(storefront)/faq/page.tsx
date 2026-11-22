@@ -3,13 +3,19 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { FaqAccordion } from "@/components/faq-accordion";
 import { site } from "@/lib/site";
+import { alternatesFor, breadcrumbLd, faqLd, jsonLdScript } from "@/lib/seo";
+import { withSeo } from "@/lib/seo-db";
 
-export const metadata: Metadata = {
-  title: "সাধারণ প্রশ্ন (FAQ)",
-  description:
-    "বিশ্বাস এগ্রো নিয়ে সাধারণ প্রশ্নের উত্তর — ডেলিভারি, পেমেন্ট, রিটার্ন, সাবস্ক্রিপশন ও পণ্যের গুণমান।",
-  alternates: { canonical: "/faq" },
-};
+/* Built-in copy is the fallback; /admin/seo can override it per route
+   without a deploy (migration 0006). */
+export async function generateMetadata(): Promise<Metadata> {
+  return withSeo("/faq", {
+    title: "সাধারণ প্রশ্ন (FAQ)",
+    description:
+      "বিশ্বাস এগ্রো নিয়ে সাধারণ প্রশ্নের উত্তর — ডেলিভারি, পেমেন্ট, রিটার্ন, সাবস্ক্রিপশন ও পণ্যের গুণমান।",
+    alternates: alternatesFor("/faq"),
+  });
+}
 
 const groups = [
   {
@@ -56,8 +62,21 @@ const groups = [
 ];
 
 export default function FaqPage() {
+  /* FAQPage rich result — every question here must be visible on the page
+     (Google penalises markup that has no matching on-page content). */
+  const faq = faqLd(groups.flatMap((group) => group.items));
+  const crumbs = breadcrumbLd([{ name: "হোম", href: "/" }, { name: "সাধারণ প্রশ্ন" }]);
+
   return (
     <div className="container-x py-8 sm:py-12">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(faq) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(crumbs) }}
+      />
       <nav aria-label="ব্রেডক্রাম্ব" className="mb-4 flex items-center gap-1 text-[12px] text-sand-100/45">
         <Link href="/" className="hover:text-leaf-200">হোম</Link>
         <ChevronRight className="h-3 w-3" />

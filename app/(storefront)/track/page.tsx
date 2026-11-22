@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import { TrackForm } from "@/components/track-form";
 import { PackageSearch, Phone } from "lucide-react";
 import { site } from "@/lib/site";
+import { alternatesFor } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "অর্ডার ট্র্যাকিং",
   description: "অর্ডার নম্বর ও মোবাইল নম্বর দিয়ে আপনার বিশ্বাস এগ্রো অর্ডারের সর্বশেষ অবস্থা জানুন।",
-  alternates: { canonical: "/track" },
+  alternates: alternatesFor("/track"),
 };
 
 export default async function TrackPage({

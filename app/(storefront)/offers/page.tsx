@@ -5,13 +5,14 @@ import { db } from "@/lib/db";
 import { seedCoupons } from "@/lib/seed-data";
 import { money } from "@/lib/format";
 import type { Coupon } from "@/lib/types";
+import { alternatesFor } from "@/lib/seo";
 
 export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: "অফার ও কুপন কোড",
   description: "বিশ্বাস এগ্রোর চলমান অফার ও কুপন কোড — প্রথম অর্ডারে ছাড়, ফ্রি ডেলিভারি ও সাপ্তাহিক ডিল।",
-  alternates: { canonical: "/offers" },
+  alternates: alternatesFor("/offers"),
 };
 
 async function loadCoupons(): Promise<Coupon[]> {

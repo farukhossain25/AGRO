@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Clock, Leaf, ShieldCheck, Snowflake, Truck } from "lucide-react";
@@ -13,8 +14,28 @@ import { TrustStrip } from "@/components/home/trust-strip";
 import { LiveFarmsStrip } from "@/components/home/live-farms";
 import { money } from "@/lib/format";
 import { whyChooseUs } from "@/lib/site";
+import { alternatesFor } from "@/lib/seo";
+import { withSeo } from "@/lib/seo-db";
 
 export const revalidate = 120;
+
+/* The home page carries the money keywords, so its title/description live in
+   seo_meta and can be tuned from /admin/seo without shipping a release. */
+export async function generateMetadata(): Promise<Metadata> {
+  return withSeo("/", {
+    // absolute: the root title already carries the brand, so the layout
+    // template must not append it again.
+    title: { absolute: "বিশ্বাস এগ্রো | খামার থেকে আপনার ঘরে — তাজা ও অর্গানিক বাজার" },
+    description:
+      "খামার থেকে সরাসরি তাজা শাকসবজি, ফলমূল, দেশি ডিম, মাছ, মাংস, দুধ ও অর্গানিক পণ্য। ঢাকায় একই দিনে ডেলিভারি, সারা বাংলাদেশে হোম ডেলিভারি, ক্যাশ অন ডেলিভারি।",
+    alternates: alternatesFor("/"),
+    openGraph: {
+      title: "বিশ্বাস এগ্রো — খামার থেকে আপনার ঘরে",
+      description: "তাজা শাকসবজি, দেশি ডিম, খাঁটি মধু ও দুধ — সরাসরি খামার থেকে।",
+      url: "/",
+    },
+  });
+}
 
 export default async function HomePage() {
   const [categories, featured, freshPicks, combos, packages, posts, farmers, reviews] = await Promise.all([

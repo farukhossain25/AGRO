@@ -3,14 +3,20 @@ import Link from "next/link";
 import { MapPin, Search } from "lucide-react";
 import { listFarms, farmTypeLabelBn, farmTypeIcon } from "@/lib/farms";
 import { FarmDirectory } from "@/components/live/farm-directory";
+import { alternatesFor } from "@/lib/seo";
+import { withSeo } from "@/lib/seo-db";
 
-export const revalidate = 300;
+export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "খামার ডিরেক্টরি — লাইভ ক্যামেরা",
-  description: "বাংলাদেশের বিভিন্ন জেলার বিশ্বাস এগ্রো খামার দেখুন — লাইভ ক্যামেরা, কৃষকের তথ্য ও সার্টিফিকেশন।",
-  alternates: { canonical: "/live/farms" },
-};
+/* Built-in copy is the fallback; /admin/seo can override it per route
+   without a deploy (migration 0006). */
+export async function generateMetadata(): Promise<Metadata> {
+  return withSeo("/live/farms", {
+    title: "খামার ডিরেক্টরি — লাইভ ক্যামেরা",
+    description: "বাংলাদেশের বিভিন্ন জেলার বিশ্বাস এগ্রো খামার দেখুন — লাইভ ক্যামেরা, কৃষকের তথ্য ও সার্টিফিকেশন।",
+    alternates: alternatesFor("/live/farms"),
+  });
+}
 
 const TYPES = ["all", "vegetables", "dairy", "poultry", "fish", "fruits"] as const;
 

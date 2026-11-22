@@ -5,16 +5,22 @@ import { ArrowRight, Clock } from "lucide-react";
 import { getBlogPosts } from "@/lib/data";
 import { SectionHeader } from "@/components/ui";
 import { formatDateBn } from "@/lib/format";
+import { alternatesFor } from "@/lib/seo";
+import { withSeo } from "@/lib/seo-db";
 
 export const revalidate = 600;
 
-export const metadata: Metadata = {
-  title: "ব্লগ ও স্বাস্থ্য টিপস",
-  description:
-    "অর্গানিক খাবার, মৌসুমি সবজি, স্বাস্থ্যকর রেসিপি ও খাদ্য নিরাপত্তা নিয়ে বিশ্বাস এগ্রোর ব্লগ।",
-  alternates: { canonical: "/blog" },
-  openGraph: { title: "ব্লগ ও স্বাস্থ্য টিপস | বিশ্বাস এগ্রো", url: "/blog" },
-};
+/* Built-in copy is the fallback; /admin/seo can override it per route
+   without a deploy (migration 0006). */
+export async function generateMetadata(): Promise<Metadata> {
+  return withSeo("/blog", {
+    title: "ব্লগ ও স্বাস্থ্য টিপস",
+    description:
+      "অর্গানিক খাবার, মৌসুমি সবজি, স্বাস্থ্যকর রেসিপি ও খাদ্য নিরাপত্তা নিয়ে বিশ্বাস এগ্রোর ব্লগ।",
+    alternates: alternatesFor("/blog"),
+    openGraph: { title: "ব্লগ ও স্বাস্থ্য টিপস | বিশ্বাস এগ্রো", url: "/blog" },
+  });
+}
 
 export default async function BlogPage() {
   const posts = await getBlogPosts(24);

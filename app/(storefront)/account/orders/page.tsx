@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { currentUser } from "@/lib/api";
 import { getOrdersForUser } from "@/lib/data";
@@ -7,6 +8,12 @@ import { OrderItemActions } from "@/components/shop/order-item-actions";
 import type { Order, OrderItem } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+/* Private surface — keep it out of the index and out of snippets. */
+export const metadata: Metadata = {
+  robots: { index: false, follow: false, nocache: true },
+};
+
 
 const statusLabels: Record<string, { bn: string; tone: string }> = {
   received: { bn: "গৃহীত", tone: "bg-white/[0.07] text-sand-100/70" },

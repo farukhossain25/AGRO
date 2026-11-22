@@ -8,6 +8,8 @@ import { useLocale } from "@/lib/locale";
 import { money } from "@/lib/format";
 import { EmptyState } from "@/components/ui";
 
+
+
 export default function CartPage() {
   const cart = useCart();
   const { t, isBn } = useLocale();

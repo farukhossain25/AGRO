@@ -828,16 +828,181 @@ iOS স্প্ল্যাশ: `public/splash/` — পুনরায় ব�
 
 ---
 
-## ১৭. এখানেই থামুন — পরের ধাপ
+## ১৭. পারফরম্যান্স — Lighthouse ৯০+ (C)
 
-এই ধাপে **A (রিভিউ/অভিযোগ)** এবং **B (ডিভাইস/PWA)** সম্পূর্ণ। পরের বার
-**C (পারফরম্যান্স — Lighthouse 90+)** এবং **D (Google SEO)** একসাথে করব।
+### ফন্ট আর Google Fonts নয়
 
-> ⚠️ **সিদ্ধান্ত দরকার:** আগের নির্দেশ ছিল **Vercel**-এ ডিপ্লয়, কিন্তু নতুন ব্রিফে
-> বারবার **Netlify** (`netlify.toml`, Netlify CDN) বলা হয়েছে। আমি আপাতত Vercel
-> কনফিগ (`vercel.json` + `next.config.ts` হেডার) ধরে রেখেছি এবং একই হেডার
-> `netlify.toml`-এও লিখে রাখব যাতে দুটোই কাজ করে। কোনটি চূড়ান্ত হবে জানালে
-> অন্যটি সরিয়ে দেব।
+`next/font/google` বা `<link href="https://fonts.googleapis.com/…">` — দুটোই বাদ।
+Google Fonts ব্লক করে রেন্ডার, আর `next/font/google` বিল্ডের সময় নেটওয়ার্কে যায়
+(এয়ার-গ্যাপড CI-তে বিল্ড ফেইল করে)। তাই:
+
+- `public/fonts/` — Hind Siliguri ৪০০/৫০০/৬০০/৭০০, woff2, বাংলা + ল্যাটিন আলাদা
+  ফাইল, `unicode-range` দিয়ে ভাগ করা (~৩৬০ KB মোট, কিন্তু একটি পেজে লোড হয়
+  মাত্র ২–৩টি ফাইল)
+- `app/fonts.css` — ৮টি `@font-face`, `font-display: swap`
+- `app/layout.tsx` — শুধু ৪০০ ও ৭০০ প্রিলোড হয় (প্রথম স্ক্রিনে যেগুলো লাগে)
+
+বাংলা ফন্টে `font-display: swap` জরুরি — নাহলে অক্ষর দেখা যায় না যতক্ষণ ফাইল
+না নামে, আর LCP টেক্সট নষ্ট হয়।
+
+### ছবি ও লাইভ ভিডিও
+
+- সব ছবি `next/image` — AVIF/WebP, `sizes` অনুযায়ী রেসপন্সিভ, lazy by default
+- হোম হিরোর ছবি `priority` (= `fetchPriority="high"`), বাকি সব lazy
+- লাইভ স্ট্রিম `components/live/live-stream-lazy.tsx` — IntersectionObserver দিয়ে
+  ভিউপোর্টে ঢুকলে তবেই HLS/WebRTC প্লেয়ার লোড হয়। প্লেয়ার (~৮০ KB) প্রথম
+  পেজ-লোডের বান্ডলে নেই, আর ভিডিও ডিকোডার স্ক্রল না করলে চালু হয় না → TBT কমে
+- `<video preload="none">`, পোস্টার ইমেজ, `playsInline` (iOS)
+
+### বান্ডল বাজেট — CI-তে এনফোর্স করা
+
+```bash
+npm run budget          # লঙ্ঘন থাকলে exit code 1 (CI gate)
+npm run budget:report   # সব রুটের টেবিল
+```
+
+`scripts/check-bundle-budget.mjs` প্রতিটি রুটের first-load JS বের করে
+(`.next/app-build-manifest.json` + chunk গুলো gzip করে) এবং পরিবার অনুযায়ী
+সীমার সাথে মেলায়:
+
+| পরিবার | বাজেট (kB, gzip) | এখন |
+|---|---|---|
+| home | 130 | ১২৯ |
+| catalogue / categories / combos / marketplace | 135 | ১২২–১৩২ |
+| live | 150 | ১৩৪–১৩৬ |
+| blog | 125 | ১২২ |
+| funnel (cart, checkout, account) | 160 | ১১৯–১২৯ |
+| admin | 300 | ১২২+ |
+| auth (login/register) | 260 | ১৭৪–১৮২ |
+| বাকি সব | 200 | — |
+
+gzip করা সংখ্যা নেওয়া হয়েছে কারণ নেটওয়ার্কে সেটাই ট্রান্সফার হয় (Vercel-এ Brotli
+আরও ~৫% ছোট) এবং Lighthouse-এর "JavaScript" রো-তে সেটাই দেখায়।
+
+### Lighthouse চালানো
+
+```bash
+npm run build && npm run start          # আলাদা টার্মিনালে
+npm run lighthouse                      # মোবাইল, ৬টি রুট
+npm run lighthouse -- --route=/products/kacha-tomato
+```
+
+টার্গেট: Performance ≥ ৯০, Accessibility ≥ ৯৫, Best Practices ≥ ৯৫, SEO ≥ ৯৫,
+LCP < ২.৫s, CLS < ০.১, TBT < ২০০ms। স্ক্রিপ্ট Lighthouse না পেলে কী ইনস্টল করতে
+হবে বলে দেয়; `CHROME_PATH` দিয়েও চালানো যায়।
+
+### বিল্ড-টাইম নেটওয়ার্ক
+
+আগে `/live`, `/live/farms`, `/market` — এই পেজগুলোকে `force-static` করা ছিল, ফলে
+Supabase ধীর হলে বিল্ডের ৬০-সেকেন্ড স্ট্যাটিক বাজেট শেষ হয়ে **পুরো ডিপ্লয় ফেইল**
+করত (ঠিক এটাই হয়েছিল)। এখন এই ডেটা-নির্ভর পেজগুলো **রিকোয়েস্টে রেন্ডার** হয়,
+আর `lib/db.ts`-এ একটি সার্কিট ব্রেকার আছে: একবার কানেকশন ফেইল করলে
+(`dbUsable()` → false) বাকি সব কল সাথে সাথে সিড-ডেটায় ফিরে যায়, আর প্রতিবার
+৮ সেকেন্ড টাইমআউট খায় না। ডেটাবেস ফিরে এলে সফল রিকোয়েস্টেই আবার চালু হয়।
+
+---
+
+## ১৮. Google SEO (D)
+
+### টাইটেল, ডেসক্রিপশন, হ্রেফল্যাং
+
+- `lib/seo.ts` — `alternatesFor(path)` স্ট্যাটিক পেজের জন্য canonical + `bn-BD` +
+  `en-US (?lang=en)` + `x-default` দেয়; `dynamicAlternates(path)` ডায়নামিক
+  রুটের জন্য (absolute URL লাগে, কারণ `languages`-এ টেমপ্লেট লিটারেল চলে না)
+- ২৭+ পেজে প্রয়োগ করা: `/`, `/products`, `/categories`, `/combos`, `/market`,
+  `/blog`, `/live*`, `/subscription`, `/about`, `/contact`, `/faq`, `/track`,
+  `/seller/apply` এবং ৭টি `[slug]` রুট
+- `lib/seo-db.ts` → `withSeo(path, fallback)` — কোডে লেখা ডিফল্টের উপরে
+  `seo_meta` টেবিলের ওভাররাইড বসায়। **খালি ঘর কখনো ডিফল্ট মুছবে না**, আর
+  Supabase ডাউন থাকলে ডিফল্টই থাকে — SEO কখনো পেজ ভাঙার কারণ হবে না
+
+### অ্যাডমিন থেকে SEO এডিট (/admin/seo)
+
+মাইগ্রেশন `0006_seo_content.sql` একটি `seo_meta` টেবিল যোগ করে (রুট প্রতি একটি
+রো: টাইটেল, ডেসক্রিপশন, কীওয়ার্ড, OG, canonical, noindex)। অ্যাডমিন প্যানেল →
+**মার্কেটিং → SEO** থেকে ডিপ্লয় ছাড়াই বদলানো যায়। মেমো ক্যাশ ৬০ সেকেন্ড।
+
+### সাইটম্যাপ, রোবটস, রিডাইরেক্ট
+
+- `app/sitemap.ts` — ৯১টি URL (স্ট্যাটিক + ক্যাটাগরি + ৪৭ পণ্য + কম্বো +
+  প্যাকেজ + খামার + সেলার + ব্লগ), প্রতি ঘণ্টায় রিজেনারেট
+- `app/robots.ts` — `/admin`, `/account`, `/api`, `/cart`, `/checkout`,
+  `/payment`, `/login`, `/track`, `/search`, `/seller` ব্লকড; Googlebot-এর জন্য
+  আলাদা নিয়ম; স্ক্র্যাপার বট (AhrefsBot, SemrushBot…) সম্পূর্ণ ব্লকড
+- ৭টি ৩০১ রিডাইরেক্ট: `/shop`, `/farmer`, `/farmers`, `/organic`, `/privacy`,
+  `/terms`, `/refund` — `next.config.ts`, `vercel.json`, `netlify.toml` তিন জায়গায়
+  একই
+
+### JSON-LD (রিচ রেজাল্ট)
+
+| পেজ | স্কিমা |
+|---|---|
+| সব পেজ (layout) | Organization + GroceryStore + WebSite `@graph` |
+| `/products/[slug]` | Product + Offer + AggregateRating + BreadcrumbList |
+| `/blog/[slug]` | BlogPosting (`@id`, `isPartOf`, `publisher`) + BreadcrumbList |
+| `/faq` | FAQPage + BreadcrumbList |
+| `/categories/[slug]` | CollectionPage + BreadcrumbList |
+| `/market/[slug]` | Store + BreadcrumbList |
+| `/live/farms/[slug]` | LocalBusiness + `geo` + `founder` + BreadcrumbList |
+
+সব স্ক্রিপ্ট `jsonLdScript()` দিয়ে রেন্ডার হয় (একই `@graph`-এ ভাগ করা `@id`,
+যাতে Google publisher/website রেফারেন্স মিলিয়ে নিতে পারে)।
+
+### কনটেন্ট — কীওয়ার্ড টার্গেট
+
+`0006` ছয়টি নতুন বাংলা ব্লগ পোস্ট যোগ করে (আগের ৬টি অক্ষত, মোট ১২):
+
+| slug | টার্গেট |
+|---|---|
+| `organic-food-bangladesh-guide` | organic food bangladesh |
+| `fresh-vegetables-delivery-dhaka` | fresh vegetables delivery dhaka |
+| `farm-to-home-bangladesh` | farm to home / খামার থেকে ঘরে |
+| `deshi-dim-vs-farm-egg` | দেশি ডিম |
+| `shiter-moushumi-sabji-dam-guide` | মৌসুমি সবজি |
+| `modhu-test-lab-vs-ghoroa-porikkha` | খাঁটি মধু |
+
+পোস্টের ভেতরে ক্যাটাগরি/প্রোডাক্ট পেজে ইন্টারনাল লিংক আছে (রেন্ডারার এখন
+`[লেবেল](/path)` সাপোর্ট করে) — এতে করে ছয়টি পোস্ট মিলে একটি crawlable cluster
+হয়, একা একা অনাথ পেজ থাকে না।
+
+### ভেরিফিকেশন ও অ্যানালিটিক্স
+
+```bash
+NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION=   # Search Console → HTML tag
+NEXT_PUBLIC_BING_SITE_VERIFICATION=
+NEXT_PUBLIC_GA_ID=                      # GA4 (G-XXXXXXX)
+```
+
+- ভেরিফিকেশন ট্যাগ শুধু env সেট থাকলে রেন্ডার হয় — খালি `content=""` কখনো যায় না
+- GA4 কনসেন্ট-ফার্স্ট: `components/analytics.tsx` প্রথমে বাংলা ব্যানারে জিজ্ঞেস
+  করে, "না" বললে স্ক্রিপ্ট **কখনো** লোড হয় না (`localStorage: ba_ga_consent`)।
+  `NEXT_PUBLIC_GA_ID` খালি থাকলে কিছুই রেন্ডার হয় না — শূন্য রিকোয়েস্ট, শূন্য কুকি
+
+### প্রাইভেট সারফেস
+
+`/account/*`, `/order-success`, `/payment/*`, `/admin/*` — সবগুলোতে
+`robots: { index: false, follow: false }` এবং হোস্টিং লেভেলে
+`X-Robots-Tag: noindex` (রোবটস ব্লক + নোইনডেক্স একসাথে, কারণ শুধু `Disallow`
+কোনো URL-কে ইনডেক্স থেকে সরায় না)।
+
+### সার্চ কনসোল সেটআপ (একবারের কাজ)
+
+1. `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION` সেট করে ডিপ্লয় করুন
+2. Search Console-এ `bishwasagro.com` প্রপার্টি যোগ করে ভেরিফাই করুন
+3. `https://bishwasagro.com/sitemap.xml` সাবমিট করুন
+4. প্রথম ২–৪ সপ্তাহে **Pages → Not indexed** দেখুন; "Duplicate, Google chose
+   different canonical" এলে `seo_meta.canonical` দিয়ে ঠিক করুন
+
+---
+
+## ১৯. এখানেই থামুন — পরের ধাপ
+
+এই ধাপে **C (পারফরম্যান্স)** এবং **D (Google SEO)** সম্পূর্ণ। পরের ধাপে
+**E (CMS / কনটেন্ট ম্যানেজমেন্ট)** এবং **F (টিম ও রোল)** — একসাথে করব।
+
+> ⚠️ **সিদ্ধান্ত এখনো বাকি:** আগের নির্দেশ ছিল **Vercel**, নতুন ব্রিফে **Netlify**।
+> দুই জোড়া কনফিগ (`vercel.json` + `netlify.toml`) এখনো রাখা আছে — দুটোতেই একই
+> হেডার, ক্যাশ ও রিডাইরেক্ট। কোনটি চূড়ান্ত হবে জানালে অন্যটি সরিয়ে দেব।
 
 ---
 

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Video, Wifi, WifiOff, Wrench } from "lucide-react";
 import type { Camera } from "@/lib/types";
-import { LiveStream } from "./live-stream";
+import { LiveStreamLazy } from "./live-stream-lazy";
 
 /* ==========================================================================
    FarmCameras — camera picker + player for a single farm
@@ -36,12 +36,14 @@ export function FarmCameras({
   return (
     <div className="grid gap-3 lg:grid-cols-[1fr_220px]">
       <div>
-        <LiveStream
+        <LiveStreamLazy
           key={active!.id}
           cameraId={active!.id}
           cameraName={`${farmName} — ${active!.name_bn}`}
           poster={active!.poster ?? cover ?? null}
           onMode={setMode}
+          /* the first camera on a farm page is the reason the visitor came */
+          eager
         />
 
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-sand-100/45">

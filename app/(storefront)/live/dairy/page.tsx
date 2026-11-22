@@ -3,14 +3,16 @@ import Link from "next/link";
 import { Milk, ThermometerSun, TrendingUp } from "lucide-react";
 import { getDairyFarms } from "@/lib/farms";
 import { DairyBoard } from "@/components/live/dairy-board";
+import { alternatesFor } from "@/lib/seo";
 
+export const dynamic = "force-dynamic";
 export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: "ডেইরি লাইভ — আজকের দুধ উৎপাদন",
   description:
     "টাঙ্গাইল ডেইরি ফার্মের গোয়ালঘর লাইভ দেখুন এবং আজ কত লিটার দুধ এসেছে, কত বিক্রি হয়েছে তার রিয়েল-টাইম হিসাব।",
-  alternates: { canonical: "/live/dairy" },
+  alternates: alternatesFor("/live/dairy"),
 };
 
 export default async function DairyLivePage() {

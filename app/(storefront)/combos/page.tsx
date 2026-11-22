@@ -5,6 +5,7 @@ import { ArrowRight, Check, Clock, Package, Truck } from "lucide-react";
 import { getCombos } from "@/lib/data";
 import { money } from "@/lib/format";
 import { ComboAddButton } from "@/components/shop/combo-add-button";
+import { alternatesFor } from "@/lib/seo";
 
 export const revalidate = 180;
 
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
   title: "ডেইলি ও উইকলি সবজি কম্বো",
   description:
     "রেডিমেড ডেইলি ও উইকলি সবজি কম্বো বক্স — বাজার দরের চেয়ে ২০% সাশ্রয়। কী কিনবেন ভাবতে হবে না, আমরা বেছে দিই।",
-  alternates: { canonical: "/combos" },
+  alternates: alternatesFor("/combos"),
   openGraph: { title: "সবজি কম্বো বক্স | বিশ্বাস এগ্রো", url: "/combos" },
 };
 

@@ -5,6 +5,8 @@ import { notFound } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { getCategories, getCategoryBySlug, getProducts } from "@/lib/data";
 import { ProductBrowser } from "@/components/shop/product-browser";
+import { breadcrumbLd, dynamicAlternates, jsonLdScript } from "@/lib/seo";
+import { site } from "@/lib/site";
 
 export const revalidate = 120;
 
@@ -25,7 +27,7 @@ export async function generateMetadata({
   return {
     title: category.name_bn,
     description: category.description_bn ?? `${category.name_bn} — খামার থেকে সরাসরি তাজা পণ্য।`,
-    alternates: { canonical: `/categories/${category.slug}` },
+    alternates: dynamicAlternates(`/categories/${category.slug}`),
     openGraph: {
       title: `${category.name_bn} | বিশ্বাস এগ্রো`,
       description: category.description_bn ?? "",
@@ -47,25 +49,46 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
 
   const jsonLd = {
     "@context": "https://schema.org",
-    "@type": "CollectionPage",
-    name: category.name_bn,
-    description: category.description_bn,
-    url: `https://bishwasagro.com/categories/${category.slug}`,
-    mainEntity: {
-      "@type": "ItemList",
-      numberOfItems: products.length,
-      itemListElement: products.slice(0, 20).map((p, i) => ({
-        "@type": "ListItem",
-        position: i + 1,
-        name: p.name_bn,
-        url: `https://bishwasagro.com/products/${p.slug}`,
-      })),
-    },
+    "@graph": [
+      {
+        "@type": "CollectionPage",
+        "@id": `${site.url}/categories/${category.slug}#collection`,
+        name: category.name_bn,
+        description: category.description_bn ?? undefined,
+        url: `${site.url}/categories/${category.slug}`,
+        inLanguage: "bn-BD",
+        isPartOf: { "@id": `${site.url}/#website` },
+        mainEntity: {
+          "@type": "ItemList",
+          numberOfItems: products.length,
+          itemListElement: products.slice(0, 20).map((prod, i) => ({
+            "@type": "ListItem",
+            position: i + 1,
+            name: prod.name_bn,
+            url: `${site.url}/products/${prod.slug}`,
+            image: prod.image
+              ? prod.image.startsWith("http") ? prod.image : `${site.url}${prod.image}`
+              : undefined,
+          })),
+        },
+      },
+      breadcrumbLd([
+        { name: "হোম", href: "/" },
+        { name: "ক্যাটাগরি", href: "/categories" },
+        { name: category.name_bn },
+      ]),
+    ].map((node) => {
+      const { "@context": _c, ...rest } = node as Record<string, unknown> & { "@context"?: string };
+      return rest;
+    }),
   };
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(jsonLd) }}
+      />
 
       {/* category hero */}
       <section className="relative overflow-hidden border-b border-white/[0.06]">

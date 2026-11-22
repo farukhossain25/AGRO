@@ -19,6 +19,7 @@ import { getProductReviews } from "@/lib/reviews";
 import { SectionHeader, StarRating } from "@/components/ui";
 import { site } from "@/lib/site";
 import { formatDateBn } from "@/lib/format";
+import { dynamicAlternates } from "@/lib/seo";
 
 export const revalidate = 120;
 
@@ -40,7 +41,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return {
     title,
     description,
-    alternates: { canonical: `/products/${product.slug}` },
+    alternates: dynamicAlternates(`/products/${product.slug}`),
     openGraph: {
       title: `${title} | ${site.nameBn}`,
       description,

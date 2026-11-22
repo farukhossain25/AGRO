@@ -1,8 +1,15 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { CheckCircle2, Package, Phone, Truck } from "lucide-react";
 import { getOrderByNo } from "@/lib/data";
 import { formatDateBn, money } from "@/lib/format";
 import { orderStatusSteps, site } from "@/lib/site";
+
+/* Private surface — keep it out of the index and out of snippets. */
+export const metadata: Metadata = {
+  robots: { index: false, follow: false, nocache: true },
+};
+
 
 export const dynamic = "force-dynamic";
 

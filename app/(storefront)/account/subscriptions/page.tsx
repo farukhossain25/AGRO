@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { currentUser } from "@/lib/api";
 import { db } from "@/lib/db";
@@ -7,6 +8,12 @@ import { SubscriptionControls } from "@/components/subscription-controls";
 import type { Subscription } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+/* Private surface — keep it out of the index and out of snippets. */
+export const metadata: Metadata = {
+  robots: { index: false, follow: false, nocache: true },
+};
+
 
 const freqLabels: Record<string, string> = {
   weekly: "সাপ্তাহিক",

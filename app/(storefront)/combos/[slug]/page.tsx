@@ -6,6 +6,7 @@ import { Check, ChevronRight, Clock, Leaf, Package, Truck } from "lucide-react";
 import { getComboBySlug, getCombos } from "@/lib/data";
 import { money } from "@/lib/format";
 import { ComboAddButton } from "@/components/shop/combo-add-button";
+import { dynamicAlternates } from "@/lib/seo";
 
 export const revalidate = 180;
 
@@ -21,7 +22,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return {
     title: combo.name_bn,
     description: combo.description_bn ?? undefined,
-    alternates: { canonical: `/combos/${combo.slug}` },
+    alternates: dynamicAlternates(`/combos/${combo.slug}`),
     openGraph: {
       title: combo.name_bn,
       description: combo.description_bn ?? undefined,

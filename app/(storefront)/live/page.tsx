@@ -6,6 +6,7 @@ import { listFarms, farmTypeLabelBn, farmTypeIcon } from "@/lib/farms";
 import { listPlans } from "@/lib/premium";
 import { SectionHeader } from "@/components/ui";
 import { site } from "@/lib/site";
+import { alternatesFor } from "@/lib/seo";
 
 export const revalidate = 300;
 
@@ -13,11 +14,14 @@ export const metadata: Metadata = {
   title: "লাইভ খামার — নিজের চোখে দেখুন",
   description:
     "বিশ্বাস এগ্রোর খামারে বসানো লাইভ ক্যামেরা দেখুন — সবজি তোলা, গাভীর দোহন, ডিম বাছাই সবকিছু সরাসরি। ১০ মিনিট ফ্রি ট্রায়াল।",
-  alternates: { canonical: "/live" },
+  alternates: alternatesFor("/live"),
   openGraph: { title: "লাইভ খামার ক্যামেরা | বিশ্বাস এগ্রো", url: "/live" },
 };
 
-export const dynamic = "force-static";
+/* Rendered per request with a 5-minute ISR cache. Prerendering this page needs
+   Supabase at build time; a slow connection there fails the whole deploy, so it
+   renders on first request instead. */
+export const dynamic = "force-dynamic";
 
 export default async function LiveHubPage() {
   const [farms, plans] = await Promise.all([listFarms({}), listPlans(true)]);

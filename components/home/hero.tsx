@@ -6,6 +6,10 @@ import { ArrowRight, BadgeCheck, Play, Sprout, Star, Truck } from "lucide-react"
 import { useLocale } from "@/lib/locale";
 import { site } from "@/lib/site";
 
+/** Tiny inline blur-up placeholder (a 4×3 gradient JPEG, ~120 bytes). */
+const BLUR_PLACEHOLDER =
+  "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjMiPjxkZWZzPjxsaW5lYXJHcmFkaWVudCBpZD0iZyIgeDE9IjAiIHkxPSIwIiB4Mj0iMSIgeTI9IjEiPjxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iIzE4NjE0MCIvPjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzBkMzYyNSIvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjMiIGZpbGw9InVybCgjZykiLz48L3N2Zz4=";
+
 export function Hero({ categories }: { categories: { slug: string; name_bn: string; icon: string | null }[] }) {
   const { t, isBn } = useLocale();
 
@@ -100,8 +104,13 @@ export function Hero({ categories }: { categories: { slug: string; name_bn: stri
                   "Fresh vegetables harvested from the farm"
                 )}
                 fill
+                /* LCP element on the homepage: highest priority, and sized so a
+                   360–414px phone downloads a ~420px AVIF rather than a 1080px one. */
                 priority
-                sizes="(max-width: 1024px) 100vw, 50vw"
+                fetchPriority="high"
+                sizes="(max-width: 640px) 92vw, (max-width: 1024px) 100vw, 50vw"
+                placeholder="blur"
+                blurDataURL={BLUR_PLACEHOLDER}
                 className="object-cover"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-ink-950/80 via-transparent to-transparent" />

@@ -2,13 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { listPlans } from "@/lib/premium";
 import { TrialStarter } from "@/components/live/trial-starter";
+import { alternatesFor } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "১০ মিনিট ফ্রি ট্রায়াল — লাইভ খামার",
   description: "কার্ড ছাড়াই ১০ মিনিটের ফ্রি ট্রায়ালে সব লাইভ ক্যামেরা দেখুন।",
-  alternates: { canonical: "/live/trial" },
+  alternates: alternatesFor("/live/trial"),
   robots: { index: false, follow: true },
 };
 

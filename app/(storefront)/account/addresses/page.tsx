@@ -1,9 +1,16 @@
+import type { Metadata } from "next";
 import { currentUser } from "@/lib/api";
 import { db } from "@/lib/db";
 import { AddressManager } from "@/components/address-manager";
 import type { Address } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+/* Private surface — keep it out of the index and out of snippets. */
+export const metadata: Metadata = {
+  robots: { index: false, follow: false, nocache: true },
+};
+
 
 export default async function AddressesPage() {
   const user = await currentUser();

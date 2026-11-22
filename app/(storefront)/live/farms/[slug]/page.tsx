@@ -6,13 +6,16 @@ import { CalendarDays, MapPin, Phone, ShieldCheck, Sprout, Users, Video } from "
 import { getFarmBySlug, listFarms, farmTypeLabelBn } from "@/lib/farms";
 import { FarmCameras } from "@/components/live/farm-cameras";
 import { FarmDetailMap } from "@/components/live/farm-detail-map";
+import { breadcrumbLd, dynamicAlternates, jsonLdScript } from "@/lib/seo";
+import { site } from "@/lib/site";
 
-export const revalidate = 300;
-
-export async function generateStaticParams() {
-  const farms = await listFarms({});
-  return farms.map((f) => ({ slug: f.slug }));
-}
+/* Dynamic on purpose: the farm page reads the session for the premium camera
+   gate, so prerendering it would flip to dynamic anyway — and prerendering it
+   means every farm is rendered during the build, where a slow/blocked Supabase
+   connection burns the 60-second static-render budget. The data layer caches
+   farms for 5 minutes, so this is still cheap. */
+export const dynamic = "force-dynamic";
+export const revalidate = 600;
 
 export async function generateMetadata({
   params,
@@ -26,7 +29,7 @@ export async function generateMetadata({
   return {
     title: `${farm.name_bn} — লাইভ ক্যামেরা`,
     description: farm.description_bn ?? `${farm.district} জেলার ${farm.name_bn}।`,
-    alternates: { canonical: `/live/farms/${farm.slug}` },
+    alternates: dynamicAlternates(`/live/farms/${farm.slug}`),
     openGraph: {
       title: farm.name_bn,
       description: farm.description_bn ?? "",
@@ -44,8 +47,54 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ slu
   const output = (farm.daily_output ?? {}) as Record<string, number | string>;
   const cameras = farm.cameras ?? [];
 
+  /* Farm markup: LocalBusiness with the farmer as founder (Person), plus a
+     breadcrumb. Coordinates come from the farm record so Google Maps can place
+     the pin; no personal phone number is exposed. */
+  const farmLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "LocalBusiness",
+        "@id": `${site.url}/live/farms/${farm.slug}#farm`,
+        name: farm.name_bn,
+        url: `${site.url}/live/farms/${farm.slug}`,
+        image: farm.cover
+          ? farm.cover.startsWith("http") ? farm.cover : `${site.url}${farm.cover}`
+          : `${site.url}/images/hero/farm.jpg`,
+        description: farm.description_bn ?? farm.story_bn ?? undefined,
+        address: {
+          "@type": "PostalAddress",
+          streetAddress: farm.address_bn ?? undefined,
+          addressLocality: farm.district,
+          addressRegion: farm.division,
+          addressCountry: "BD",
+        },
+        ...(farm.lat && farm.lng
+          ? { geo: { "@type": "GeoCoordinates", latitude: farm.lat, longitude: farm.lng } }
+          : {}),
+        ...(farm.owner_name_bn
+          ? { founder: { "@type": "Person", name: farm.owner_name_bn } }
+          : {}),
+        parentOrganization: { "@id": `${site.url}/#organization` },
+        isPartOf: { "@id": `${site.url}/#organization` },
+      },
+      breadcrumbLd([
+        { name: "হোম", href: "/" },
+        { name: "লাইভ খামার", href: "/live" },
+        { name: farm.name_bn },
+      ]),
+    ].map((node) => {
+      const { "@context": _c, ...rest } = node as Record<string, unknown> & { "@context"?: string };
+      return rest;
+    }),
+  };
+
   return (
     <div>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(farmLd) }}
+      />
       {/* ------------------------------------------------------------- hero */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 -z-10">

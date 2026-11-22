@@ -5,13 +5,14 @@ import { currentUser } from "@/lib/api";
 import { getSellerByUser } from "@/lib/sellers";
 import { listFarms } from "@/lib/farms";
 import { SellerApplyForm } from "@/components/seller/apply-form";
+import { alternatesFor } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "বিক্রেতা হোন — বিশ্বাস এগ্রো মার্কেটপ্লেস",
   description: "আপনার খামারের পণ্য অনলাইনে বিক্রি করুন — লাইভ ক্যামেরা, QR ট্রেসেবিলিটি ও ১০% কমিশনে।",
-  alternates: { canonical: "/seller/apply" },
+  alternates: alternatesFor("/seller/apply"),
 };
 
 export default async function SellerApplyPage() {

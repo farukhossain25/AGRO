@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, MapPin, Package, Repeat } from "lucide-react";
 import { currentUser } from "@/lib/api";
@@ -7,6 +8,12 @@ import { formatDateBn, money } from "@/lib/format";
 import type { Order, Subscription } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+/* Private surface — keep it out of the index and out of snippets. */
+export const metadata: Metadata = {
+  robots: { index: false, follow: false, nocache: true },
+};
+
 
 export default async function AccountDashboard() {
   const user = await currentUser();

@@ -5,6 +5,7 @@ import { listPlans, intervalLabelBn, tierLabelBn, getPremiumSettings } from "@/l
 import { currentUser } from "@/lib/api";
 import { PlanCheckout } from "@/components/live/plan-checkout";
 import { RedeemCode } from "@/components/live/redeem-code";
+import { alternatesFor } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
   title: "প্রিমিয়াম প্ল্যান ও দাম",
   description:
     "লাইভ খামার ক্যামেরার প্রিমিয়াম প্ল্যান — মাসিক ৳১৪৯ থেকে বাৎসরিক পর্যন্ত। bKash, Nagad, SSLCommerz বা অ্যাক্সেস কোড দিয়ে পেমেন্ট।",
-  alternates: { canonical: "/live/plans" },
+  alternates: alternatesFor("/live/plans"),
 };
 
 const FAQ = [

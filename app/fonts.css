@@ -1,0 +1,93 @@
+/* ==========================================================================
+   Self-hosted Bangla + Latin webfonts  (section C)
+   --------------------------------------------------------------------------
+   Previously loaded from fonts.googleapis.com, which cost two extra DNS/TLS
+   handshakes and ~120 ms before the first glyph could paint. These are the
+   same Hind Siliguri files served from our own origin (public/fonts/), split
+   into a Bengali subset and a Latin subset so a page only downloads the range
+   it actually uses.
+
+   font-display: swap  → text is readable immediately with the fallback, so the
+   font can never block LCP. `unicode-range` lets the browser skip a file
+   entirely when no glyph from that range appears on the page.
+   ========================================================================== */
+
+/* ---- Bengali subset (the default view for bn-BD visitors) -------------- */
+@font-face {
+  font-family: "Hind Siliguri";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/hind-siliguri-bn-400.woff2") format("woff2");
+  unicode-range: U+0900-097F, U+1CD0-1CF9, U+200C-200D, U+20A8, U+20B9, U+20F0,
+    U+25CC, U+A830-A839, U+A8E0-A8FF, U+11B00-11B09;
+}
+@font-face {
+  font-family: "Hind Siliguri";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/hind-siliguri-bn-500.woff2") format("woff2");
+  unicode-range: U+0900-097F, U+1CD0-1CF9, U+200C-200D, U+20A8, U+20B9, U+20F0,
+    U+25CC, U+A830-A839, U+A8E0-A8FF, U+11B00-11B09;
+}
+@font-face {
+  font-family: "Hind Siliguri";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/hind-siliguri-bn-600.woff2") format("woff2");
+  unicode-range: U+0900-097F, U+1CD0-1CF9, U+200C-200D, U+20A8, U+20B9, U+20F0,
+    U+25CC, U+A830-A839, U+A8E0-A8FF, U+11B00-11B09;
+}
+@font-face {
+  font-family: "Hind Siliguri";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/hind-siliguri-bn-700.woff2") format("woff2");
+  unicode-range: U+0900-097F, U+1CD0-1CF9, U+200C-200D, U+20A8, U+20B9, U+20F0,
+    U+25CC, U+A830-A839, U+A8E0-A8FF, U+11B00-11B09;
+}
+
+/* ---- Latin subset ------------------------------------------------------ */
+@font-face {
+  font-family: "Hind Siliguri";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/hind-siliguri-latin-400.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Hind Siliguri";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/hind-siliguri-latin-500.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Hind Siliguri";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/hind-siliguri-latin-600.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Hind Siliguri";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/hind-siliguri-latin-700.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}

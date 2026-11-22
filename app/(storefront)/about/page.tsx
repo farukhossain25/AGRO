@@ -4,14 +4,20 @@ import Link from "next/link";
 import { Heart, Leaf, Target, Users } from "lucide-react";
 import { SectionHeader } from "@/components/ui";
 import { site } from "@/lib/site";
+import { alternatesFor } from "@/lib/seo";
+import { withSeo } from "@/lib/seo-db";
 
-export const metadata: Metadata = {
-  title: "আমাদের সম্পর্কে",
-  description:
-    "বিশ্বাস এগ্রো — ২০২১ সাল থেকে বাংলাদেশের কৃষকদের কাছ থেকে সরাসরি তাজা ও নিরাপদ খাবার পরিবারের কাছে পৌঁছে দিচ্ছে। আমাদের গল্প, মিশন ও মূল্যবোধ।",
-  alternates: { canonical: "/about" },
-  openGraph: { title: "আমাদের সম্পর্কে | বিশ্বাস এগ্রো", url: "/about" },
-};
+/* Built-in copy is the fallback; /admin/seo can override it per route
+   without a deploy (migration 0006). */
+export async function generateMetadata(): Promise<Metadata> {
+  return withSeo("/about", {
+    title: "আমাদের সম্পর্কে",
+    description:
+      "বিশ্বাস এগ্রো — ২০২১ সাল থেকে বাংলাদেশের কৃষকদের কাছ থেকে সরাসরি তাজা ও নিরাপদ খাবার পরিবারের কাছে পৌঁছে দিচ্ছে। আমাদের গল্প, মিশন ও মূল্যবোধ।",
+    alternates: alternatesFor("/about"),
+    openGraph: { title: "আমাদের সম্পর্কে | বিশ্বাস এগ্রো", url: "/about" },
+  });
+}
 
 const values = [
   { icon: Leaf, title: "বিশুদ্ধতা", body: "যদি নিজের পরিবারকে খাওয়াতে না পারি, সেটি আমরা বিক্রি করি না।" },

@@ -1,0 +1,129 @@
+# ============================================================================
+# netlify.toml — mirror of next.config.ts headers + vercel.json
+# ----------------------------------------------------------------------------
+# The brief asks for Netlify; earlier instructions said Vercel. Rather than
+# silently pick one, both configurations ship and stay in sync. Netlify ignores
+# this file entirely on a Vercel deploy, and vice-versa.
+#
+# On Netlify the Next.js runtime reads `headers()` from next.config.ts too, so
+# this file is only needed for the edge-cache rules that must exist before the
+# function runs.
+# ============================================================================
+
+[build]
+  command = "npm run build"
+  publish = ".next"
+  environment = { NODE_VERSION = "20" }
+
+[build.environment]
+  NODE_VERSION = "20"
+  NEXT_TELEMETRY_DISABLED = "1"
+
+# ── plugin: the official Next.js runtime
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# ── security headers on every response
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "SAMEORIGIN"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(self), payment=(self), browsing-topics=()"
+    Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
+    Cross-Origin-Opener-Policy = "same-origin"
+    X-DNS-Prefetch-Control = "on"
+
+# Content-Security-Policy — kept in next.config.ts only, because Netlify cannot
+# express the per-environment 'unsafe-eval' exception cleanly. The function
+# layer sets it on every HTML response.
+
+# ── immutable content-addressed assets
+[[headers]]
+  for = "/_next/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/fonts/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+    Access-Control-Allow-Origin = "*"
+
+[[headers]]
+  for = "/images/*"
+  [headers.values]
+    Cache-Control = "public, max-age=2592000, stale-while-revalidate=86400"
+
+[[headers]]
+  for = "/icons/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
+[[headers]]
+  for = "/splash/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
+# ── the service worker must never be cached
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+    Service-Worker-Allowed = "/"
+
+[[headers]]
+  for = "/sitemap.xml"
+  [headers.values]
+    Cache-Control = "public, max-age=3600, s-maxage=3600"
+
+# ── private surfaces
+[[headers]]
+  for = "/admin/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow, noarchive"
+
+[[headers]]
+  for = "/account/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+
+# ── permanent moves (kept in sync with next.config.ts + vercel.json)
+[[redirects]]
+  from = "/shop"
+  to = "/products"
+  status = 301
+
+[[redirects]]
+  from = "/farmer"
+  to = "/farm"
+  status = 301
+
+[[redirects]]
+  from = "/farmers"
+  to = "/farm"
+  status = 301
+
+[[redirects]]
+  from = "/organic"
+  to = "/categories/agri"
+  status = 301
+
+[[redirects]]
+  from = "/privacy"
+  to = "/policies/privacy"
+  status = 301
+
+[[redirects]]
+  from = "/terms"
+  to = "/policies/terms"
+  status = 301
+
+[[redirects]]
+  from = "/refund"
+  to = "/policies/refund"
+  status = 301
+
+# ── SPA fallback is NOT used: every route is a real Next.js page, so a missing
+# URL must return a genuine 404 (important for SEO).

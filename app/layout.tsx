@@ -2,7 +2,9 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { PWARegister } from "@/components/pwa-register";
+import { Analytics } from "@/components/analytics";
 import { site } from "@/lib/site";
+import { localBusinessLd, organizationLd, websiteLd } from "@/lib/seo";
 
 export const metadata: Metadata = {
   metadataBase: new URL(site.url),
@@ -28,7 +30,6 @@ export const metadata: Metadata = {
   publisher: site.nameBn,
   alternates: {
     canonical: "/",
-    languages: { "bn-BD": "/", "en-US": "/?lang=en" },
   },
   openGraph: {
     type: "website",
@@ -58,6 +59,17 @@ export const metadata: Metadata = {
     follow: true,
     googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1 },
   },
+  /* Search Console ownership proof. The value comes from the env so the same
+     build can verify a staging domain; when unset no tag is emitted (an empty
+     meta tag is worse than none). */
+  verification: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
+    ? {
+        google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
+        other: process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION
+          ? { "msvalidate.01": process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION }
+          : {},
+      }
+    : undefined,
   category: "shopping",
   applicationName: site.nameBn,
   formatDetection: { telephone: true, address: true },
@@ -86,28 +98,18 @@ export const viewport: Viewport = {
   colorScheme: "dark",
 };
 
+/* Site-wide structured data ------------------------------------------------
+   One @graph node keeps Organization, LocalBusiness and WebSite together so
+   Google resolves the `@id` references (publisher, parentOrganization) without
+   guessing. Page-level Product / Article / Breadcrumb / Person nodes are
+   emitted by the individual routes. See lib/seo.ts. */
 const jsonLd = {
   "@context": "https://schema.org",
-  "@type": "GroceryStore",
-  name: site.nameBn,
-  alternateName: site.nameEn,
-  description: site.descriptionBn,
-  url: site.url,
-  telephone: site.phone,
-  email: site.email,
-  image: `${site.url}/images/cat/vegetables.jpg`,
-  address: {
-    "@type": "PostalAddress",
-    streetAddress: "House 12, Road 7, Dhanmondi",
-    addressLocality: "Dhaka",
-    postalCode: "1209",
-    addressCountry: "BD",
-  },
-  openingHours: "Mo-Su 07:00-22:00",
-  priceRange: "৳৳",
-  sameAs: [site.social.facebook, site.social.youtube, site.social.instagram],
+  "@graph": [organizationLd, localBusinessLd, websiteLd].map(
+    // the graph already carries @context at the top level
+    ({ "@context": _ctx, ...node }) => node
+  ),
 };
-
 
 /* iOS launch images -------------------------------------------------------
    Safari only honours apple-touch-startup-image with an exact device
@@ -131,13 +133,24 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="bn" suppressHydrationWarning>
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link rel="preconnect" href="https://lyihdzgmtjkkhybpkqot.supabase.co" />
+        {/* Self-hosted fonts (app/fonts.css). Preload only the two weights the
+            first screen actually needs — 400 body copy and 700 headlines — so
+            LCP text paints as soon as the fonts land, without blocking. */}
         <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap"
+          rel="preload"
+          href="/fonts/hind-siliguri-bn-400.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
         />
+        <link
+          rel="preload"
+          href="/fonts/hind-siliguri-bn-700.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
+        <link rel="preconnect" href="https://lyihdzgmtjkkhybpkqot.supabase.co" />
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <meta name="theme-color" content="#1f7a4d" />
         <meta name="mobile-web-app-capable" content="yes" />
@@ -154,7 +167,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         ))}
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c"),
+          }}
         />
       </head>
       <body className="min-h-dvh">
@@ -166,6 +181,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </a>
         <Providers>{children}</Providers>
         <PWARegister />
+        <Analytics />
       </body>
     </html>
   );

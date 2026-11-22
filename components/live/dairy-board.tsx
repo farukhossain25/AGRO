@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { RefreshCw, Video } from "lucide-react";
 import type { Farm } from "@/lib/types";
-import { LiveStream } from "./live-stream";
+import { LiveStreamLazy } from "./live-stream-lazy";
 
 /* ==========================================================================
    DairyBoard — production numbers + the milking-parlour camera
@@ -116,10 +116,11 @@ export function DairyBoard({ farms }: { farms: Farm[] }) {
               <div className="p-3 sm:p-4">
                 {camera ? (
                   isActive ? (
-                    <LiveStream
+                    <LiveStreamLazy
                       cameraId={camera.id}
                       cameraName={`${row.name_bn} — ${camera.name_bn}`}
                       poster={camera.poster ?? farm?.cover ?? null}
+                      eager
                     />
                   ) : (
                     <button

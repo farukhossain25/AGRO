@@ -6,6 +6,7 @@ import { ArrowLeft, Clock, Share2, User } from "lucide-react";
 import { getBlogPost, getBlogPosts } from "@/lib/data";
 import { formatDateBn } from "@/lib/format";
 import { site } from "@/lib/site";
+import { breadcrumbLd, dynamicAlternates, jsonLdScript } from "@/lib/seo";
 
 export const revalidate = 600;
 
@@ -21,7 +22,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return {
     title: post.title_bn,
     description: post.excerpt_bn ?? undefined,
-    alternates: { canonical: `/blog/${post.slug}` },
+    alternates: dynamicAlternates(`/blog/${post.slug}`),
     openGraph: {
       type: "article",
       title: post.title_bn,
@@ -41,15 +42,32 @@ function renderMarkdown(md: string) {
   let list: string[] = [];
   let key = 0;
 
+  /* Inline markdown: **bold** and [label](/internal/path). Internal links are
+     what turn six posts into a crawlable cluster, so they must render as real
+     <Link> anchors — plain text there would waste the whole section D effort. */
   const inline = (text: string) => {
-    const parts = text.split(/(\*\*[^*]+\*\*)/g);
-    return parts.map((p, i) =>
-      p.startsWith("**") && p.endsWith("**") ? (
-        <strong key={i} className="font-semibold text-leaf-200">{p.slice(2, -2)}</strong>
-      ) : (
-        <span key={i}>{p}</span>
-      )
-    );
+    const parts = text.split(/(\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/g);
+    return parts.map((p, i) => {
+      if (p.startsWith("**") && p.endsWith("**")) {
+        return (
+          <strong key={i} className="font-semibold text-leaf-200">{p.slice(2, -2)}</strong>
+        );
+      }
+      const link = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(p);
+      if (link) {
+        const [, label, href] = link;
+        return (
+          <Link
+            key={i}
+            href={href}
+            className="font-medium text-leaf-300 underline decoration-leaf-500/40 underline-offset-4 transition hover:text-leaf-200 hover:decoration-leaf-400"
+          >
+            {label}
+          </Link>
+        );
+      }
+      return <span key={i}>{p}</span>;
+    });
   };
 
   const flushList = () => {
@@ -92,21 +110,44 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
   const others = (await getBlogPosts(6)).filter((p) => p.slug !== post.slug).slice(0, 3);
 
+  /* Article + Breadcrumb, sharing @id references with the site-wide graph so
+     Google can tie the byline to the Organization. */
   const jsonLd = {
     "@context": "https://schema.org",
-    "@type": "BlogPosting",
-    headline: post.title_bn,
-    description: post.excerpt_bn,
-    image: post.cover ? `${site.url}${post.cover}` : undefined,
-    datePublished: post.published_at,
-    author: { "@type": "Organization", name: post.author_bn },
-    publisher: { "@type": "Organization", name: site.nameBn, logo: { "@type": "ImageObject", url: `${site.url}/favicon.svg` } },
-    mainEntityOfPage: `${site.url}/blog/${post.slug}`,
+    "@graph": [
+      {
+        "@type": "BlogPosting",
+        "@id": `${site.url}/blog/${post.slug}#article`,
+        headline: post.title_bn,
+        description: post.excerpt_bn ?? undefined,
+        image: post.cover ? [post.cover.startsWith("http") ? post.cover : `${site.url}${post.cover}`] : undefined,
+        datePublished: post.published_at,
+        dateModified: post.published_at,
+        inLanguage: "bn-BD",
+        articleSection: post.tag_bn,
+        wordCount: Math.round(post.read_minutes * 200),
+        author: { "@type": "Organization", name: post.author_bn, url: site.url },
+        publisher: { "@id": `${site.url}/#organization` },
+        isPartOf: { "@id": `${site.url}/#website` },
+        mainEntityOfPage: `${site.url}/blog/${post.slug}`,
+      },
+      breadcrumbLd([
+        { name: "হোম", href: "/" },
+        { name: "ব্লগ", href: "/blog" },
+        { name: post.title_bn },
+      ]),
+    ].map((node) => {
+      const { "@context": _c, ...rest } = node as Record<string, unknown> & { "@context"?: string };
+      return rest;
+    }),
   };
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(jsonLd) }}
+      />
 
       <article className="container-x py-8 sm:py-12">
         <Link href="/blog" className="inline-flex items-center gap-1.5 text-[12px] text-sand-100/45 hover:text-leaf-200">

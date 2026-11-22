@@ -3,6 +3,7 @@
    dynamic(..., { ssr: false }). CSS @import must precede every other rule. */
 @import "leaflet/dist/leaflet.css";
 @import "maplibre-gl/dist/maplibre-gl.css";
+@import "./fonts.css";
 
 @tailwind base;
 @tailwind components;

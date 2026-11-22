@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { FileText, ShieldCheck } from "lucide-react";
 import { policies, type Policy } from "@/lib/policies";
 import { site } from "@/lib/site";
+import { dynamicAlternates } from "@/lib/seo";
 
 export function generateStaticParams() {
   return Object.keys(policies).map((slug) => ({ slug }));
@@ -16,7 +17,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return {
     title: policy.titleBn,
     description: `${policy.titleBn} — বিশ্বাস এগ্রো। সর্বশেষ আপডেট: ${policy.updated}`,
-    alternates: { canonical: `/policies/${policy.slug}` },
+    alternates: dynamicAlternates(`/policies/${policy.slug}`),
   };
 }
 

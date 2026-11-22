@@ -1,9 +1,16 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrderByNo } from "@/lib/data";
 import { PaymentInit } from "@/components/payment-init";
 import { money } from "@/lib/format";
 import { paymentMethods } from "@/lib/site";
+
+/* Private surface — keep it out of the index and out of snippets. */
+export const metadata: Metadata = {
+  robots: { index: false, follow: false, nocache: true },
+};
+
 
 export const dynamic = "force-dynamic";
 
