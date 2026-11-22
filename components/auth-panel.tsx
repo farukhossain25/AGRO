@@ -196,7 +196,9 @@ export function AuthPanel() {
       router.push(redirectTo);
       router.refresh();
     } catch (err) {
-      toast.error(t("লগইন ব্যর্থ", "Sign-in failed"), (err as Error).message);
+      const msg = (err as Error).message;
+      setNotice(`লগইন ব্যর্থ: ${msg}`);
+      toast.error(t("লগইন ব্যর্থ", "Sign-in failed"), msg);
     } finally {
       setLoading(false);
     }
