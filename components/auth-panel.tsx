@@ -461,8 +461,10 @@ export function AuthPanel() {
             <span>
               {(() => {
                 const key = safeGet("error") ?? "";
+                const reason = safeGet("reason");
                 const entry = CALLBACK_ERRORS[key];
-                return entry ? t(entry.bn, entry.en) : t("লগইন সম্পন্ন হয়নি।", "Sign-in did not complete.");
+                const base = entry ? t(entry.bn, entry.en) : t("লগইন সম্পন্ন হয়নি।", "Sign-in did not complete.");
+                return reason ? `${base} (${reason})` : base;
               })()}
             </span>
           </div>

@@ -29,7 +29,7 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   {
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=(self), payment=(self), browsing-topics=()",
+    value: "camera=(), microphone=(), geolocation=(self), payment=(self)",
   },
   { key: "X-DNS-Prefetch-Control", value: "on" },
   // HSTS — one year, subdomains, preload-ready. Only meaningful over HTTPS.
