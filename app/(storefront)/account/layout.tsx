@@ -20,7 +20,10 @@ export default async function AccountLayout({ children }: { children: React.Reac
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
+      {/* `grid-cols-1` matters: without it the mobile track is implicit and
+          sized to the widest child (the horizontal account menu), which made
+          the whole page scroll sideways on a phone. */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[220px_1fr]">
         <AccountNav />
         <div className="min-w-0">{children}</div>
       </div>

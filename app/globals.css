@@ -109,6 +109,24 @@
   input[type="date"]::-webkit-calendar-picker-indicator {
     filter: invert(0.85);
   }
+
+  /*
+   * A single-column grid with no explicit template gets an *implicit* track
+   * sized `auto` = max-content of the widest child. One horizontal chip strip
+   * (the account menu) or one wide table then stretches the track past the
+   * viewport and the whole page scrolls sideways on a phone — the header looks
+   * as if it slid over the content while the body is dragged.
+   *
+   * Forcing implicit columns to `minmax(0, 1fr)` below `lg` keeps those grids
+   * exactly as wide as their container; the inner `overflow-x-auto` gets its
+   * own scroll area instead of the page. Explicit `grid-cols-*` templates are
+   * untouched, and any `auto-cols-*` utility still wins (this is the base layer).
+   */
+  @media (max-width: 1023px) {
+    .grid {
+      grid-auto-columns: minmax(0, 1fr);
+    }
+  }
 }
 
 @layer components {
