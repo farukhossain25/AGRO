@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { SlidersHorizontal, X } from "lucide-react";
 import { useLocale } from "@/lib/locale";
 import { ProductCard } from "@/components/product-card";
@@ -40,6 +40,16 @@ export function ProductBrowser({
   const [inStock, setInStock] = useState(false);
   const [page, setPage] = useState(1);
   const [filtersOpen, setFiltersOpen] = useState(false);
+
+  useEffect(() => {
+    setQuery(initialQuery);
+    setPage(1);
+  }, [initialQuery]);
+
+  useEffect(() => {
+    setCategory(initialCategory);
+    setPage(1);
+  }, [initialCategory]);
 
   const priceCeiling = useMemo(
     () => Math.max(100, ...products.map((p) => Math.ceil(p.price / 100) * 100)),
