@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { ResetPasswordForm } from "@/components/auth/reset-password-form";
 
 export const metadata: Metadata = {
-  title: "নতুন পাসওয়ার্ড | বিশ্বাস এগ্রো",
+  title: "নতুন পাসওয়ার্ড",
   robots: { index: false, follow: false },
 };
 
