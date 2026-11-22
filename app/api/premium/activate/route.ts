@@ -14,11 +14,20 @@ const schema = z.object({
 /**
  * POST /api/premium/activate
  * --------------------------------------------------------------------------
- * Called by the payment callback (or the sandbox "simulate success" button).
- * Idempotent: activating an already-active subscription is a no-op.
+ * Sandbox stand-in for a gateway callback. Idempotent: activating an
+ * already-active subscription is a no-op.
  *
- * In production this must only be reachable from a verified gateway callback
- * — validate the signature in lib/payments before calling it.
+ * SECURITY — this route activates a plan WITHOUT taking money, so it must
+ * never be callable by a customer. Previously any signed-in user could POST
+ * their own pending sub_no here and get a free year of premium. With manual
+ * payments there is exactly one legitimate path to `active`:
+ *     admin approves the TrxID -> decidePayment() -> activatePremium()
+ * so this handler is now closed to everyone except an admin (the sandbox
+ * "simulate success" button, when the owner deliberately tests). The brief is
+ * explicit that only an admin may approve a payment.
+ *
+ * The cancel path (DELETE) stays customer-accessible — cancelling your own
+ * subscription is always allowed.
  */
 export async function POST(req: Request) {
   try {
@@ -36,14 +45,30 @@ export async function POST(req: Request) {
 
     if (error) throw error;
     if (!sub) return fail("সাবস্ক্রিপশন পাওয়া যায়নি", 404);
-    if (sub.user_id !== user.id && user.role !== "admin") return fail("অনুমতি নেই", 403);
+
+    /* Admin-only. A customer pointing this at their own pending row would
+       otherwise activate a plan they never paid for. */
+    if (user.role !== "admin") {
+      return fail("এই কাজটি শুধুমাত্র অ্যাডমিন করতে পারেন। পেমেন্ট যাচাইয়ের পর প্ল্যান নিজে থেকেই চালু হবে।", 403);
+    }
+
     if (sub.status === "active") return ok({ already: true, subscription: sub });
 
+    /* Length comes from the plan the customer actually bought (30 / 182 / 365
+       days) — a hard-coded 30 gave a yearly customer one month. */
+    const { data: plan } = await client
+      .from("premium_plans")
+      .select("duration_days")
+      .eq("id", sub.plan_id)
+      .maybeSingle();
+    const durationDays = Number(plan?.duration_days) > 0 ? Number(plan?.duration_days) : 30;
+
     const now = new Date();
+    /* Extend an existing live plan; do not add the new term to a lapsed one. */
     const expires =
       sub.expires_at && new Date(sub.expires_at) > now
-        ? new Date(sub.expires_at)
-        : new Date(now.getTime() + 30 * 86_400_000);
+        ? new Date(new Date(sub.expires_at).getTime() + durationDays * 86_400_000)
+        : new Date(now.getTime() + durationDays * 86_400_000);
 
     const { data: updated, error: updateError } = await client
       .from("premium_subscriptions")

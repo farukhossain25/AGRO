@@ -548,9 +548,20 @@ async function activatePremium(subscriptionId: string, paymentNo: string): Promi
   if (!sub) return effects;
 
   const now = new Date();
+
+  /* Term comes from the plan the customer bought — basic/full monthly are 30
+     days, half-yearly 182, yearly 365. (The previous hard-coded 30 days gave a
+     ৳2,899 yearly customer a single month.) Fall back to 30 only if the plan
+     row is missing, so a deleted plan cannot leave a sub with no expiry. */
+  const { data: plan } = await client
+    .from("premium_plans")
+    .select("duration_days")
+    .eq("id", sub.plan_id)
+    .maybeSingle();
+  const durationDays = Number(plan?.duration_days) > 0 ? Number(plan?.duration_days) : 30;
+
   const base = sub.expires_at && new Date(sub.expires_at) > now ? new Date(sub.expires_at) : now;
-  const months = 30;
-  const expires = new Date(base.getTime() + months * 86_400_000);
+  const expires = new Date(base.getTime() + durationDays * 86_400_000);
 
   await client
     .from("premium_subscriptions")

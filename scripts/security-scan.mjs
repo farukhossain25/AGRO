@@ -10,7 +10,7 @@
  * Run with:  npm run security
  * Exits 1 on any finding, so it can gate a deploy.
  */
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const findings = [];
@@ -197,6 +197,23 @@ for (const file of source.filter((f) => /^(app|components|lib)\//.test(f) && /\.
       /isStaffRole|role === "admin"|role === "staff"|role === "manager"|can\(/.test(body);
     if (!gated) {
       add("error", file, "references the admin URL without a staff/admin gate — a public admin link leaks the hidden path");
+    }
+  }
+}
+
+/* 13 ── a plan may only be activated after money arrives --------------------- */
+/* /api/premium/activate used to let any signed-in customer activate their own
+   pending subscription — a free year of premium for anyone who read the client
+   bundle. The single legitimate path is an admin approving a TrxID. */
+{
+  const file = "app/api/premium/activate/route.ts";
+  if (existsSync(file)) {
+    const body = readFileSync(file, "utf8");
+    if (!/role\s*!==\s*"admin"/.test(body) && !/requireAdmin\(/.test(body)) {
+      add("error", file, "activates premium without an admin check — a customer could self-activate");
+    }
+    if (!/duration_days/.test(body)) {
+      add("error", file, "premium activation does not read plan.duration_days — the term would be wrong");
     }
   }
 }

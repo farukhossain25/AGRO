@@ -7,7 +7,8 @@ export const dynamic = "force-dynamic";
 
 const schema = z.object({
   planSlug: z.string().trim().min(2).max(64),
-  method: z.enum(["bkash", "nagad", "sslcommerz", "cod"]),
+  /** any active payment_methods.code (bkash, nagad, bank, upay, cod, …) */
+  method: z.string().trim().toLowerCase().min(2).max(40),
   /** mock gateways need an explicit flag so a lazy click does not create a sub */
   confirm: z.boolean().default(true),
 });
@@ -15,9 +16,10 @@ const schema = z.object({
 /**
  * POST /api/premium/subscribe
  * --------------------------------------------------------------------------
- * Creates a `pending` premium_subscriptions row, then asks the payment layer
- * for a redirect. Sandbox gateways return a simulated URL that hits
- * /api/premium/activate, which is what flips the row to `active`.
+ * Creates a `pending` premium_subscriptions row and hands the customer to the
+ * manual verification screen (/payment/manual?sub=…). Nothing here calls a
+ * gateway, and nothing here can activate a plan: the row stays `pending` until
+ * an admin approves the TrxID, which is what runs activatePremium().
  */
 export async function POST(req: Request) {
   try {
