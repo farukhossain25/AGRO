@@ -1,50 +1,71 @@
-import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
+import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { clientKey, fail, handleError, ok, rateLimit, tooMany } from "@/lib/api";
-import { loginSchema } from "@/lib/validation";
-import { signSession, sessionCookie } from "@/lib/auth";
+import { sessionCookie, signSession } from "@/lib/auth";
+import type { UserRole } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   try {
-    const limited = rateLimit(clientKey(req, "login"), 8, 5 * 60_000);
+    const limited = rateLimit(clientKey(req, "login"), 15, 60_000);
     if (!limited.ok) return tooMany(limited.retryAfter);
 
-    const { identifier, password } = loginSchema.parse(await req.json());
+    const body = (await req.json().catch(() => ({}))) as {
+      identifier?: string;
+      password?: string;
+    };
 
-    const cleaned = identifier.trim().toLowerCase();
-    const phone = identifier.replace(/[\s-]/g, "").replace(/^\+?88/, "0");
+    const identifier = body.identifier?.trim();
+    const password = body.password ?? "";
+
+    if (!identifier || !password) {
+      return fail("ইমেইল/ফোন এবং পাসওয়ার্ড দিন", 400);
+    }
+
+    const isEmail = identifier.includes("@");
+    const column = isEmail ? "email" : "phone";
+    const value = isEmail ? identifier.toLowerCase() : identifier;
 
     const { data: user, error } = await db()
       .from("users")
-      .select("id, name, email, phone, password_hash, role, is_active")
-      .or(`email.eq.${cleaned},phone.eq.${phone},phone.eq.${identifier.trim()}`)
+      .select("id, name, email, phone, role, password_hash")
+      .eq(column, value)
       .maybeSingle();
 
-    if (error) throw error;
+    if (error) {
+      return fail("লগইন করতে সমস্যা হয়েছে — আবার চেষ্টা করুন", 500);
+    }
 
-    // Constant-ish response whether the user exists or the password is wrong.
-    const invalid = fail("ইমেইল/মোবাইল বা পাসওয়ার্ড সঠিক নয়", 401);
-    if (!user || !user.password_hash) return invalid;
-    if (!user.is_active) return fail("আপনার অ্যাকাউন্ট নিষ্ক্রিয় করা হয়েছে", 403);
+    if (!user || !user.password_hash) {
+      return fail("ইমেইল/ফোন বা পাসওয়ার্ড সঠিক নয়", 401);
+    }
 
     const valid = await bcrypt.compare(password, user.password_hash);
-    if (!valid) return invalid;
+    if (!valid) {
+      return fail("ইমেইল/ফোন বা পাসওয়ার্ড সঠিক নয়", 401);
+    }
 
-    const token = await signSession({
+    const role = (user.role as UserRole) ?? "customer";
+    const sessionUser = {
       id: user.id,
-      name: user.name,
-      email: user.email,
-      phone: user.phone,
-      role: user.role === "admin" ? "admin" : "customer",
-    });
+      name: user.name ?? null,
+      email: user.email ?? null,
+      phone: user.phone ?? null,
+      role,
+    };
 
-    (await cookies()).set(sessionCookie.name, token, sessionCookie.options);
+    const token = await signSession(sessionUser);
+    const store = await cookies();
+    store.set(sessionCookie.name, token, sessionCookie.options);
+    if (role === "admin") {
+      store.set(sessionCookie.adminName, token, sessionCookie.options);
+    }
 
-    return ok({ id: user.id, name: user.name, role: user.role });
-  } catch (error) {
-    return handleError(error);
+    return ok({ user: sessionUser });
+  } catch (err) {
+    return handleError(err);
   }
 }

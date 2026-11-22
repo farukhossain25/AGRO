@@ -1,85 +1,72 @@
-import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
-import { clientKey, created, fail, handleError, ok, rateLimit, tooMany } from "@/lib/api";
-import { otpVerifySchema } from "@/lib/validation";
-import { signSession, sessionCookie } from "@/lib/auth";
+import { clientKey, fail, handleError, ok, rateLimit, tooMany } from "@/lib/api";
+import { sessionCookie, signSession } from "@/lib/auth";
+import { verifyOtp } from "@/lib/otp-store";
+import type { UserRole } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   try {
-    const limited = rateLimit(clientKey(req, "otp-verify"), 10, 10 * 60_000);
+    const limited = rateLimit(clientKey(req, "otp_verify"), 10, 60_000);
     if (!limited.ok) return tooMany(limited.retryAfter);
 
-    const { phone, code, name } = otpVerifySchema.parse(await req.json());
+    const body = (await req.json().catch(() => ({}))) as {
+      phone?: string;
+      code?: string;
+      name?: string;
+    };
 
-    const { data: record, error } = await db()
-      .from("otp_codes")
-      .select("id, code_hash, expires_at, consumed, attempts")
-      .eq("phone", phone)
-      .eq("consumed", false)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const phone = body.phone?.trim();
+    const code = body.code?.trim();
+    const name = body.name?.trim() || null;
 
-    if (error) throw error;
-    if (!record) return fail("কোনো সক্রিয় কোড পাওয়া যায়নি — আবার কোড পাঠান", 404);
-    if (new Date(record.expires_at).getTime() < Date.now()) {
-      return fail("কোডের মেয়াদ শেষ হয়েছে — আবার কোড পাঠান", 410);
-    }
-    if (record.attempts >= 5) {
-      return fail("অনেকবার ভুল কোড দেওয়া হয়েছে — নতুন কোড নিন", 429);
+    if (!phone || !code) {
+      return fail("ফোন নম্বর এবং OTP কোড দিন", 400);
     }
 
-    const valid = await bcrypt.compare(code, record.code_hash);
-    if (!valid) {
-      await db().from("otp_codes").update({ attempts: record.attempts + 1 }).eq("id", record.id);
-      return fail("কোডটি সঠিক নয়", 401);
+    if (!verifyOtp(phone, code)) {
+      return fail("OTP কোড সঠিক নয় বা মেয়াদ শেষ হয়ে গেছে", 401);
     }
 
-    await db().from("otp_codes").update({ consumed: true }).eq("id", record.id);
-
-    // find or create the user
     let { data: user } = await db()
       .from("users")
       .select("id, name, email, phone, role")
       .eq("phone", phone)
       .maybeSingle();
 
-    let isNew = false;
-
     if (!user) {
-      const { data: inserted, error: insertError } = await db()
+      const { data: created, error } = await db()
         .from("users")
-        .insert({
-          name: name?.trim() || `গ্রাহক ${phone.slice(-4)}`,
-          phone,
-          role: "customer",
-          phone_verified: true,
-        })
+        .insert({ phone, name, role: "customer" })
         .select("id, name, email, phone, role")
         .single();
-
-      if (insertError) throw insertError;
-      user = inserted;
-      isNew = true;
-    } else {
-      await db().from("users").update({ phone_verified: true }).eq("id", user.id);
+      if (error || !created) {
+        return fail("অ্যাকাউন্ট তৈরি করা যায়নি — আবার চেষ্টা করুন", 500);
+      }
+      user = created;
     }
 
-    const token = await signSession({
+    const role = (user.role as UserRole) ?? "customer";
+    const sessionUser = {
       id: user.id,
-      name: user.name,
-      email: user.email,
-      phone: user.phone,
-      role: user.role === "admin" ? "admin" : "customer",
-    });
+      name: user.name ?? null,
+      email: user.email ?? null,
+      phone: user.phone ?? null,
+      role,
+    };
 
-    (await cookies()).set(sessionCookie.name, token, sessionCookie.options);
+    const token = await signSession(sessionUser);
+    const store = await cookies();
+    store.set(sessionCookie.name, token, sessionCookie.options);
+    if (role === "admin") {
+      store.set(sessionCookie.adminName, token, sessionCookie.options);
+    }
 
-    return isNew ? created({ id: user.id, name: user.name, isNew }) : ok({ id: user.id, name: user.name, isNew });
-  } catch (error) {
-    return handleError(error);
+    return ok({ user: sessionUser });
+  } catch (err) {
+    return handleError(err);
   }
 }
