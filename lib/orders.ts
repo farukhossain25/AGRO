@@ -2,6 +2,7 @@ import { db } from "./db";
 import { getProductsByIds, getCombos, getDeliveryZones, getCouponByCode } from "./data";
 import { orderNumber } from "./format";
 import { dhakaMetroThanas } from "./bd-locations";
+import { getDeliverySettings } from "./site-settings";
 
 export type IncomingItem = { id: string; kind: "product" | "combo"; quantity: number };
 
@@ -68,7 +69,19 @@ export async function priceCart(items: IncomingItem[]): Promise<{
   return { lines, subtotal, hasCombo: comboIds.length > 0 };
 }
 
-/** Server-side delivery charge: Dhaka metro thanas = 60, otherwise zone based. */
+/**
+ * Server-side delivery charge.
+ *
+ * Precedence, most specific first:
+ *   1. a combo box  → always free, next-day
+ *   2. subtotal     → free above `settings.delivery.free_over`
+ *   3. named row    → a `delivery_zones` row for this district or division
+ *   4. defaults     → `settings.delivery.inside_dhaka` / `.outside_dhaka`
+ *
+ * Steps 3 and 4 used to be one hard-coded 60 / 120 / 1200. Those numbers are
+ * now the `settings.delivery` defaults, so /foisal/settings can change what a
+ * customer is actually charged without a deploy.
+ */
 export async function computeDelivery(
   division: string,
   district: string,
@@ -78,14 +91,17 @@ export async function computeDelivery(
 ): Promise<{ charge: number; eta: string }> {
   if (hasCombo) return { charge: 0, eta: "১ দিন" };
 
-  if (subtotal >= 1200) return { charge: 0, eta: division === "ঢাকা" ? "আজ" : "২–৩ দিন" };
+  const rules = await getDeliverySettings();
+  if (subtotal >= rules.free_over) {
+    return { charge: 0, eta: division === "ঢাকা" ? "আজ" : "২–৩ দিন" };
+  }
 
   const zones = await getDeliveryZones();
   const isDhakaMetro = division === "ঢাকা" && dhakaMetroThanas.has(upazila);
 
   if (isDhakaMetro) {
-    const zone = zones.find((z) => z.scope === "inside_dhaka");
-    return { charge: Number(zone?.charge ?? 60), eta: zone?.eta_days ?? "আজ" };
+    const zone = zones.find((z) => z.scope === "inside_dhaka" && z.is_active !== false);
+    return { charge: Number(zone?.charge ?? rules.inside_dhaka), eta: zone?.eta_days ?? "আজ" };
   }
 
   const zone =
@@ -93,7 +109,7 @@ export async function computeDelivery(
     zones.find((z) => z.division === division) ??
     zones.find((z) => z.scope === "outside_dhaka");
 
-  return { charge: Number(zone?.charge ?? 120), eta: zone?.eta_days ?? "২–৩ দিন" };
+  return { charge: Number(zone?.charge ?? rules.outside_dhaka), eta: zone?.eta_days ?? "২–৩ দিন" };
 }
 
 /** Validates a coupon server-side and returns the discount amount. */

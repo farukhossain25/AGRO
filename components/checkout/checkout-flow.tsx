@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Check, Lock, Tag, Truck } from "lucide-react";
 import { useCart } from "@/lib/cart";
+import { useDeliveryConfig } from "@/lib/delivery-settings";
 import { useLocale } from "@/lib/locale";
 import { useToast } from "@/lib/toast";
 import { money } from "@/lib/format";
@@ -44,6 +45,7 @@ export function CheckoutFlow({ methods: initialMethods }: { methods: PublicPayme
         },
       ];
   const cart = useCart();
+  const rules = useDeliveryConfig();
   const { t, isBn } = useLocale();
   const toast = useToast();
 
@@ -77,8 +79,12 @@ export function CheckoutFlow({ methods: initialMethods }: { methods: PublicPayme
   );
 
   const isInsideDhaka = form.division === "ঢাকা" && dhakaMetroThanas.has(form.upazila);
-  const baseDelivery = isInsideDhaka ? 60 : form.district ? 120 : 0;
-  const freeDelivery = cart.subtotal >= 1200;
+  const baseDelivery = isInsideDhaka
+    ? rules.inside_dhaka
+    : form.district
+      ? rules.outside_dhaka
+      : 0;
+  const freeDelivery = cart.subtotal >= rules.free_over;
   const delivery = cart.items.some((l) => l.kind === "combo") ? 0 : freeDelivery ? 0 : baseDelivery;
   const total = Math.max(0, cart.subtotal + delivery - discount);
 

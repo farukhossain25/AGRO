@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import { useCart } from "@/lib/cart";
+import { useDeliveryConfig } from "@/lib/delivery-settings";
 import { useLocale } from "@/lib/locale";
 import { money } from "@/lib/format";
 import { EmptyState } from "@/components/ui";
@@ -14,8 +15,10 @@ export default function CartPage() {
   const cart = useCart();
   const { t, isBn } = useLocale();
 
-  const freeOver = 1200;
-  const delivery = cart.subtotal >= freeOver || cart.subtotal === 0 ? 0 : 60;
+  /* From settings.delivery — the same row the server charges from. */
+  const rules = useDeliveryConfig();
+  const delivery =
+    cart.subtotal >= rules.free_over || cart.subtotal === 0 ? 0 : rules.inside_dhaka;
   const total = cart.subtotal + delivery;
 
   if (!cart.ready) {
@@ -139,11 +142,11 @@ export default function CartPage() {
                     )}
                   </dd>
                 </div>
-                {cart.subtotal < freeOver ? (
+                {cart.subtotal < rules.free_over ? (
                   <p className="rounded-xl bg-leaf-600/10 px-3 py-2 text-[11.5px] text-leaf-200">
                     {t(
-                      `আর ${money(freeOver - cart.subtotal, isBn)} কিনলে ডেলিভারি ফ্রি!`,
-                      `Add ${money(freeOver - cart.subtotal, false)} more for free delivery!`
+                      `আর ${money(rules.free_over - cart.subtotal, isBn)} কিনলে ডেলিভারি ফ্রি!`,
+                      `Add ${money(rules.free_over - cart.subtotal, false)} more for free delivery!`
                     )}
                   </p>
                 ) : null}

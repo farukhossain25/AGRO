@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect } from "react";
 import { Minus, Plus, ShoppingBag, Trash2, X } from "lucide-react";
 import { useCart } from "@/lib/cart";
+import { useDeliveryConfig } from "@/lib/delivery-settings";
 import { useLocale } from "@/lib/locale";
 import { money } from "@/lib/format";
 import { EmptyState } from "./ui";
@@ -12,6 +13,7 @@ import { EmptyState } from "./ui";
 /** Slide-over mini cart. Controlled by the shell via context-free props. */
 export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const cart = useCart();
+  const rules = useDeliveryConfig();
   const { isBn, t } = useLocale();
 
   useEffect(() => {
@@ -27,7 +29,7 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
 
   if (!open) return null;
 
-  const freeDeliveryTarget = 1200;
+  const freeDeliveryTarget = rules.free_over;
   const progress = Math.min(100, (cart.subtotal / freeDeliveryTarget) * 100);
 
   return (

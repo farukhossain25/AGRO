@@ -5,6 +5,7 @@ import { Providers } from "@/components/providers";
 import { PWARegister } from "@/components/pwa-register";
 import { Analytics } from "@/components/analytics";
 import { site } from "@/lib/site";
+import { getDeliverySettings } from "@/lib/site-settings";
 import { localBusinessLd, organizationLd, websiteLd } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -136,6 +137,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
      run without 'unsafe-inline' for scripts. */
   const nonce = (await headers()).get("x-nonce") ?? undefined;
 
+  /* Delivery numbers are read once here and handed to the client so the cart,
+     drawer and checkout promise exactly what computeDelivery() will charge.
+     Cached per request by lib/site-settings.ts. */
+  const delivery = await getDeliverySettings();
+
   return (
     <html lang="bn" suppressHydrationWarning>
       <head>
@@ -185,7 +191,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         >
           মূল কন্টেন্টে যান
         </a>
-        <Providers>{children}</Providers>
+        <Providers delivery={delivery}>{children}</Providers>
         <PWARegister />
         <Analytics />
       </body>

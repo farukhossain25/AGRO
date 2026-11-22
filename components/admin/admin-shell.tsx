@@ -36,6 +36,7 @@ import {
   Truck,
   Users,
   X,
+  Settings,
 } from "lucide-react";
 import { Logo } from "@/components/icon-logo";
 import type { SessionUser } from "@/lib/auth";
@@ -125,7 +126,8 @@ const navGroups: { title: string; items: NavItem[] }[] = [
     items: [
       { href: adminHref("team"), label: "টিম ও রোল", Icon: ShieldCheck, perm: "team.read" },
       { href: adminHref("audit"), label: "অডিট লগ", Icon: ScrollText, perm: "audit.read" },
-      { href: adminHref("delivery"), label: "ডেলিভারি চার্জ", Icon: Truck, perm: "settings.write" },
+      { href: adminHref("delivery"), label: "ডেলিভারি জোন", Icon: Truck, perm: "settings.write" },
+      { href: adminHref("settings"), label: "সাইট সেটিংস", Icon: Settings, perm: "settings.write" },
     ],
   },
 ];
