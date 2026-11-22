@@ -127,7 +127,8 @@ function contentSecurityPolicy(nonce: string, isDev: boolean): string {
     // chunks without listing every one. No 'unsafe-inline' outside dev.
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""} https://va.vercel-scripts.com`,
     "style-src 'self' 'unsafe-inline' https://unpkg.com",
-    `img-src 'self' data: blob: ${supabase} https://images.unsplash.com https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com`,
+    `img-src 'self' data: blob: ${supabase} https://images.unsplash.com https://i.pravatar.cc https://lh3.googleusercontent.com https://*.googleusercontent.com https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com`,
+    "manifest-src 'self'",
     "font-src 'self' data:",
     `connect-src 'self' ${supabase} ${realtime} https://vitals.vercel-insights.com https://*.tile.openstreetmap.org https://www.googletagmanager.com https://*.google-analytics.com`,
     `media-src 'self' blob: ${supabase}`,
