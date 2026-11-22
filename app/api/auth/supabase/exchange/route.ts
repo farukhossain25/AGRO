@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { clientKey, fail, handleError, ok, rateLimit, tooMany } from "@/lib/api";
 import { sessionCookie, signSession } from "@/lib/auth";
@@ -23,8 +24,28 @@ export const runtime = "nodejs";
  *
  * Body: { accessToken: string, remember?: boolean }
  */
+const REQUIRED_ENVS = [
+  "JWT_SECRET",
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "NEXT_PUBLIC_SUPABASE_URL",
+  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+] as const;
+
 export async function POST(req: Request) {
   try {
+    const missing = REQUIRED_ENVS.filter((k) => !process.env[k]);
+    if (missing.length > 0) {
+      console.error("[auth/supabase/exchange] Missing env vars:", missing.join(", "));
+      return NextResponse.json(
+        {
+          ok: false,
+          error: `সার্ভার কনফিগারেশন অসম্পূর্ণ (${missing.join(", ")}) — অ্যাডমিনকে জানান`,
+          code: "MISSING_ENV",
+        },
+        { status: 500 }
+      );
+    }
+
     const limited = rateLimit(clientKey(req, "exchange"), 20, 60_000);
     if (!limited.ok) return tooMany(limited.retryAfter);
 
@@ -117,7 +138,12 @@ export async function POST(req: Request) {
       sessionExpiresIn: maxAge,
     });
   } catch (error) {
-    return handleError(error);
+    console.error("[auth/supabase/exchange] Unhandled error:", error);
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json(
+      { ok: false, error: `লগইন এক্সচেঞ্জ এরর: ${msg}`, code: "EXCHANGE_ERROR" },
+      { status: 500 }
+    );
   }
 }
 
