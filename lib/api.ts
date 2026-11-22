@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { ZodError } from "zod";
-import { verifySession, sessionCookie, type SessionUser } from "./auth";
+import { getSessionUser } from "./supabase/server";
+import type { SessionUser } from "./session";
 import { can, isStaffRole, type Permission } from "./permissions";
+
+export type { SessionUser };
 
 export function ok<T>(data: T, init?: ResponseInit) {
   return NextResponse.json({ ok: true, data }, { status: 200, ...init });
@@ -68,10 +70,15 @@ export function handleError(error: unknown) {
   return NextResponse.json({ ok: false, message }, { status: 500 });
 }
 
-/** Current logged-in user (customer or admin) from the httpOnly cookie. */
+/**
+ * Current logged-in user, read from the Supabase session cookies.
+ *
+ * `getSessionUser()` validates the JWT with Supabase (`auth.getUser()`, never
+ * `getSession()`) and joins the caller's own `profiles` row for the role, then
+ * caches the result for the rest of this request.
+ */
 export async function currentUser(): Promise<SessionUser | null> {
-  const store = await cookies();
-  return verifySession(store.get(sessionCookie.name)?.value);
+  return getSessionUser();
 }
 
 export async function requireUser(): Promise<SessionUser> {
@@ -154,6 +161,17 @@ export function rateLimit(key: string, limit = 10, windowMs = 60_000): { ok: boo
     return { ok: false, remaining: 0, retryAfter: Math.ceil((bucket.resetAt - now) / 1000) };
   }
   return { ok: true, remaining: limit - bucket.count, retryAfter: 0 };
+}
+
+/** Best-effort client IP from proxy headers. Audit metadata only. */
+export function clientIp(req: Request): string | null {
+  const h = req.headers;
+  return (
+    h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    h.get("x-real-ip") ||
+    h.get("cf-connecting-ip") ||
+    null
+  );
 }
 
 /** Derive a stable client key from proxy headers. */

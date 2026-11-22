@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { supabaseBrowser } from "./supabase-browser";
+import { createClient as createBrowserClient } from "./supabase/client";
 
 /* ==========================================================================
    lib/use-realtime.ts — subscribe to a table, run a callback on change
@@ -68,7 +68,7 @@ export function useRealtimeTable({
     async function connect() {
       let client: SupabaseClient;
       try {
-        client = supabaseBrowser();
+        client = createBrowserClient();
       } catch {
         return; // Supabase not configured — polling below still covers it
       }

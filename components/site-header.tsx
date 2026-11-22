@@ -199,7 +199,9 @@ export function SiteHeader({
                 <Heart className="h-5 w-5" />
               </Link>
 
-              <UserMenu user={user} />
+              {/* Identity comes from AuthProvider (Supabase session); the server
+                  prop only carries the premium badge. */}
+              <UserMenu premium={user?.premium ?? false} />
 
               <button
                 onClick={() => setCartOpen(true)}

@@ -1,5 +1,5 @@
 import { db, dbUsable } from "./db";
-import type { SessionUser } from "./auth";
+import type { SessionUser } from "./session";
 
 /* ==========================================================================
    Audit trail (section F/G)

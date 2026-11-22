@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { fail, handleError, ok, requirePermission } from "@/lib/api";
 import { recordAudit, diffOf } from "@/lib/audit";
-import { clientIp } from "@/lib/auth-attempts";
+import { clientIp } from "@/lib/api";
 import type { Permission } from "@/lib/permissions";
 import { ZodError } from "zod";
 import {

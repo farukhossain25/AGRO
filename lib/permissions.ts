@@ -1,5 +1,5 @@
 import type { UserRole } from "./types";
-import type { SessionUser } from "./auth";
+import type { SessionUser } from "./session";
 
 /* ==========================================================================
    Scoped permissions (section F)

@@ -1,3 +1,4 @@
+import { AuthProvider } from "@/components/auth/auth-provider";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { SocialLinks } from "@/components/social-links";
@@ -33,7 +34,7 @@ export default async function StorefrontLayout({ children }: { children: React.R
   }));
 
   return (
-    <>
+    <AuthProvider initialUser={user}>
       <SiteHeader
         socials={<SocialLinks placement="header" size="sm" />}
         categories={navCats}
@@ -53,6 +54,6 @@ export default async function StorefrontLayout({ children }: { children: React.R
       </main>
       <SiteFooter categories={navCats} socials={<SocialLinks placement="footer" className="mt-5" />} />
       <FloatingActions />
-    </>
+    </AuthProvider>
   );
 }

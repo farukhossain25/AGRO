@@ -32,15 +32,15 @@ async function loadVerified(): Promise<ModReviewRow[]> {
 
     if (error || !data?.length) return [];
 
-    // reviewer names live in profiles, keyed by the legacy users.id
+    // reviewer names live in profiles, keyed by the auth user id
     const ids = Array.from(new Set(data.map((r) => r.user_id as string)));
     const { data: profiles } = await db()
       .from("profiles")
-      .select("legacy_user_id, full_name")
-      .in("legacy_user_id", ids);
+      .select("id, full_name")
+      .in("id", ids);
 
     const names = new Map(
-      (profiles ?? []).map((p) => [p.legacy_user_id as string, p.full_name as string | null])
+      (profiles ?? []).map((p) => [p.id as string, p.full_name as string | null])
     );
 
     return (data as unknown as (ModReviewRow & { user_id: string })[]).map((row) => ({

@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { fail, handleError, limitGuard, ok, requireUser } from "@/lib/api";
-import { supabaseService } from "@/lib/supabase-server";
+import { supabaseAdmin } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -64,7 +64,7 @@ export async function POST(req: Request) {
     const ext = EXT[sniffed];
     const name = `${user.id}/${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
-    const client = supabaseService();
+    const client = supabaseAdmin();
     const { error } = await client.storage.from(BUCKET).upload(name, buffer, {
       contentType: sniffed,
       upsert: false,
@@ -117,7 +117,7 @@ export async function GET(req: Request) {
       return fail("এই ফাইল কোনো পেমেন্টের সাথে যুক্ত নয়", 403);
     }
 
-    const { data, error } = await supabaseService()
+    const { data, error } = await supabaseAdmin()
       .storage.from(BUCKET)
       .createSignedUrl(path, 60);
 

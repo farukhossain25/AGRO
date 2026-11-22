@@ -25,7 +25,7 @@ export function AccountNav() {
   const { t } = useLocale();
 
   async function signOut() {
-    await fetch("/api/auth/logout", { method: "POST" });
+    await fetch("/auth/signout", { method: "POST" });
     router.push("/");
     router.refresh();
   }

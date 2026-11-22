@@ -1,5 +1,5 @@
 import { clientKey, currentUser, fail, handleError, ok, rateLimit, tooMany } from "@/lib/api";
-import { supabaseService } from "@/lib/supabase-server";
+import { supabaseAdmin } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -97,7 +97,7 @@ export async function POST(req: Request) {
 
     const ext = ALLOWED[real];
     const name = `${user.id}/${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
-    const storage = supabaseService().storage.from(bucket);
+    const storage = supabaseAdmin().storage.from(bucket);
 
     const { error } = await storage.upload(name, bytes, {
       contentType: real,

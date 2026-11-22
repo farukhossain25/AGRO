@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Clock, LogOut } from "lucide-react";
-import { ADMIN_LOGIN_PATH } from "@/lib/paths";
 
 /* ==========================================================================
    IdleGuard — automatic logout after inactivity (section D)
@@ -35,11 +34,11 @@ export function IdleGuard() {
 
   const signOut = useCallback(async () => {
     try {
-      await fetch("/api/auth/logout", { method: "POST" });
+      await fetch("/auth/signout", { method: "POST" });
     } catch {
       /* the cookie may already be gone */
     }
-    router.push(ADMIN_LOGIN_PATH);
+    router.push("/login");
     router.refresh();
   }, [router]);
 

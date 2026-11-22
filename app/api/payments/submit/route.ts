@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { created, fail, handleError, limitGuard, requireUser } from "@/lib/api";
-import { clientIp } from "@/lib/auth-attempts";
+import { clientIp } from "@/lib/api";
 import { paymentSubmitSchema, trxId } from "@/lib/validation";
 import {
   checkSubmitAllowed,

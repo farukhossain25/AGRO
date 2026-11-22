@@ -32,8 +32,14 @@ export type ParcelLabel = {
 };
 
 export function qrToken(orderNo: string): string {
-  // Deterministic per order but unguessable without the secret.
-  const secret = process.env.ORDER_QR_SECRET ?? process.env.JWT_SECRET ?? "biswas-agro";
+  // Deterministic per order but unguessable without the secret. Prefers
+  // ORDER_QR_SECRET; otherwise derived from server-only Supabase credentials.
+  const base = `${process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}|${
+    process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? ""
+  }`;
+  const secret =
+    process.env.ORDER_QR_SECRET ??
+    (base.length > 40 ? createHash("sha256").update(`order-qr:${base}`).digest("hex") : "biswas-agro");
   return createHash("sha256").update(`${orderNo}:${secret}:${randomBytes(4).toString("hex")}`).digest("hex").slice(0, 32);
 }
 

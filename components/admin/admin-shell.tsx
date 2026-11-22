@@ -39,9 +39,9 @@ import {
   Settings,
 } from "lucide-react";
 import { Logo } from "@/components/icon-logo";
-import type { SessionUser } from "@/lib/auth";
+import type { SessionUser } from "@/lib/session";
 import { can, roleLabelBn, type Permission } from "@/lib/permissions";
-import { ADMIN_BASE, ADMIN_LOGIN_PATH, adminHref } from "@/lib/paths";
+import { ADMIN_BASE, adminHref } from "@/lib/paths";
 import { IdleGuard } from "./idle-guard";
 
 type NavItem = {
@@ -128,7 +128,6 @@ const navGroups: { title: string; items: NavItem[] }[] = [
       { href: adminHref("audit"), label: "অডিট লগ", Icon: ScrollText, perm: "audit.read" },
       { href: adminHref("delivery"), label: "ডেলিভারি জোন", Icon: Truck, perm: "settings.write" },
       { href: adminHref("settings"), label: "সাইট সেটিংস", Icon: Settings, perm: "settings.write" },
-      { href: adminHref("security"), label: "নিরাপত্তা (পাসওয়ার্ড ও 2FA)", Icon: ShieldCheck },
     ],
   },
 ];
@@ -139,8 +138,9 @@ export function AdminShell({ user, children }: { user: SessionUser; children: Re
   const [open, setOpen] = useState(false);
 
   async function signOut() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push(ADMIN_LOGIN_PATH);
+    // Supabase clears its own cookies on the server; then land on the login page.
+    await fetch("/auth/signout", { method: "POST" });
+    router.push("/login");
     router.refresh();
   }
 

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { clientKey, currentUser, fail, handleError, ok, rateLimit, tooMany } from "@/lib/api";
 import { getProfileByLegacyId, updateProfile } from "@/lib/profile";
 import { db, isDbConfigured } from "@/lib/db";
+import { SUPABASE_URL } from "@/lib/env";
 import { resolvePremiumState } from "@/lib/premium";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +27,20 @@ const updateSchema = z.object({
     })
     .optional(),
   onboarded: z.boolean().optional(),
+  /* Only a file in OUR avatars bucket (or a Google profile photo) may be set
+     as an avatar — otherwise this column becomes a tracking pixel. */
+  avatar_url: z
+    .string()
+    .trim()
+    .max(600)
+    .refine(
+      (value) =>
+        value === "" ||
+        value.startsWith(`${SUPABASE_URL}/storage/v1/object/public/avatars/`) ||
+        /^https:\/\/(lh3\.googleusercontent\.com|[a-z0-9-]+\.googleusercontent\.com)\//i.test(value),
+      "ছবির লিঙ্ক সঠিক নয়"
+    )
+    .optional(),
 });
 
 /** GET /api/profile — the signed-in user's profile + premium summary. */
