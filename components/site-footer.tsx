@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { useState } from "react";
 import { Mail, MapPin, Phone, Send } from "lucide-react";
@@ -7,10 +8,15 @@ import { useLocale } from "@/lib/locale";
 import { useToast } from "@/lib/toast";
 import { footerLinks, site } from "@/lib/site";
 import { Logo } from "./icon-logo";
-import { SocialLinks } from "./social-links";
 import { Spinner } from "./ui";
 
-export function SiteFooter({ categories }: { categories: { slug: string; name_bn: string; name_en: string }[] }) {
+export function SiteFooter({
+  categories,
+  socials,
+}: {
+  categories: { slug: string; name_bn: string; name_en: string }[];
+  socials?: ReactNode;
+}) {
   const { t } = useLocale();
   const toast = useToast();
   const [email, setEmail] = useState("");
@@ -101,7 +107,7 @@ export function SiteFooter({ categories }: { categories: { slug: string; name_bn
 
           {/* Social icons come from the `social_links` table — reorder, hide or
               add platforms in /foisal/social without touching this file. */}
-          <SocialLinks placement="footer" className="mt-5" />
+          {socials}
         </div>
 
         <FooterCol title={t("কেনাকাটা", "Shop")} links={footerLinks.shop} />

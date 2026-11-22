@@ -51,7 +51,7 @@ export default async function StorefrontLayout({ children }: { children: React.R
       <main id="main" className="min-h-[60vh]">
         {children}
       </main>
-      <SiteFooter categories={navCats} />
+      <SiteFooter categories={navCats} socials={<SocialLinks placement="footer" className="mt-5" />} />
       <FloatingActions />
     </>
   );
