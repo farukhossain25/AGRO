@@ -20,33 +20,66 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>("bn");
 
   useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored === "en" || stored === "bn") setLocaleState(stored);
+    try {
+      if (typeof window !== "undefined") {
+        const stored = window.localStorage.getItem(STORAGE_KEY);
+        if (stored === "en" || stored === "bn") setLocaleState(stored);
+      }
+    } catch {
+      /* storage unavailable — keep default bn */
+    }
   }, []);
 
   useEffect(() => {
-    document.documentElement.lang = locale === "bn" ? "bn" : "en";
-    document.documentElement.dataset.locale = locale;
+    try {
+      if (typeof document !== "undefined" && document.documentElement) {
+        document.documentElement.lang = locale === "bn" ? "bn" : "en";
+        document.documentElement.dataset.locale = locale;
+        document.documentElement.dir = "ltr";
+      }
+    } catch {
+      /* ignore */
+    }
   }, [locale]);
 
   const setLocale = useCallback((l: Locale) => {
     setLocaleState(l);
     try {
-      window.localStorage.setItem(STORAGE_KEY, l);
+      if (typeof window !== "undefined") window.localStorage.setItem(STORAGE_KEY, l);
     } catch {
       /* ignore private-mode failures */
     }
   }, []);
 
+  const toggle = useCallback(() => {
+    setLocaleState((prev) => {
+      const next = prev === "bn" ? "en" : "bn";
+      try {
+        if (typeof window !== "undefined") window.localStorage.setItem(STORAGE_KEY, next);
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  const t = useCallback(
+    (bn: string, en?: string) => {
+      if (!bn && !en) return "";
+      if (!bn) return en ?? "";
+      if (locale === "bn" || !en) return bn;
+      return en;
+    },
+    [locale]
+  );
+
   const value = useMemo<LocaleContextValue>(
     () => ({
       locale,
       setLocale,
-      toggle: () => setLocale(locale === "bn" ? "en" : "bn"),
+      toggle,
       isBn: locale === "bn",
-      t: (bn: string, en?: string) => (locale === "bn" || !en ? bn : en),
+      t,
     }),
-    [locale, setLocale]
+    [locale, setLocale, toggle, t]
   );
 
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;
