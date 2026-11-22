@@ -7,6 +7,8 @@
  * exercised end-to-end without merchant accounts.
  */
 
+import { site } from "@/lib/site";
+
 const SANDBOX = process.env.PAYMENTS_SANDBOX !== "false";
 
 export type GatewayInit = {
@@ -19,7 +21,8 @@ export type GatewayInit = {
 };
 
 function siteUrl(): string {
-  return process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  // Centralized — tolerates bare hostname like `bishwasagro.netlify.app`
+  return site.url;
 }
 
 /* ------------------------------------------------------------------- bKash */

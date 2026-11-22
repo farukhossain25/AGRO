@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { ADMIN_LOGIN_PATH } from "@/lib/paths";
+import { site } from "@/lib/site";
 import { created, fail, handleError, ok, requirePermission } from "@/lib/api";
 import { clientIp } from "@/lib/auth-attempts";
 import { recordAudit } from "@/lib/audit";
@@ -86,7 +87,7 @@ export async function POST(req: Request) {
     // Invite sends Supabase's magic link (needs SMTP configured in the project);
     // the profile row is what the admin login reads, so create it immediately.
     const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(body.email, {
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}${ADMIN_LOGIN_PATH}`,
+      redirectTo: `${site.url}${ADMIN_LOGIN_PATH}`,
     });
 
     if (inviteError) {

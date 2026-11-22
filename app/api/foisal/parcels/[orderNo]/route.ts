@@ -1,5 +1,6 @@
 import { fail, handleError, ok, requireUser } from "@/lib/api";
 import { buildLabel } from "@/lib/parcels";
+import { site } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ orderNo: strin
     if (!result) return fail("অর্ডার পাওয়া যায়নি", 404);
 
     const qr = await import("qrcode");
-    const base = process.env.NEXT_PUBLIC_SITE_URL ?? "https://bishwasagro.com";
+    const base = site.url;
     const scanUrl = `${base.replace(/\/$/, "")}/p/${result.token}`;
 
     const svg = await qr.toString(scanUrl, {

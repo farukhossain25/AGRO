@@ -27,7 +27,7 @@ export default async function LabelPage({ params }: { params: Promise<{ orderNo:
   const { parcel, token } = result;
   const qr = await import("qrcode");
 
-  const base = process.env.NEXT_PUBLIC_SITE_URL ?? "https://bishwasagro.com";
+  const base = site.url;
   const scanUrl = `${base.replace(/\/$/, "")}/p/${token}`;
   const svg = await qr.toString(scanUrl, {
     type: "svg",
