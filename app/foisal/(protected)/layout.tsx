@@ -8,7 +8,8 @@ import { AdminShell } from "@/components/admin/admin-shell";
    The real gate is here, on the server: role = 'admin' read from
    `profiles.role` for the CURRENT Supabase session. middleware.ts applies the
    same rule before this layout runs, so a customer never even reaches the
-   render. There is no admin link anywhere in the public UI.
+   render. The only public-UI door is the "অ্যাডমিন প্যানেল" row that the
+   header dropdown shows to a signed-in admin — no customer ever sees it.
    ========================================================================== */
 
 export const dynamic = "force-dynamic";

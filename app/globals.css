@@ -23,6 +23,9 @@
 
   body {
     @apply bg-ink-900 text-sand-100 font-bn antialiased;
+    /* A single wide element must never turn the whole site into a sideways
+       scroll on a phone. `clip` (not `hidden`) keeps `position: sticky` working. */
+    overflow-x: clip;
     background-image: radial-gradient(70% 45% at 50% -10%, rgba(31, 122, 77, 0.22), transparent 70%);
     background-repeat: no-repeat;
   }

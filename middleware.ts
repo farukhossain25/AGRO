@@ -158,8 +158,12 @@ export async function middleware(req: NextRequest) {
     const { response, user, role } = await updateSession(req, { nonce, withRole: true });
 
     if (!user) {
+      /* Always carry `next` — including for the panel root. Without it an owner
+         who types /foisal lands on the home page after signing in and has to
+         type the URL again. safeNextPath() in the login form rejects only
+         /login, /reset-password and /auth, so /foisal survives the round-trip. */
       const url = new URL("/login", req.url);
-      if (pathname !== ADMIN_BASE) url.searchParams.set("next", `${pathname}${search}`);
+      url.searchParams.set("next", `${pathname}${search}`);
       return noStore(NextResponse.redirect(url));
     }
     if (role !== "admin") {

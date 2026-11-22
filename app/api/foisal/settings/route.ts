@@ -36,6 +36,7 @@ const ALLOWED_KEYS = [
   "seller",
   "reviews",
   "profile",
+  "announcement",
 ] as const;
 
 /* Scalars only. Nested objects would make the shallow merge ambiguous, and
@@ -45,7 +46,14 @@ const patchSchema = z.object({
   value: z
     .record(
       z.string().min(1).max(60),
-      z.union([z.string().max(500), z.number(), z.boolean(), z.null()])
+      z.union([
+        z.string().max(500),
+        z.number(),
+        z.boolean(),
+        z.null(),
+        /* The marquee's message list is the one setting that is a list. */
+        z.array(z.string().max(240)).max(8),
+      ])
     )
     .refine((obj) => Object.keys(obj).length <= 40, "too many fields"),
 });

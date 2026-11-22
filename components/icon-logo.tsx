@@ -27,17 +27,21 @@ export function Logo({ size = 40, href = "/", showText = true }: { size?: number
     </span>
   );
 
+  /* On a 320–360px phone the mark + wordmark + five actions do not fit. The
+     wordmark shrinks and truncates instead of pushing the header sideways. */
   const text = (
-    <span className="flex flex-col leading-none">
-      <span className="text-[15px] font-bold tracking-tight text-sand-100">বিশ্বাস এগ্রো</span>
-      <span className="mt-1 text-[9.5px] font-semibold uppercase tracking-[0.22em] text-leaf-300/80">
+    <span className="flex min-w-0 flex-col leading-none">
+      <span className="truncate text-[13px] font-bold tracking-tight text-sand-100 min-[400px]:text-[15px]">
+        বিশ্বাস এগ্রো
+      </span>
+      <span className="mt-1 truncate text-[8.5px] font-semibold uppercase tracking-[0.18em] text-leaf-300/80 min-[400px]:text-[9.5px] min-[400px]:tracking-[0.22em]">
         Farm to Family
       </span>
     </span>
   );
 
   const content = (
-    <span className="inline-flex items-center gap-2.5">
+    <span className="inline-flex min-w-0 items-center gap-2 min-[400px]:gap-2.5">
       {mark}
       {showText ? text : null}
     </span>
