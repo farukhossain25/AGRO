@@ -421,20 +421,20 @@ export function AuthPanel() {
       </div>
 
       {/* Right — form */}
-      <div className="bg-[#0f1310] px-6 py-7 text-sand-50 sm:px-8 sm:py-8 lg:bg-white lg:text-ink-900">
+      <div className="bg-[#0f1310] px-6 py-7 text-sand-50 sm:px-8 sm:py-8 lg:bg-white lg:text-slate-900">
         {/* mobile brand */}
         <div className="mb-6 flex items-center gap-3 lg:hidden">
           <div className="grid h-10 w-10 place-items-center rounded-xl bg-leaf-600 text-white">
             <Leaf className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-[13px] font-black leading-none text-white lg:text-ink-900">বিশ্বাস এগ্রো</p>
-            <p className="text-[11px] text-sand-100/60 lg:text-ink-500">biswasagro.com</p>
+            <p className="text-[13px] font-black leading-none text-white lg:text-slate-900">বিশ্বাস এগ্রো</p>
+            <p className="text-[11px] text-sand-100/60 lg:text-slate-600">biswasagro.com</p>
           </div>
         </div>
 
         <div className="text-left">
-          <h1 className="text-[22px] font-black tracking-tight text-white lg:text-ink-900">
+          <h1 className="text-[22px] font-black tracking-tight text-white lg:text-slate-900">
             {mode === "register"
               ? t("নতুন অ্যাকাউন্ট তৈরি করুন", "Create your account")
               : mode === "forgot"
@@ -443,7 +443,7 @@ export function AuthPanel() {
                   ? t("OTP দিয়ে লগইন", "Sign in with OTP")
                   : t("আবার স্বাগতম!", "Welcome back")}
           </h1>
-          <p className="mt-1.5 text-[13px] leading-relaxed text-sand-100/55 lg:text-ink-500">
+          <p className="mt-1.5 text-[13px] leading-relaxed text-sand-100/55 lg:text-slate-600">
             {mode === "register"
               ? t("৩০ সেকেন্ডে অ্যাকাউন্ট খুলুন — অর্ডার ও সাবস্ক্রিপশন সহজে ম্যানেজ করুন", "Create in 30 seconds — manage orders & subscriptions easily")
               : mode === "otp"
@@ -469,7 +469,7 @@ export function AuthPanel() {
         ) : null}
 
         {/* Tabs — pill */}
-        <div className="mt-6 grid grid-cols-4 gap-1 rounded-full bg-ink-850 p-1 text-white lg:bg-zinc-100 lg:text-ink-700">
+        <div className="mt-6 grid grid-cols-4 gap-1 rounded-full bg-ink-850 p-1 text-white lg:bg-slate-100 lg:text-slate-700">
           {[
             { key: "login", label: t("লগইন", "Login") },
             { key: "register", label: t("সাইন আপ", "Sign up") },
@@ -482,7 +482,7 @@ export function AuthPanel() {
               className={`rounded-full px-3 py-2 text-[12.5px] font-bold transition ${
                 mode === m.key
                   ? "bg-leaf-600 text-white shadow"
-                  : "text-sand-100/60 hover:text-white lg:text-ink-500 lg:hover:text-ink-900"
+                  : "text-sand-100/60 hover:text-white lg:text-slate-600 lg:hover:text-ink-900"
               }`}
             >
               {m.label}
@@ -511,29 +511,29 @@ export function AuthPanel() {
             ) : null}
             <form onSubmit={handleLogin} className="space-y-4">
               <label className="block">
-                <span className="label text-sand-100/70 lg:text-ink-600">{t("ইমেইল বা মোবাইল", "Email or mobile")}</span>
+                <span className="label text-sand-100/70 lg:text-slate-700">{t("ইমেইল বা মোবাইল", "Email or mobile")}</span>
                 <div className="relative mt-1.5">
-                  <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-sand-100/30 lg:text-ink-400" />
+                  <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-sand-100/30 lg:text-slate-500" />
                   <input
                     required
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
-                    className="input !pl-10 lg:!border-zinc-200 lg:!bg-white lg:text-ink-900 lg:placeholder:text-zinc-400 lg:focus:!border-leaf-500"
+                    className="input !pl-10 lg:!border-slate-300 lg:!bg-slate-50 lg:!text-slate-900 lg:placeholder:text-slate-400 lg:focus:!border-leaf-500"
                     placeholder={t("you@example.com বা 01712345678", "you@example.com or 01712345678")}
                     autoComplete="username"
                   />
                 </div>
               </label>
               <label className="block">
-                <span className="label text-sand-100/70 lg:text-ink-600">{t("পাসওয়ার্ড", "Password")}</span>
+                <span className="label text-sand-100/70 lg:text-slate-700">{t("পাসওয়ার্ড", "Password")}</span>
                 <div className="relative mt-1.5">
-                  <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-sand-100/30 lg:text-ink-400" />
+                  <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-sand-100/30 lg:text-slate-500" />
                   <input
                     required
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="input !pl-10 !pr-10 lg:!border-zinc-200 lg:!bg-white lg:text-ink-900 lg:placeholder:text-zinc-400 lg:focus:!border-leaf-500"
+                    className="input !pl-10 !pr-10 lg:!border-slate-300 lg:!bg-slate-50 lg:!text-slate-900 lg:placeholder:text-slate-400 lg:focus:!border-leaf-500"
                     placeholder="••••••••"
                     autoComplete="current-password"
                   />
@@ -583,9 +583,9 @@ export function AuthPanel() {
             ) : null}
             <form onSubmit={handleRegister} className="space-y-4">
               <label className="block">
-                <span className="label text-sand-100/70 lg:text-ink-600">{t("পুরো নাম", "Full name")}</span>
+                <span className="label text-sand-100/70 lg:text-slate-700">{t("পুরো নাম", "Full name")}</span>
                 <div className="relative mt-1.5">
-                  <User className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-sand-100/30 lg:text-ink-400" />
+                  <User className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-sand-100/30 lg:text-slate-500" />
                   <input
                     required
                     value={name}
@@ -598,9 +598,9 @@ export function AuthPanel() {
                 {errors.name ? <p className="mt-1 text-[11px] text-red-300 lg:text-red-600">{errors.name}</p> : null}
               </label>
               <label className="block">
-                <span className="label text-sand-100/70 lg:text-ink-600">{t("মোবাইল নম্বর", "Mobile number")}</span>
+                <span className="label text-sand-100/70 lg:text-slate-700">{t("মোবাইল নম্বর", "Mobile number")}</span>
                 <div className="relative mt-1.5">
-                  <Phone className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-sand-100/30 lg:text-ink-400" />
+                  <Phone className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-sand-100/30 lg:text-slate-500" />
                   <input
                     required
                     value={phone}
@@ -614,9 +614,9 @@ export function AuthPanel() {
                 {errors.phone ? <p className="mt-1 text-[11px] text-red-300 lg:text-red-600">{errors.phone}</p> : null}
               </label>
               <label className="block">
-                <span className="label text-sand-100/70 lg:text-ink-600">{t("ইমেইল (ঐচ্ছিক)", "Email (optional)")}</span>
+                <span className="label text-sand-100/70 lg:text-slate-700">{t("ইমেইল (ঐচ্ছিক)", "Email (optional)")}</span>
                 <div className="relative mt-1.5">
-                  <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-sand-100/30 lg:text-ink-400" />
+                  <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-sand-100/30 lg:text-slate-500" />
                   <input
                     type="email"
                     value={email}
@@ -629,9 +629,9 @@ export function AuthPanel() {
                 {errors.email ? <p className="mt-1 text-[11px] text-red-300 lg:text-red-600">{errors.email}</p> : null}
               </label>
               <label className="block">
-                <span className="label text-sand-100/70 lg:text-ink-600">{t("পাসওয়ার্ড", "Password")}</span>
+                <span className="label text-sand-100/70 lg:text-slate-700">{t("পাসওয়ার্ড", "Password")}</span>
                 <div className="relative mt-1.5">
-                  <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-sand-100/30 lg:text-ink-400" />
+                  <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-sand-100/30 lg:text-slate-500" />
                   <input
                     required
                     type={showPassword ? "text" : "password"}
@@ -682,9 +682,9 @@ export function AuthPanel() {
                 <span className="mx-auto grid h-11 w-11 place-items-center rounded-xl bg-leaf-600/15 text-leaf-600">
                   <Mail className="h-5 w-5" />
                 </span>
-                <p className="text-[13px] font-bold text-white lg:text-ink-900">ইমেইল পাঠানো হয়েছে</p>
+                <p className="text-[13px] font-bold text-white lg:text-slate-900">ইমেইল পাঠানো হয়েছে</p>
                 <p className="text-[12px] leading-relaxed text-sand-100/55 lg:text-zinc-600">
-                  <strong className="text-white lg:text-ink-900">{identifier}</strong> এ একটি পাসওয়ার্ড রিসেট লিঙ্ক
+                  <strong className="text-white lg:text-slate-900">{identifier}</strong> এ একটি পাসওয়ার্ড রিসেট লিঙ্ক
                   পাঠানো হয়েছে। লিঙ্কে ক্লিক করে নতুন পাসওয়ার্ড দিন।
                 </p>
                 <button
@@ -704,9 +704,9 @@ export function AuthPanel() {
                   আপনার অ্যাকাউন্টের ইমেইল দিন — রিসেট লিঙ্ক পাঠানো হবে।
                 </p>
                 <label className="block">
-                  <span className="label text-sand-100/70 lg:text-ink-600">{t("ইমেইল", "Email")}</span>
+                  <span className="label text-sand-100/70 lg:text-slate-700">{t("ইমেইল", "Email")}</span>
                   <div className="relative mt-1.5">
-                    <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-sand-100/30 lg:text-ink-400" />
+                    <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-sand-100/30 lg:text-slate-500" />
                     <input
                       required
                       type="email"
@@ -740,9 +740,9 @@ export function AuthPanel() {
             {!otpSent ? (
               <form onSubmit={requestOtp} className="space-y-4">
                 <label className="block">
-                  <span className="label text-sand-100/70 lg:text-ink-600">{t("মোবাইল নম্বর", "Mobile number")}</span>
+                  <span className="label text-sand-100/70 lg:text-slate-700">{t("মোবাইল নম্বর", "Mobile number")}</span>
                   <div className="relative mt-1.5">
-                    <Phone className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-sand-100/30 lg:text-ink-400" />
+                    <Phone className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-sand-100/30 lg:text-slate-500" />
                     <input
                       required
                       value={phone}
@@ -771,7 +771,7 @@ export function AuthPanel() {
                   </p>
                 ) : null}
                 <label className="block">
-                  <span className="label text-sand-100/70 lg:text-ink-600">{t("কোড", "Code")}</span>
+                  <span className="label text-sand-100/70 lg:text-slate-700">{t("কোড", "Code")}</span>
                   <input
                     required
                     value={otp}
@@ -783,7 +783,7 @@ export function AuthPanel() {
                   />
                 </label>
                 <label className="block">
-                  <span className="label text-sand-100/70 lg:text-ink-600">{t("নাম (নতুন হলে)", "Name (if new)")}</span>
+                  <span className="label text-sand-100/70 lg:text-slate-700">{t("নাম (নতুন হলে)", "Name (if new)")}</span>
                   <input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
