@@ -1,0 +1,8 @@
+# Netlify disabled — this repo deploys ONLY on Vercel (prj_7KksVPAtM7ev5g1qrnRLqPLdEVAn / bishwasagro)
+# User request: "ami chai sudhu matro vercel a deploy korte"
+# This file makes Netlify skip every build (exit 0 = cancelled, no error).
+# To fully remove Netlify: Netlify Dashboard → Site settings → Build & deploy → Manage repository → Stop builds / Unlink.
+[build]
+  ignore = "echo 'Netlify build skipped — Vercel only' && exit 0"
+  command = "echo 'Skipped: Vercel handles deploys'"
+  publish = ".next"
