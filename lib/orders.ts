@@ -175,19 +175,24 @@ export async function createOrder(params: {
   const orderNo = orderNumber();
   const client = db();
 
+  // Insert header with BOTH dialects so either schema reads it. `items` mirrors `order_items` for izem.
   const { data: order, error } = await client
     .from("orders")
     .insert({
       order_no: orderNo,
+      tracking_id: orderNo,
       user_id: params.userId,
       customer_name: params.customer.customer_name,
       phone: params.customer.phone,
+      customer_phone: params.customer.phone,
       email: params.customer.email || null,
+      customer_email: params.customer.email || null,
       division: params.customer.division,
       district: params.customer.district,
       upazila: params.customer.upazila,
       address: params.customer.address,
       delivery_note: params.customer.delivery_note || null,
+      note: params.customer.delivery_note || null,
       subtotal: priced.subtotal,
       delivery_charge: charge,
       discount,
@@ -196,11 +201,17 @@ export async function createOrder(params: {
       payment_method: params.paymentMethod,
       payment_status: "pending",
       status: "received",
-    })
+      items: priced.lines as unknown as never,
+    } as never)
     .select()
     .single();
 
   if (error) throw error;
+
+  // keep `items` jsonb in sync for legacy readers (best-effort, never block checkout)
+  try {
+    await client.from("orders").update({ items: priced.lines as unknown as never } as never).eq("id", order.id);
+  } catch {}
 
   const { error: itemsError } = await client
     .from("order_items")
