@@ -36,7 +36,8 @@ export async function POST(req: Request) {
       .maybeSingle();
 
     if (error) {
-      return fail("লগইন করতে সমস্যা হয়েছে — আবার চেষ্টা করুন", 500);
+      console.error("[auth/login] DB query error:", error);
+      return fail(`লগইন করতে সমস্যা হয়েছে: ${error.message}`, 500);
     }
 
     if (!user || !user.password_hash) {
