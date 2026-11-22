@@ -200,21 +200,75 @@ export async function getCouponByCode(code: string): Promise<Coupon | null> {
 }
 
 /* ------------------------------------------------------------------ orders */
+/** Normalise an order row so both dialects (order_no/tracking_id, phone/customer_phone, `items` jsonb + `order_items`) work. */
+function normaliseOrder(row: Record<string, unknown>): Order & { order_items: OrderItem[] } {
+  // dialect shims: expose lyih names from izem columns
+  if (!row.order_no && row.tracking_id) row.order_no = row.tracking_id;
+  if (!row.tracking_id && row.order_no) row.tracking_id = row.order_no;
+  if (!row.phone && row.customer_phone) row.phone = row.customer_phone;
+  if (!row.customer_phone && row.phone) row.customer_phone = row.phone;
+  if (!row.email && row.customer_email) row.email = row.customer_email;
+  if (!row.customer_email && row.email) row.customer_email = row.email;
+  if (!row.delivery_note && row.note) row.delivery_note = row.note;
+  if (!row.note && row.delivery_note) row.note = row.delivery_note;
+  if (!row.payment_ref && row.transaction_id) row.payment_ref = row.transaction_id;
+
+  // when order_items relation is missing/empty, synthesize from `items` jsonb (izem legacy)
+  const items = row.order_items as OrderItem[] | undefined;
+  if ((!items || items.length === 0) && Array.isArray(row.items)) {
+    row.order_items = (row.items as unknown[]).map((raw: unknown, idx: number) => {
+      const it = (raw as Record<string, unknown>) ?? {};
+      return {
+        id: (it.id as string) ?? `${row.id as string}-${idx}`,
+        order_id: row.id as string,
+        product_id: (it.product_id as string) ?? (it.id as string) ?? null,
+        name_bn: (it.name_bn as string) ?? (it.name as string) ?? "পণ্য",
+        unit: (it.unit as string) ?? "পিস",
+        price: Number(it.price ?? 0),
+        quantity: Number(it.quantity ?? 1),
+        image: (it.image as string) ?? null,
+        sub_order_id: null,
+        seller_id: null,
+        weight_grams: null,
+      } as OrderItem;
+    });
+  }
+  if (!row.order_items) row.order_items = [];
+  return row as unknown as Order & { order_items: OrderItem[] };
+}
+
 export async function getOrderByNo(orderNo: string): Promise<(Order & { order_items: OrderItem[] }) | null> {
-  const { data } = await db()
-    .from("orders")
-    .select("*, order_items(*)")
-    .eq("order_no", orderNo.toUpperCase().trim())
-    .maybeSingle();
-  return (data as (Order & { order_items: OrderItem[] }) | null) ?? null;
+  const token = orderNo.toUpperCase().trim();
+  // try lyih `order_no` first, then izem `tracking_id` for backwards compat
+  try {
+    const { data, error } = await db().from("orders").select("*, order_items(*)").eq("order_no", token).maybeSingle();
+    if (!error && data) return normaliseOrder(data as Record<string, unknown>);
+    if (error && !String(error.message ?? "").toLowerCase().includes("order_no") && (error as { code?: string }).code !== "42703") throw error;
+  } catch {}
+  try {
+    const { data } = await db().from("orders").select("*, order_items(*)").eq("tracking_id", token).maybeSingle();
+    if (data) return normaliseOrder(data as Record<string, unknown>);
+  } catch {}
+  // final fallback: try raw select without relation (covers when order_items missing)
+  try {
+    const { data } = await db().from("orders").select("*").eq("order_no", token).maybeSingle();
+    if (data) return normaliseOrder(data as Record<string, unknown>);
+    const { data: d2 } = await db().from("orders").select("*").eq("tracking_id", token).maybeSingle();
+    if (d2) return normaliseOrder(d2 as Record<string, unknown>);
+  } catch {}
+  return null;
 }
 
 export async function getOrdersForUser(userId: string) {
-  const { data } = await db()
-    .from("orders")
-    .select("*, order_items(*)")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(50);
-  return data ?? [];
+  try {
+    const { data, error } = await db().from("orders").select("*, order_items(*)").eq("user_id", userId).order("created_at", { ascending: false }).limit(50);
+    if (!error && data) return (data as Record<string, unknown>[]).map(normaliseOrder);
+    if (error) throw error;
+  } catch {}
+  try {
+    const { data } = await db().from("orders").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(50);
+    return ((data ?? []) as Record<string, unknown>[]).map(normaliseOrder);
+  } catch {
+    return [];
+  }
 }
