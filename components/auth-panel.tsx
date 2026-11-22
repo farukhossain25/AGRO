@@ -12,6 +12,36 @@ import { Spinner } from "./ui";
 
 type Mode = "login" | "register" | "otp" | "reset" | "forgot";
 
+/* Reasons the PKCE callback (app/auth/callback/route.ts) can bounce back with.
+   Keeping them here means the user sees a sentence, not a code, and the list
+   cannot drift from the route without a type error on the FailReason union. */
+const CALLBACK_ERRORS: Record<string, { bn: string; en: string }> = {
+  not_configured: {
+    bn: "Supabase Auth কনফিগার করা নেই — অ্যাডমিনকে জানান।",
+    en: "Supabase Auth is not configured — please tell the admin.",
+  },
+  no_code: {
+    bn: "লগইন বাতিল হয়েছে বা লিঙ্কের মেয়াদ শেষ। আবার চেষ্টা করুন।",
+    en: "Sign-in was cancelled or the link expired. Please try again.",
+  },
+  exchange_failed: {
+    bn: "Google লগইন সম্পন্ন হয়নি। আবার চেষ্টা করুন।",
+    en: "Google sign-in did not complete. Please try again.",
+  },
+  email_unverified: {
+    bn: "ইমেইল এখনো যাচাই হয়নি — ইনবক্সের লিঙ্কে ক্লিক করুন।",
+    en: "Email not verified yet — click the link in your inbox.",
+  },
+  profile_failed: {
+    bn: "প্রোফাইল তৈরি করা যায়নি। কিছুক্ষণ পর আবার চেষ্টা করুন।",
+    en: "Could not create your profile. Please try again shortly.",
+  },
+  unexpected: {
+    bn: "অপ্রত্যাশিত সমস্যা হয়েছে। আবার চেষ্টা করুন।",
+    en: "Something unexpected happened. Please try again.",
+  },
+};
+
 export function AuthPanel() {
   const router = useRouter();
   const params = useSearchParams();
@@ -286,6 +316,22 @@ export function AuthPanel() {
               : t("অর্ডার ট্র্যাক করুন ও সাবস্ক্রিপশন ম্যানেজ করুন", "Track orders and manage subscriptions")}
           </p>
         </div>
+
+        {/* A failed Google round-trip lands here with ?error=<reason>. */}
+        {params.get("error") ? (
+          <div
+            role="alert"
+            className="mt-4 flex items-start gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-[12px] leading-relaxed text-red-200"
+          >
+            <span aria-hidden>⚠</span>
+            <span>
+              {(() => {
+                const entry = CALLBACK_ERRORS[params.get("error") ?? ""];
+                return entry ? t(entry.bn, entry.en) : t("লগইন সম্পন্ন হয়নি।", "Sign-in did not complete.");
+              })()}
+            </span>
+          </div>
+        ) : null}
 
         {/* mode tabs */}
         <div className="mt-5 flex gap-1 rounded-full border border-white/[0.07] bg-ink-850/70 p-1">

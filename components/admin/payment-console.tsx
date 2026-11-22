@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRealtimeTable } from "@/lib/use-realtime";
+import { supabaseConfigured } from "@/lib/supabase-browser";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -42,8 +44,12 @@ import { adminHref } from "@/lib/paths";
    /api/foisal/payments, which re-checks `payments.verify` and re-runs the
    duplicate-TrxID guard inside `decidePayment()`.
 
-   Polling (not websockets) keeps this deployable on Netlify + Vercel without a
-   socket server. 20 s when the tab is visible, paused when hidden.
+   Live updates come from Supabase Realtime (migration 0010 puts `payments` on
+   the supabase_realtime publication), so a new TrxID appears the moment it is
+   submitted. Vercel's functions cannot hold a socket open, but the browser can,
+   and Realtime applies RLS per subscriber — a manager sees exactly what the
+   `payments_admin_read` policy allows. A slow poll (90 s, visible tab only)
+   stays as a fallback for networks that block websockets.
    ========================================================================== */
 
 const STATUS_META: Record<string, { label: string; className: string }> = {
@@ -53,7 +59,7 @@ const STATUS_META: Record<string, { label: string; className: string }> = {
   needs_info: { label: "তথ্য দরকার", className: "bg-sky-500/15 text-sky-300" },
 };
 
-const POLL_MS = 20_000;
+const POLL_MS = 90_000;
 
 export function PaymentConsole({
   initial,
@@ -108,14 +114,17 @@ export function PaymentConsole({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, method, search]);
 
-  /* Background poll — visible tab only, so a forgotten admin tab does not
-     hammer the database all night. */
-  useEffect(() => {
-    const timer = setInterval(() => {
+  /* Realtime: any INSERT/UPDATE on `payments` re-fetches the visible page.
+     The hook also installs the slow fallback poll, which is paused while the
+     tab is hidden. */
+  useRealtimeTable({
+    table: "payments",
+    enabled: Boolean(supabaseConfigured),
+    pollMs: POLL_MS,
+    onChange: () => {
       if (document.visibilityState === "visible") void load(true);
-    }, POLL_MS);
-    return () => clearInterval(timer);
-  }, [load]);
+    },
+  });
 
   /* New-pending chime. */
   const pendingCount = useMemo(() => rows.filter((r) => r.status === "pending").length, [rows]);

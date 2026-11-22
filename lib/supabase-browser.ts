@@ -70,12 +70,19 @@ export function oauthRedirectTo(next?: string): string {
     (window.location.hostname === "localhost" && /wv|Capacitor/i.test(navigator.userAgent));
 
   if (native) {
+    /* Supabase requires an absolute http(s) redirectTo, so the WebView goes to
+       the hosted /auth/callback first; the appUrlOpen listener in the Android
+       shell treats `biswasagro://auth-callback` as a second return address.
+       `native=1` tells the callback not to navigate the WebView away from the
+       app before the deep link fires. */
     const target = `biswasagro://auth-callback${params.toString() ? `?${params}` : ""}`;
-    // Supabase requires an absolute http(s) redirectTo; the hosted callback
-    // then bounces to the custom scheme.
-    return `${window.location.origin}/auth/native?to=${encodeURIComponent(target)}`;
+    return `${window.location.origin}/auth/callback?native=${encodeURIComponent(target)}`;
   }
 
+  /* Always the CURRENT origin: https://<project>.vercel.app in production,
+     https://<hash>-<team>.vercel.app on a preview, http://localhost:3000 in
+     development. Nothing is hard-coded, so adding a custom domain later needs
+     no code change — only the Supabase redirect allow-list. */
   const qs = params.toString();
   return `${window.location.origin}/auth/callback${qs ? `?${qs}` : ""}`;
 }

@@ -148,18 +148,21 @@ function AdminLoginInner() {
           </form>
 
           <div className="mt-4 space-y-2">
-            <Link
-              href={`${ADMIN_LOGIN_PATH}/forgot-password`}
-              className="block text-center text-[11.5px] text-sand-100/45 hover:text-leaf-200"
-            >
-              পাসওয়ার্ড ভুলে গেছেন?
-            </Link>
-
             <p className="rounded-xl bg-white/[0.03] px-3 py-2 text-[10.5px] leading-relaxed text-sand-100/40">
-              প্রথমবার ব্যবহারে Vercel-এ{" "}
-              <span className="font-mono text-leaf-300">SEED_SECRET</span> সেট করে একবার{" "}
-              <span className="font-mono text-leaf-300">POST /api/setup/seed-admin</span> ডাকুন।
-              তারপর <span className="font-mono">SEED_SECRET</span> মুছে দিন।
+              পাসওয়ার্ড ভুলে গেলে Supabase ড্যাশবোর্ড →{" "}
+              <span className="font-mono text-sand-100/60">Authentication → Users</span> → আপনার
+              অ্যাকাউন্ট → <span className="font-mono text-sand-100/60">Send recovery</span> ব্যবহার
+              করুন। অথবা{" "}
+              <span className="font-mono text-sand-100/60">
+                Authentication → Users → … → Reset password
+              </span>{" "}
+              দিয়ে নতুন পাসওয়ার্ড সেট করুন।
+            </p>
+
+            <p className="text-center text-[10.5px] leading-relaxed text-sand-100/30">
+              এই প্যানেল শুধু{" "}
+              <span className="font-mono text-sand-100/50">{ADMIN_LOGIN_PATH}</span> ঠিকানায় খোলা
+              যায়। অন্য কোনো লিংক থেকে এখানে পৌঁছানো যায় না।
             </p>
           </div>
         </div>

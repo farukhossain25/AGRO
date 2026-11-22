@@ -1,3 +1,5 @@
+import { resolveSiteHost, resolveSiteUrl } from "./site-url";
+
 export const site = {
   nameBn: "বিশ্বাস এগ্রো",
   nameEn: "Biswas Agro",
@@ -8,8 +10,11 @@ export const site = {
     "বিশ্বাস এগ্রো — খামার থেকে সরাসরি তাজা শাকসবজি, ফলমূল, দেশি ডিম, মাছ, মাংস, দুধ, চাল-ডাল-তেল-মসলা ও অর্গানিক পণ্য। সারা বাংলাদেশে হোম ডেলিভারি, ক্যাশ অন ডেলিভারি সুবিধা।",
   descriptionEn:
     "Biswas Agro delivers farm-fresh organic vegetables, fruits, eggs, fish, meat, dairy and pantry staples directly from Bangladeshi farmers to your family.",
-  url: process.env.NEXT_PUBLIC_SITE_URL || "https://bishwasagro.com",
-  domain: "bishwasagro.com",
+  /* Never hard-coded: lib/site-url.ts resolves NEXT_PUBLIC_SITE_URL, then
+     Vercel's injected hostnames. Reading it here keeps canonical tags,
+     Open Graph, JSON-LD, the sitemap and robots.txt in agreement. */
+  url: resolveSiteUrl(),
+  domain: resolveSiteHost(),
   phone: process.env.NEXT_PUBLIC_PHONE || "+8801700000000",
   phoneDisplay: "০১৭০০-০০০০০০",
   whatsapp: process.env.NEXT_PUBLIC_WHATSAPP || "8801700000000",

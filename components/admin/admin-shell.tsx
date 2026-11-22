@@ -128,6 +128,7 @@ const navGroups: { title: string; items: NavItem[] }[] = [
       { href: adminHref("audit"), label: "অডিট লগ", Icon: ScrollText, perm: "audit.read" },
       { href: adminHref("delivery"), label: "ডেলিভারি জোন", Icon: Truck, perm: "settings.write" },
       { href: adminHref("settings"), label: "সাইট সেটিংস", Icon: Settings, perm: "settings.write" },
+      { href: adminHref("security"), label: "নিরাপত্তা (পাসওয়ার্ড ও 2FA)", Icon: ShieldCheck },
     ],
   },
 ];

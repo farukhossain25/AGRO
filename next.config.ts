@@ -1,14 +1,16 @@
 import type { NextConfig } from "next";
+import { IS_PREVIEW } from "./lib/site-url";
 
 /* ==========================================================================
    next.config.ts
    --------------------------------------------------------------------------
    Section C (performance) + section D (SEO/security headers).
 
-   Deployment note: this project is deployed on Vercel. `vercel.json` and
-   `netlify.toml` carry the same header set for the CDN edge, because Vercel
-   serves `headers()` from the function layer and Netlify needs them declared
-   statically. Keeping all three in sync is deliberate — see README §17.
+   Deployment: Vercel only. `vercel.json` repeats the security and cache
+   headers at the CDN edge so a static asset is answered without invoking a
+   function, while `headers()` below covers everything the CDN rule list does
+   not name (per-route noindex, the service worker). Two layers, one source of
+   truth for the values — see README §25.
    ========================================================================== */
 
 /* Content-Security-Policy ------------------------------------------------
@@ -35,6 +37,17 @@ const securityHeaders = [
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
 ];
 
+/** Derive the Supabase Storage hostname from NEXT_PUBLIC_SUPABASE_URL. */
+function supabaseImageHost(): { protocol: "https"; hostname: string } | null {
+  const raw = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!raw) return null;
+  try {
+    return { protocol: "https", hostname: new URL(raw).hostname };
+  } catch {
+    return null;
+  }
+}
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
@@ -46,9 +59,14 @@ const nextConfig: NextConfig = {
     deviceSizes: [360, 420, 640, 768, 1024, 1280, 1536, 1920],
     imageSizes: [56, 64, 96, 128, 192, 256, 384],
     minimumCacheTTL: 60 * 60 * 24 * 30, // 30 days
+    /* The Storage host comes from the environment so a new Supabase project
+       does not need a code change: NEXT_PUBLIC_SUPABASE_URL already contains
+       the ref, and Vercel Storage custom domains (files.<domain>) are allowed
+       too. A wildcard on *.supabase.co would be simpler but would let any
+       Supabase project's images through the optimiser. */
     remotePatterns: [
-      { protocol: "https", hostname: "lyihdzgmtjkkhybpkqot.supabase.co" },
-      { protocol: "https", hostname: "images.unsplash.com" },
+      ...(supabaseImageHost() ? [supabaseImageHost()!] : []),
+      { protocol: "https" as const, hostname: "images.unsplash.com" },
     ],
   },
 
@@ -88,6 +106,15 @@ const nextConfig: NextConfig = {
         source: "/images/:path*",
         headers: [{ key: "Cache-Control", value: "public, max-age=2592000, stale-while-revalidate=86400" }],
       },
+
+      /* ── preview deployments must never be indexed ─────────────────────
+         Every Vercel preview gets its own *.vercel.app hostname. Without this
+         header Google would happily index a half-finished branch and later
+         see it as duplicate content against production. VERCEL_ENV is
+         "preview" on branch/PR builds and "production" on the live site. */
+      ...(IS_PREVIEW
+        ? [{ source: "/(.*)", headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] }]
+        : []),
 
       // ── private surfaces: keep them out of the index even if linked
       {

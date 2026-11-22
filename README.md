@@ -4,7 +4,7 @@
 
 A production-ready, mobile-first, Bangla-first e-commerce storefront for fresh farm produce, daily combo boxes and monthly family food subscriptions — built with **Next.js 15 + Tailwind + Supabase**, deployed on **Vercel**.
 
-- 🌐 Domain: **https://bishwasagro.com**
+- 🌐 Deploy: **https://biswas-agro.vercel.app** (Vercel free `vercel.app` — কাস্টম ডোমেইন `bishwasagro.com` যোগ করলে একই কোড, শুধু env বদল, দেখুন §২৫)
 - 🗄️ Database: Supabase Postgres (RLS enabled)
 - 🎨 Dark theme · greens `#1f7a4d` / mint `#b7ead2` / bg `#111`
 
@@ -93,7 +93,6 @@ npm run dev
 | `npm run typecheck` | TypeScript চেক |
 | `npm run db:migrate` | `supabase/migrations/*.sql` প্রয়োগ |
 | `npm run db:seed` | ৪৭ পণ্য + ক্যাটাগরি + কম্বো + কুপন সিড (idempotent) |
-| `npm run db:admin` | অ্যাডমিন অ্যাকাউন্ট তৈরি/আপডেট |
 | `npm run db:seed:sql` | সিড SQL জেনারেট → `supabase/seed.sql` |
 
 ---
@@ -161,7 +160,7 @@ node --experimental-strip-types scripts/seed-premium-sql.mjs > supabase/seed-pre
 ```bash
 npm run db:migrate
 npm run db:seed
-npm run db:admin
+# admin: Supabase Dashboard → Add user + supabase/admin.sql (দেখুন §২৫.৪)
 ```
 
 > **নোট:** `db:migrate` REST endpoint ব্যবহার করে। যদি আপনার প্রজেক্টে সেটি বন্ধ থাকে, উপরের ধাপ ৩ অনুযায়ী SQL Editor-এ ফাইল দুটি ম্যানুয়ালি রান করুন — ফলাফল একই।
@@ -169,12 +168,14 @@ npm run db:admin
 ### ডিফল্ট অ্যাডমিন
 
 ```
-URL:      /{ADMIN_PATH}/login
-ইমেইল:   admin@bishwasagro.com
-পাসওয়ার্ড: Admin@12345
+URL:      /{ADMIN_PATH}/login  (এখন https://<project>.vercel.app/foisal/login)
+ইমেইল:   foysaliqbal09@gmail.com  (Supabase → Add user দিয়ে তৈরি)
+পাসওয়ার্ড: আপনি যা দিয়েছেন (Auto Confirm টিক দিয়ে)
 ```
 
-⚠️ **প্রথম লগইনের পর পাসওয়ার্ড বদলে নিন** (`ADMIN_PASSWORD` বদলে `npm run db:admin` আবার চালান)।
+> অ্যাডমিন SQL: `supabase/admin.sql` (দেখুন §২৫.৪)। `ADMIN_PASSWORD` env নেই।
+
+⚠️ **প্রথম লগইনের পর পাসওয়ার্ড বদলান** — প্যানেল → Security → Change password (+ TOTP 2FA ঐচ্ছিক)।
 
 ### ডেমো কুপন
 
@@ -217,44 +218,37 @@ vercel --prod
 
 ### Environment Variables (Vercel → Settings → Environment Variables)
 
-| Key | মান |
-|-----|-----|
-| `NEXT_PUBLIC_SUPABASE_URL` | `https://<ref>.supabase.co` |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | anon key |
-| `SUPABASE_SERVICE_ROLE_KEY` | service role key |
-| `JWT_SECRET` | `openssl rand -base64 48` |
-| `NEXT_PUBLIC_SITE_URL` | `https://bishwasagro.com` |
-| `NEXT_PUBLIC_WHATSAPP` | `8801XXXXXXXXX` |
-| `NEXT_PUBLIC_PHONE` | `+8801XXXXXXXXX` |
-| `PAYMENTS_SANDBOX` | `true` (লাইভ গেটওয়ে হলে `false`) |
+> **এখন কোনো কাস্টম ডোমেইন নেই** — `NEXT_PUBLIC_SITE_URL` = **`https://<project>.vercel.app`** (যেমন `https://biswas-agro.vercel.app`)। ডোমেইন যোগ করলে শুধু এই মানটি বদলাবেন, কোড নয় (দেখুন §২৫)।
 
-> ⚠️ `SUPABASE_SERVICE_ROLE_KEY` ও `JWT_SECRET` কখনো `NEXT_PUBLIC_` প্রিফিক্স দেবেন না।
+| Key | মান | কোথায় |
+|-----|-----|--------|
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://<ref>.supabase.co` | Public — ব্রাউজারে যাবে |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | anon key | Public — ব্রাউজারে যাবে |
+| `SUPABASE_SERVICE_ROLE_KEY` | service role key | ✅ **Server-only** — কখনো `NEXT_PUBLIC_` নয় |
+| `JWT_SECRET` | `openssl rand -base64 48` | ✅ Server-only |
+| `NEXT_PUBLIC_SITE_URL` | `https://biswas-agro.vercel.app` | Public — canonical/OG/sitemap/JSON-LD সব এখান থেকে |
+| `ADMIN_PATH` | `foisal` | Server-only — প্যানেলের পথ |
+| `NEXT_PUBLIC_ADMIN_PATH` | `foisal` | Public mirror — sidebar/redirect-এর জন্য |
+| `NEXT_PUBLIC_WHATSAPP` | `8801XXXXXXXXX` | Public |
+| `NEXT_PUBLIC_PHONE` | `+8801XXXXXXXXX` | Public |
+| `PAYMENTS_SANDBOX` | `true` (লাইভ গেটওয়ে হলে `false`) | Server |
+
+> ⚠️ `SUPABASE_SERVICE_ROLE_KEY`, `JWT_SECRET` কখনো `NEXT_PUBLIC_` প্রিফিক্স দেবেন না। `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `SEED_SECRET` এই প্রজেক্টে **ব্যবহৃত নয়** — Vercel-এ যোগ করবেন না (অ্যাডমিন `supabase/admin.sql` দিয়ে বানানো হয়, দেখুন §২৫ ধাপ ৫)।
 
 ---
 
-## ৬. ডোমেইন + SSL
+## ৬. ডোমেইন — এখন `vercel.app`, পরে কাস্টম ডোমেইন (চেকলিস্ট §২৫)
 
-1. Vercel → Project → **Settings → Domains** → `bishwasagro.com` যোগ করুন।
-2. `www.bishwasagro.com`-ও যোগ করুন (redirect → apex)।
-3. DNS (registrar-এ):
+**এখন কোনো কাস্টম ডোমেইন কেনা হয়নি** — সাইট চলবে **`https://<project>.vercel.app`** (যেমন `https://biswas-agro.vercel.app`) এ। Vercel এই URL-এ HTTPS অটো দেয়, কোনো DNS সেটআপ লাগে না। `NEXT_PUBLIC_SITE_URL` এই `vercel.app` URL-ই হবে।
 
-| Type | Name | Value |
-|------|------|-------|
-| `A` | `@` | `216.198.79.1` |
-| `A` | `@` | `64.29.17.1` |
-| `CNAME` | `www` | `76459bf9cdc9b57f.vercel-dns-017.com` |
+> **কাস্টম ডোমেইন (`bishwasagro.com`) যোগ করার সময় কী বদলাতে হবে** — সংক্ষেপে: Vercel → Domains → `bishwasagro.com` যোগ → DNS `A`/`CNAME` (Vercel ড্যাশবোর্ডে দেখানো মান) → `NEXT_PUBLIC_SITE_URL=https://bishwasagro.com` → Supabase Site URL + Redirect URLs আপডেট → Google Search Console → redeploy। কোড বদল লাগে না। **পুরো চেকলিস্ট §২৫ দেখুন।**
 
-> পুরোনো রেকর্ড থাকলে `A @ → 76.76.21.21` এবং `CNAME www → cname.vercel-dns.com`-ও কাজ করে।
-> Vercel → Project → Settings → Domains পেজে সবসময় সর্বশেষ প্রয়োজনীয় রেকর্ড দেখায় — সেটাই authoritative।
-
-4. SSL সার্টিফিকেট Vercel অটো ইস্যু করে (Let's Encrypt) — সাধারণত ১–৫ মিনিট।
-5. `NEXT_PUBLIC_SITE_URL` `https://bishwasagro.com` কিনা যাচাই করে **Redeploy** করুন (canonical/OG URL এর জন্য)।
-
-DNS প্রোপাগেশনের পর যাচাই:
+ডোমেইন যোগ করার পর যাচাই:
 
 ```bash
 dig +short bishwasagro.com
 curl -I https://bishwasagro.com
+curl -I https://biswas-agro.vercel.app   # পুরোনো vercel.app URL এখনো 308 → কাস্টম ডোমেইনে
 ```
 
 ---
@@ -453,11 +447,11 @@ CAPACITOR_SERVER_URL=http://10.0.2.2:3000 npx cap sync android
 এর বাইরে কিছু করার দরকার নেই।
 
 > **গুরুত্বপূর্ণ আর্কিটেকচার নোট**
-> - এই সাইট Next.js ১৫ — **Vercel**-এ হোস্ট হয় (Netlify নয়)। তাই `netlify.toml` নেই।
+> - এই সাইট Next.js ১৫ — **Vercel**-এ হোস্ট হয়। `vercel.json` + `next.config.ts` হেডার/রিডাইরেক্ট/ক্যাশ সামলায়।
 > - `.env` ফাইলে ভ্যারিয়েবলের নাম `NEXT_PUBLIC_*`, `VITE_*` নয়।
 > - লগইন **Supabase Auth** (Google + ইমেইল/পাসওয়ার্ড) দিয়ে হয়। পুরোনো পাসওয়ার্ড-অ্যাকাউন্টগুলোও
 >   কাজ করে, তাই আগের কোনো ইউজার হারাবে না।
-> - Admin প্যানেলের ঠিকানা `bishwasagro.com/{ADMIN_PATH}/login`, লগইন **শুধু ইমেইল + পাসওয়ার্ড**
+> - Admin প্যানেলের ঠিকানা `https://<project>.vercel.app/{ADMIN_PATH}/login` (ডোমেইন যোগ করার পর `bishwasagro.com/{ADMIN_PATH}/login`), লগইন **শুধু ইমেইল + পাসওয়ার্ড**
 >   (সেখানে Google বাটন নেই — ইচ্ছাকৃতভাবে)।
 
 ### ধাপ ১ — কম্পিউটারে প্রজেক্ট চালু করা
@@ -542,11 +536,13 @@ npm run dev
 1. **APIs & Services → Credentials → + Create Credentials → OAuth client ID**
 2. Application type: **Web application**
 3. Name: `Biswas Agro Web`
-4. **Authorized JavaScript origins** — দুটি যোগ করুন:
+4. **Authorized JavaScript origins** — তিনটি যোগ করুন (এখন কাস্টম ডোমেইন নেই, তাই `vercel.app`):
    ```
    http://localhost:3000
+   https://biswas-agro.vercel.app
    https://bishwasagro.com
    ```
+   > `vercel.app` URL টি আপনার প্রজেক্টের আসল নাম দিয়ে বদলান (Vercel → Project → Domains-এ দেখা যায়)।
 5. **Authorized redirect URIs** — এখানে Supabase-এর callback URL বসবে (নিজের প্রজেক্ট রেফ বসান):
    ```
    https://<project-ref>.supabase.co/auth/v1/callback
@@ -562,15 +558,20 @@ npm run dev
 **ঘ) URL Configuration**
 Supabase → **Authentication → URL Configuration**:
 
-- **Site URL:** `https://bishwasagro.com`
-- **Redirect URLs** (প্রতিটি আলাদা লাইনে যোগ করুন):
+- **Site URL:** `https://biswas-agro.vercel.app`  ← এখন `vercel.app`; ডোমেইন যোগ করার পর `https://bishwasagro.com` করবেন (§২৫)
+- **Redirect URLs** (প্রতিটি আলাদা লাইনে **Add URL** → Save):
   ```
+  http://localhost:3000/**
   http://localhost:3000/auth/callback
+  https://biswas-agro.vercel.app/**
+  https://biswas-agro.vercel.app/auth/callback
   https://bishwasagro.com/auth/callback
   https://www.bishwasagro.com/auth/callback
-  https://*-bishwas-agro.vercel.app/auth/callback
+  https://*-vercel.app/**
+  https://*-<team-or-username>.vercel.app/**
   biswasagro://auth-callback
   ```
+  > **কেন `*-vercel.app/**`?** Vercel প্রতিটি branch/PR-এ আলাদা preview URL বানায় (`https://<branch>-<project>.vercel.app`)। সেটি allow না করলে preview deploy-এ Google login `redirect_uri_mismatch` নয়, বরং Supabase `is not included in Redirect URLs` দেবে। `**` wildcard path সহ পুরো prefix কভার করে।
 
 শেষের লাইনটি **Android অ্যাপের** জন্য — Google লগইন শেষ হলে অ্যাপে ফিরে আসবে।
 
@@ -585,46 +586,52 @@ Supabase → **Authentication → URL Configuration**:
 - Output Directory: *(খালি রাখুন)*
 - Install Command: `npm install`
 
-**গ) Environment Variables** — **Settings → Environment Variables** → নিচের ৭টি যোগ করুন
-(Production + Preview + Development তিনটিতেই টিক দিন):
+**গ) Environment Variables** — **Settings → Environment Variables** → নিচেরগুলো যোগ করুন
+(Production + Preview + Development তিনটিতেই টিক দিন, **Sensitive** গুলো `Sensitive` টগল দিন):
 
 | Name | Value | গোপন? |
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://xxx.supabase.co` | না |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | anon key | না |
-| `SUPABASE_SERVICE_ROLE_KEY` | service_role key | ✅ **Sensitive** |
+| `SUPABASE_SERVICE_ROLE_KEY` | service_role key | ✅ **Sensitive** — কখনো `NEXT_PUBLIC_` নয় |
 | `JWT_SECRET` | `openssl rand -base64 48` এর আউটপুট | ✅ **Sensitive** |
-| `NEXT_PUBLIC_SITE_URL` | `https://bishwasagro.com` | না |
-| `ADMIN_EMAIL` | আপনার জিমেইল | না |
-| `ADMIN_PASSWORD` | শক্ত পাসওয়ার্ড (১২+ অক্ষর) | ✅ **Sensitive** |
-| `SEED_SECRET` | `openssl rand -hex 24` এর আউটপুট | ✅ **Sensitive** |
+| `NEXT_PUBLIC_SITE_URL` | `https://biswas-agro.vercel.app` | না — এখন `vercel.app`; ডোমেইন যোগ করলে `https://bishwasagro.com` |
+| `ADMIN_PATH` | `foisal` | Server-only |
+| `NEXT_PUBLIC_ADMIN_PATH` | `foisal` | না — sidebar-এর জন্য একই মান |
 
-`openssl rand` কমান্ড দুটি টার্মিনালে চালিয়ে আউটপুট কপি করুন।
+> `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `SEED_SECRET` **এই প্রজেক্টে নেই** — যোগ করবেন না। অ্যাডমিন `supabase/admin.sql` দিয়ে বানানো হয় (পরের ধাপ)।
 
-**ঘ)** **Deploy** চাপুন → ২-৩ মিনিট → ✅ **Congratulations**
+`openssl rand -base64 48` টার্মিনালে চালিয়ে `JWT_SECRET` কপি করুন।
 
-### ধাপ ৫ — অ্যাডমিন অ্যাকাউন্ট তৈরি (একবারই)
+**ঘ)** **Deploy** চাপুন → ২-৩ মিনিট → ✅ **Congratulations** → **Visit** চাপলে `https://<project>.vercel.app` খুলবে।
 
-```bash
-curl -X POST https://bishwasagro.com/api/setup/seed-admin \
-  -H "Authorization: Bearer <আপনার SEED_SECRET>"
+### ধাপ ৫ — অ্যাডমিন অ্যাকাউন্ট তৈরি (একবারই, Supabase SQL — কোনো API নয়)
+
+এই প্রজেক্টে `/api/seed-admin` **নেই** (নিরাপত্তার জন্য সরানো)। অ্যাডমিন শুধু Supabase Dashboard + SQL দিয়ে বানানো হয়:
+
+**৫-ক. Supabase Dashboard → Authentication → Users → Add user → Create new user**
+- **Email:** `foysaliqbal09@gmail.com`
+- **Password:** শক্ত পাসওয়ার্ড (নিজে মনে রাখুন)
+- ✅ **Auto Confirm User** — **টিক দিন** (না দিলে `Email not confirmed` → লগইন 401)
+- **Create user** চাপুন
+
+**৫-খ. SQL Editor → New query → `supabase/admin.sql` ফাইলটি পুরো কপি-পেস্ট → Run**
+
+সফল হলে নিচে দেখাবে:
+
+```
+OK — foysaliqbal09@gmail.com is now an admin (auth id …)
 ```
 
-সফল হলে এমন উত্তর আসবে:
+আর Verify কোয়েরিটি ১টি row ফেরত দেবে: `role = admin`, `email_confirmed = true`।
 
-```json
-{ "ok": true, "data": { "created": true, "email": "you@gmail.com",
-  "next": "Now sign in at /{ADMIN_PATH}/login and then remove SEED_SECRET from Vercel." } }
-```
+> **ভুল হলে exception বাংলায় বলে দেবে:**
+> - `অ্যাকাউন্ট পাওয়া যায়নি` → ধাপ ৫-ক করেননি
+> - `ইমেইল এখনো যাচাই হয়নি` → Auto Confirm টিক দেননি → Users → ওই ইউজার → **Confirm email**
 
-**এবার `/{ADMIN_PATH}/login`** → ইমেইল + পাসওয়ার্ড দিয়ে লগইন করুন।
+**এবার `https://<project>.vercel.app/foisal/login`** → ওই ইমেইল + পাসওয়ার্ড দিয়ে লগইন করুন।
 
-**✅ অত্যন্ত জরুরি — ফাংশনটি বন্ধ করুন:**
-Vercel → Settings → Environment Variables → **`SEED_SECRET`** ও **`ADMIN_PASSWORD`** → **Delete**
-→ তারপর **Deployments → ⋯ → Redeploy**।
-
-> এরপর ওই URL কেউ ডাকলে `503 SEED_SECRET সেট করা নেই` — অক্ষম হয়ে যাবে।
-> একইভাবে দ্বিতীয়বার ডাকলে `409 অ্যাডমিন ইতিমধ্যে তৈরি হয়েছে`।
+> **কেন SQL?** `profiles.role` গ্রাহক নিজে `PATCH` দিয়ে বদলাতে পারে না — migration `0008` এ `authenticated` role-এর `UPDATE` গ্রান্ট থেকে `role` কলাম বাদ, আর `guard_profile_role` trigger `admin` ছাড়া role change `RAISE EXCEPTION` করে। তাই শুধু SQL Editor (owner role) থেকে promote করা যায়।
 
 ### ধাপ ৬ — খামার, ক্যামেরা ও পণ্য যোগ করা
 
@@ -677,7 +684,10 @@ Vercel → Settings → Environment Variables → **`SEED_SECRET`** ও **`ADMIN
 | **অ্যাডমিন লগইনে `503 কনফিগার করা হয়নি`** | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` সেট নেই, অথবা ধাপ ৫-এর seed এখনো চালাননি। |
 | **`503 Supabase unreachable`** | Vercel-এ `SUPABASE_SERVICE_ROLE_KEY` ভুল/মুছে গেছে। ঠিক করে **Redeploy** করুন। |
 | **ছবি আপলোড হচ্ছে না** | `avatars` বাকেট নেই বা public নয়। Storage → Buckets দেখুন; ২ MB-এর ছোট JPG দিন। |
-| **লাইভ ভিডিও কালো** | `STREAM_PROXY_TARGET` সেট নেই বা MediaMTX চলছে না। `docker compose -f docker-compose.mediamtx.yml up -d` চালান। |
+| **লাইভ ভিডিও কালো** | `STREAM_PROXY_TARGET` সেট নেই বা MediaMTX চলছে না। `docker compose -f docker-compose.mediamtx.yml up -d` চালান। ছোট VPS-এ `docker-compose.stream-vps.yml` দেখুন (`--profile tunnel` Cloudflare Tunnel, `--profile public` Caddy + Let's Encrypt)। রিভার্স প্রক্সি ছাড়া RTSP কখনো ব্রাউজারে দেবেন না — `POST /api/stream/token` থেকে ৫ মিনিটের signed JWT নিতে হয়। |
+| **Env var বদলেও কাজ করছে না** | Vercel-এ env বদলালে **Redeploy** লাগে (`NEXT_PUBLIC_*` build-time inline)। **Deployments → ⋯ → Redeploy** চাপুন। লোকালে `.env.local` বদলালে `npm run dev` রিস্টার্ট করুন। |
+| **Preview URL-এ Google login ব্যর্থ** | Supabase → URL Configuration → Redirect URLs-এ `https://*-vercel.app/**` যোগ আছে কি না দেখুন। না থাকলে preview deploy Supabase-এ `code exchange failed` / `is not included in Redirect URLs` দেবে। Production `vercel.app` URL-টি Site URL-এ থাকতে হবে না — `NEXT_PUBLIC_SITE_URL` preview-এ `VERCEL_URL` থেকে অটো-ধরে। |
+| **`/admin` খুললে 404 কিন্তু `/foisal` ও 404** | `ADMIN_PATH` env Vercel-এ `foisal` নয় বা `NEXT_PUBLIC_ADMIN_PATH` ভিন্ন। দুটো একই রাখুন, তারপর redeploy। `/admin` ইচ্ছাকৃত 404 (hint না দেওয়ার জন্য rewrite, redirect নয়)। |
 
 ### ধাপ ৯ — নিরাপত্তা চেকলিস্ট (লাইভের আগে)
 
@@ -930,8 +940,7 @@ Supabase ধীর হলে বিল্ডের ৬০-সেকেন্ড 
   `/payment`, `/login`, `/track`, `/search`, `/seller` ব্লকড; Googlebot-এর জন্য
   আলাদা নিয়ম; স্ক্র্যাপার বট (AhrefsBot, SemrushBot…) সম্পূর্ণ ব্লকড
 - ৭টি ৩০১ রিডাইরেক্ট: `/shop`, `/farmer`, `/farmers`, `/organic`, `/privacy`,
-  `/terms`, `/refund` — `next.config.ts`, `vercel.json`, `netlify.toml` তিন জায়গায়
-  একই
+  `/terms`, `/refund` — `next.config.ts` ও `vercel.json` — দুই জায়গায় একই (CDN + Next headers) — মান একই
 
 ### JSON-LD (রিচ রেজাল্ট)
 
@@ -1154,24 +1163,21 @@ npm run verify     # typecheck + security scan + bundle budget
 
 ---
 
-## ২২. ডিপ্লয় — দুটোই (Vercel + Netlify)
+## ২২. ডিপ্লয় — Vercel (একমাত্র)
 
-আপনার নির্দেশ অনুযায়ী **দুটোই রাখা হয়েছে**:
+এই প্রজেক্ট **শুধু Vercel**-এ চলে — অন্য কোনো হোস্টিং adapter নেই।
 
-| | Vercel | Netlify |
-|---|---|---|
-| কনফিগ | `vercel.json` | `netlify.toml` |
-| হেডার | CDN-লেভেলে | `[[headers]]` ব্লকে |
-| রিডাইরেক্ট | ৭টি, ৩০১ | একই ৭টি |
-| ক্যাশ | `_next/static` immutable, fonts ১ বছর | একই |
-| `X-Robots-Tag` | `/{ADMIN_PATH}/*`, `/account/*` | একই |
-| রিজিয়ন | `iad1` | ডিফল্ট edge |
+| বিষয় | মান |
+|---|---|
+| কনফিগ | `vercel.json` (CDN হেডার/রিডাইরেক্ট/ক্যাশ) + `next.config.ts` `headers()` + `images.remotePatterns` |
+| রিজিয়ন | `sin1` — Singapore (Supabase `ap-southeast-1` এর পাশে, কম latency) |
+| হেডার | CDN-লেভেলে `X-Content-Type-Options`, `HSTS` (63072000, preload), `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy`, `Permissions-Policy`; `_next/static` immutable 1 বছর, fonts 1 বছর |
+| রিডাইরেক্ট | ৭টি ৩০১: `/shop`→`/products`, `/farmer` `/farmers`→`/farm`, `/organic`→`/categories/agri`, `/privacy` `/terms` `/refund`→`/policies/*` |
+| `X-Robots-Tag` | `/{ADMIN_PATH}/*` ও `/account/*` → `noindex, nofollow`, `/api/*` → `noindex`, preview deployments → `noindex, nofollow` (`VERCEL_ENV !== 'production'`) |
+| ক্যাশ | `sw.js` → `no-cache`, `sitemap.xml` 1h, `robots.txt` 1d |
+| CSP | `middleware.ts`-এ প্রতি-রিকোয়েস্ট `nonce` + `strict-dynamic` (build-time header নয় — `vercel.json`/`next.config.ts`-এ নেই) |
 
-`next.config.ts`-এর `headers()` দুই জায়গাতেই কাজ করে — CDN কনফিগ শুধু বাড়তি স্তর। **CSP এখানে নেই** (middleware-এ, কারণ ননস প্রতি রিকোয়েস্টে বদলায়)।
-
-**লক্ষ্য করুন:** দুটো প্ল্যাটফর্মে একই সাথে ডিপ্লয় করলে দুটি আলাদা ডোমেইন হবে — Google SEO-তে **canonical** ঠিক করে দিতে হবে কে মূল। `NEXT_PUBLIC_SITE_URL` প্রতিটি প্ল্যাটফর্মে সেট করুন।
-
----
+`next.config.ts` এর `remotePatterns` Supabase Storage ডোমেইন (`https://<ref>.supabase.co`) অটো-ধরে — `next/image` অপ্টিমাইজেশন বাইরের যেকোনো হোস্ট ব্লক করে। Filesystem read-only: আপলোড **শুধু Supabase Storage** (`product-images`, `avatars`, `farm-images`), Vercel filesystem নয়। Vercel Serverless function time-limit (Hobby 10s, Pro 60s) মাথায় রেখে সব API route ছোট রাখা — লম্বা polling নয়, **Supabase Realtime** ব্যবহার (payment-console, notifications fall back 60–90s poll)।
 
 ## ২৩. এখানেই থামুন — সব ধাপ সম্পূর্ণ
 
@@ -1215,12 +1221,9 @@ npm run verify     # typecheck + security scan + bundle budget
 
 #### ঠিকানা বদলাতে চাইলে (যেমন `foisal` → `bonduk`)
 
-1. **Netlify** → Site settings → Environment variables → নতুন ভেরিয়েবল:
-   * Key: `ADMIN_PATH`
-   * Value: `bonduk` (ছোট হাতের ইংরেজি, শুধু `a-z`, `0-9`, `-`)
-2. **Vercel** ও একই নামে যোগ করুন (Production + Preview দুই জায়গায়)।
-3. **Deploy** করুন (একবার)।
-4. নতুন ঠিকানা: `biswasagro.com/bonduk`। পুরোনো `/foisal` এখন 404।
+1. **Vercel → Project → Settings → Environment Variables** → `ADMIN_PATH` = `bonduk` (ছোট হাতের ইংরেজি, শুধু `a-z`, `0-9`, `-`, Production + Preview) — একই মান `NEXT_PUBLIC_ADMIN_PATH`-এও বসান (client bundle-এর জন্য)।
+2. **Deployments → ⋯ → Redeploy** (env বদলালে redeploy লাগে)।
+3. নতুন ঠিকানা: `https://<project>.vercel.app/bonduk` (ডোমেইন যোগ করার পর `https://bishwasagro.com/bonduk`)। পুরোনো `/foisal` এখন 404।
 
 > একটাই ভেরিয়েবল — কোডে হাত দিতে হবে না। `NEXT_PUBLIC_ADMIN_PATH` সেট করলে ক্লায়েন্ট বান্ডলেও একই মান যাবে (সেটাই প্রস্তাবিত)।
 
@@ -1373,6 +1376,160 @@ npm run verify     # typecheck + security scan + bundle budget
 হ্যাঁ। সব কিছু Supabase-এ জমা হয়, ডিপ্লয় লাগে না। কিছু পাতা ১-২ মিনিট ক্যাশে থাকে (হোমপেজ ২ মিনিট, ব্লগ ৫ মিনিট) — সাথে সাথে দেখতে চাইলে ব্রাউজার রিফ্রেশ করুন। প্রতিটি পরিবর্তন **অডিট লগে** লেখা থাকে (কে, কখন, কী বদলেছে)।
 
 **ছবি আপলোডে মনে রাখবেন:** `payment-proofs` বাকেট **প্রাইভেট** — গ্রাহকের স্ক্রিনশট শুধু তিনি আর আপনি দেখেন। বাকি বাকেট (`logos`, `hero-slides`, `product-images`) পাবলিক, কারণ সেগুলো সাইটে দেখানোর জন্যই।
+
+---
+
+## ২৫. Vercel-এ `vercel.app` দিয়ে লাইভ — পুরো ধাপ, ডোমেইন চেকলিস্ট, SEO ও ট্রাবলশুট
+
+> **এই সেকশনটাই এখন "কীভাবে লাইভ করবেন"-এর একমাত্র সত্য।** §৫/§৬/§১৪ এর সাথে মিলিয়ে পড়ুন — কোথাও `ADMIN_EMAIL` খুঁজবেন না, সেটি নেই।
+
+### ২৫.১ GitHub → Vercel — exact commands (কপি-পেস্ট)
+
+```bash
+# ১. GitHub-এ পুশ (প্রথমবার)
+git init
+git add -A
+git commit -m "feat: vercel deploy — vercel.app, foisal admin, pkce auth"
+git branch -M main
+git remote add origin https://github.com/farukhossain25/AGRO.git
+git push -u origin main
+
+# পরে যেকোনো আপডেট
+git add -A
+git commit -m "update: ..."
+git push origin main
+# Vercel auto-deploy শুরু হবে (GitHub App ইনস্টল থাকলে)
+
+# ২. Vercel CLI দিয়ে (ঐচ্ছিক, Dashboard দিয়েও একই)
+npm i -g vercel
+vercel login
+vercel link            # Project name: biswas-agro  (আপনার <project>.vercel.app)
+vercel env add NEXT_PUBLIC_SUPABASE_URL          # Production + Preview + Development
+vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY
+vercel env add SUPABASE_SERVICE_ROLE_KEY
+vercel env add JWT_SECRET
+vercel env add NEXT_PUBLIC_SITE_URL              # https://biswas-agro.vercel.app
+vercel env add ADMIN_PATH                        # foisal
+vercel env add NEXT_PUBLIC_ADMIN_PATH            # foisal
+vercel --prod
+# Deploy শেষে Vercel যে vercel.app URL দেবে, সেটাই Site URL
+```
+
+**Dashboard দিয়ে (কোড না জানলেও):** [vercel.com/new](https://vercel.com/new) → **Import Git Repository** → `farukhossain25/AGRO` → Framework Preset **Next.js** (auto) → **Environment Variables** (উপরের টেবিল §৫ দেখে Paste) → **Deploy** → ২-৩ মিনিট → **Visit** → `https://<project>.vercel.app`।
+
+**প্রথম deploy-এর পর যা করবেন (ক্রম বদলাবেন না):**
+
+1. Deploy URL কপি করুন (যেমন `https://biswas-agro.vercel.app`) → `NEXT_PUBLIC_SITE_URL` এই মান — ভুল হলে canonical/OG/sitemap ভুল ডোমেইনে যাবে।
+2. **Supabase → Authentication → URL Configuration:**
+   - **Site URL** = `https://biswas-agro.vercel.app`
+   - **Redirect URLs** = `http://localhost:3000/**`, `https://biswas-agro.vercel.app/**`, `https://*-vercel.app/**`, `https://*-<team>.vercel.app/**`, `biswasagro://auth-callback` (উপরে §১৪ ধাপ ৩ ঘ দেখুন) → **Save**
+3. **Google Cloud Console → Credentials → OAuth Client → Authorized redirect URI** = `https://<ref>.supabase.co/auth/v1/callback` (Supabase-এর, আপনার vercel.app নয়) — না হলে `redirect_uri_mismatch`
+4. **Authorized JavaScript origins** = `http://localhost:3000`, `https://biswas-agro.vercel.app` (পরে `https://bishwasagro.com` যোগ হবে)
+5. Supabase SQL Editor → `supabase/admin.sql` Run → `foysaliqbal09@gmail.com` → admin (§১৪ ধাপ ৫)
+6. `https://<project>.vercel.app/foisal/login` → লগইন → পাসওয়ার্ড বদলান (**Security → Change password**, TOTP 2FA ঐচ্ছিক)
+7. পরীক্ষা:
+   - `https://<project>.vercel.app/admin` → **404** (redirect নয়, hint নেই)
+   - লগআউট অবস্থায় `https://<project>.vercel.app/foisal` → `/foisal/login` redirect
+   - সাধারণ Gmail দিয়ে লগইন করে `/foisal` → **403 / Access denied** (লগইন পেজ নয় — middleware `profiles.role` দেখে)
+   - Preview URL (Vercel PR build) → Google login → `/auth/callback?code=…` → `next` প্যারামে ফেরত (PKCE, কোনো token URL-এ থাকে না)
+
+### ২৫.২ পরে কাস্টম ডোমেইন যোগ করবেন যখন — কোড বদল ছাড়া চেকলিস্ট
+
+> **প্রতিশ্রুতি:** ডোমেইন যোগ করতে **কোডে এক লাইনও বদলাতে হবে না** — শুধু Vercel + Supabase + DNS env। `lib/site-url.ts` `NEXT_PUBLIC_SITE_URL` → `VERCEL_PROJECT_PRODUCTION_URL` → `VERCEL_URL` ক্রমে resolve করে, আর `app/layout.tsx` `metadataBase: new URL(site.url)` সেই মানই ব্যবহার করে, তাই sitemap/robots/canonical/OG/JSON-LD সব অটো-স্যুইচ করে।
+
+- [ ] **ডোমেইন কিনুন** (Namecheap / GoDaddy / Cloudflare Registrar — যেখানে খুশি)
+- [ ] **Vercel → Project → Settings → Domains → Add** → `bishwasagro.com` → **Add** → `www.bishwasagro.com` → **Add** (Vercel ড্যাশবোর্ডে যে DNS রেকর্ড দেখাবে, সেটাই authoritative)
+  - সাধারণত: `A @ → 76.76.21.21` (বা `216.198.79.1` / `64.29.17.1` — ড্যাশবোর্ডে যা দেখায়) এবং `CNAME www → cname.vercel-dns.com` (বা `*.vercel-dns-*.com`)
+  - পুরোনো `A`/`CNAME` থাকলে মুছে দিন, তারপর **Refresh**
+- [ ] DNS propagate হওয়া পর্যন্ত ৫-৩০ মিনিট অপেক্ষা → `dig +short bishwasagro.com` → Vercel IP দেখা উচিত
+- [ ] Vercel Domains পেজে **Valid Configuration** + 🔒 **SSL** (Let's Encrypt, ১-৫ মিনিট) দেখা গেলে:
+  - **Environment Variables → `NEXT_PUBLIC_SITE_URL` → `https://bishwasagro.com` → Save → Deployments → ⋯ → Redeploy** (build-time inline, redeploy ছাড়া canonical পুরোনো vercel.app-ই থাকবে)
+- [ ] **Supabase → Authentication → URL Configuration:**
+  - **Site URL** → `https://bishwasagro.com`
+  - **Redirect URLs** → আগের `vercel.app` লাইনগুলো **রেখে দিন**, সাথে যোগ করুন: `https://bishwasagro.com/**`, `https://bishwasagro.com/auth/callback`, `https://www.bishwasagro.com/**`
+- [ ] **Google Cloud Console → Authorized JavaScript origins** → `https://bishwasagro.com` যোগ (redirect URI আগের মতো `https://<ref>.supabase.co/auth/v1/callback`-ই থাকবে — সেখানে vercel/app ডোমেইন দিতে হয় না)
+- [ ] **Capacitor Android** → `CAPACITOR_SERVER_URL=https://bishwasagro.com` (আগে `vercel.app` ছিল) → `npx cap sync android`
+- [ ] **Google Search Console** → Property `https://bishwasagro.com` → HTML tag (`NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION`) দিয়ে Verify → `https://bishwasagro.com/sitemap.xml` Submit
+- [ ] **Payment/OAuth** → bKash/SSLCommerz/Nagad callback URL `NEXT_PUBLIC_SITE_URL` থেকে বানানো হলে redeploy-এ অটো-আপডেট; না হলে gateway dashboard-এ নতুন domain বসান
+- [ ] পুরোনো `https://<project>.vercel.app` এখনো কাজ করে (Vercel 308 → custom domain), কিন্তু canonical এখন `bishwasagro.com` — দুটোই থাকা স্বাভাবিক
+
+### ২৫.৩ SEO — `vercel.app` দিয়ে কেন র‍্যাঙ্ক করা কঠিন
+
+- **সব SEO `NEXT_PUBLIC_SITE_URL` থেকে অটো-আসে:** `app/sitemap.ts` / `app/robots.ts` / `lib/seo.ts` `site.url` (`lib/site-url.ts` → `resolveSiteUrl()`) পড়ে। preview deploy-এ `VERCEL_ENV=preview` → `X-Robots-Tag: noindex, nofollow` (middleware + next.config.ts + vercel.json তিন স্তরে), তাই branch build Google index করে না।
+- **কিন্তু free `vercel.app` সাবডোমেইনে serious SEO করবেন না:**
+  - `.vercel.app` Google-এ "আপনার" ডোমেইন নয় — authority, backlink, brand signal সব ভাগ হয়ে যায়, subdomain বদলালে ranking reset হয়
+  - `vercel.app` URL শেয়ার করলে social preview/OG URL পরে custom domain-এ গেলে cache invalidation লাগে
+  - **পরামর্শ:** `vercel.app`-এ ফাংশনাল টেস্ট করুন, কিন্তু **Search Console submit, paid ads, influencer link** — সব custom domain-এর পর। §২৫.২ শেষ না করে sitemap submit করবেন না।
+- robots: `Disallow: /foisal` + `Disallow: /account` + `Disallow: /api` — কিন্তু **Disallow alone index সরায় না**, তাই private surface-এ `X-Robots-Tag: noindex` **এবং** `meta robots noindex` দুটোই দেওয়া (defence in depth)
+- Admin bundle lazy-loaded (`app/foisal/**` dynamic import) — সাধারণ ভিজিটর কখনো admin JS download করে না (bundle budget §১৭ দেখুন)
+
+### ২৫.৪ অ্যাডমিন তৈরি — `supabase/admin.sql` (একমাত্র পথ)
+
+> `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `SEED_SECRET` env **নেই**, `/api/seed-admin` route **নেই**, `scripts/create-admin.mjs` **মুছে ফেলা হয়েছে** — `npm run db:admin` আর কাজ করে না।
+
+```sql
+-- Supabase → SQL Editor → New query → supabase/admin.sql paste → Run
+-- আগে Authentication → Users → Add user → foysaliqbal09@gmail.com + Auto Confirm
+do $$ ... $$;  -- ফাইলটি পুরো run করুন — ভুল হলে বাংলায় exception
+select * from profiles join auth.users ... -- verify: role=admin
+select grantee, column_name from information_schema.column_privileges
+ where table_name='profiles' and privilege_type='UPDATE' and grantee='authenticated';
+-- 9 rows, "role" নেই — প্রমাণ যে customer নিজেকে admin বানাতে পারে না
+```
+
+- RLS: `profiles_select_own` (`id = auth.uid()`), `profiles_update_own` (9 কলাম, `role` নেই), `profiles_staff_read` (`is_staff()`), `profiles_admin_all` (`is_admin()`) — middleware `auth.getUser()` + `profiles.role` read RLS দিয়ে, login-time JWT snapshot নয়
+- `guard_profile_role` trigger: `role` বদল শুধু admin বা owner role (SQL Editor) পারে — browser `PATCH {role: 'admin'}` → 403
+
+### ২৫.৫ লাইভ CCTV — Vercel-এ চলে না, ছোট VPS + Cloudflare Tunnel
+
+Vercel serverless filesystem read-only/ephemeral — RTSP রাখা যায় না। তাই MediaMTX + go2rtc **আলাদা ছোট VPS** (1 vCPU / 1 GB, ~$5/mo) এ চলে:
+
+```
+Camera (RTSP) → VPS: MediaMTX (HLS) + go2rtc (WHEP/WebRTC) → Caddy / cloudflared → Browser
+                         ↑ signed 5-min JWT via POST /api/stream/token (app) ↑
+```
+
+**VPS-এ:**
+
+```bash
+# /opt/stream/.env  (Vercel env-এও একই মান)
+STREAM_PROXY_SECRET=<openssl rand -hex 32>
+# .env.example দেখে STREAM_TOKEN_SECRET / JWT_SECRET মিল রাখুন
+
+# Option A — Cloudflare Tunnel (প্রস্তাবিত, কোনো port খুলতে হয় না)
+docker compose -f docker-compose.stream-vps.yml --profile tunnel up -d
+# cloudflared tunnel → https://stream.bishwasagro.com  (পরে custom domain)
+
+# Option B — Public IP + Caddy Let's Encrypt (80/443 খুলুন)
+docker compose -f docker-compose.stream-vps.yml --profile public up -d
+```
+
+**Vercel env:**
+
+```
+STREAM_PROXY_TARGET=https://stream.bishwasagro.com   # বা http://<vps-ip>:8080 (tunnel-এ https)
+GO2RTC_WHEP_URL=https://stream.bishwasagro.com/api/webrtc
+STREAM_PROXY_SECRET=<same as VPS>
+```
+
+**কেন signed token?** `app/api/stream/token/route.ts` premium state → concurrent viewer cap → `stream_sessions` row → ৫ মিনিটের JWT (HS256, `STREAM_TOKEN_SECRET` বা `JWT_SECRET`)। Browser কখনো RTSP URL দেখে না — `/api/stream/hls/<key>/index.m3u8?t=<jwt>` প্রক্সি করে, playlist-এর প্রতিটি segment `?t=` rewrite করে। `vercel.app` হোক বা custom domain — একই প্রক্সি, CSP-এ আলাদা host যোগ করতে হয় না (browser app-এর `/api/stream/*`-এ কথা বলে, VPS-এ direct নয়)।
+
+**Supabase Storage:** সব আপলোড (`product-images`, `avatars`, `review-photos`, `payment-proofs`) Supabase Storage — Vercel filesystem নয় (ephemeral)। Bucket RLS: `authenticated` user নিজের folder-এ লেখে, public read যেখানে দরকার। `next/image` `remotePatterns` Supabase host auto-allow (wildcard নয় — যেকোনো Supabase project নয়)।
+
+### ২৫.৬ ট্রাবলশুট — Vercel-এ সবচেয়ে বেশি যে ৮টি ভুল হয়
+
+| দেখা | কারণ | ঠিক করুন |
+|---|---|---|
+| `redirect_uri_mismatch` (Google) | Google Console **Authorized redirect URI**-তে `https://<project>.vercel.app` দিয়েছেন | সেখানে হবে **`https://<ref>.supabase.co/auth/v1/callback`** — Supabase-এর, আপনার সাইটের নয়। JS origins-এ `vercel.app` + `localhost` দিন, redirect URI-তে নয় |
+| `Invalid login credentials` | পাসওয়ার্ড ভুল, অথবা অ্যাকাউন্ট `auth.users`-এ নেই (পুরোনো bcrypt) | `/login` → **পাসওয়ার্ড ভুলে গেছি** → reset link → নতুন পাসওয়ার্ড → তখন Supabase Auth row তৈরি হয় |
+| `Email not confirmed` | Auto Confirm টিক দেননি | Supabase → Authentication → Users → ওই user → **Confirm email**, অথবা Providers → Email → **Confirm email** off (dev only) |
+| `new row violates row-level security policy` | `0004_profiles_auth_rls.sql` পুরো run হয়নি, বা `auth.uid()` null (Supabase anon key ভুল) | SQL Editor → `select * from pg_policies where schemaname='public'` → `profiles_*` ৪টি policy আছে কি না দেখুন; `NEXT_PUBLIC_SUPABASE_ANON_KEY` ঠিক কি না |
+| `permission denied for table profiles` / `role` | ঠিক আছে — customer `role` লিখতে পারে না (by design) | Admin promote করতে `supabase/admin.sql` owner role-এ চালান, browser PATCH নয় |
+| Env var বদলেও পুরোনো মান | `NEXT_PUBLIC_*` build-time inline — redeploy ছাড়া বদলায় না | **Vercel → Deployments → ⋯ → Redeploy** (Production). লোকালে `.env.local` বদলালে dev server restart |
+| Preview URL-এ login 404 / `code exchange failed` | Supabase Redirect URLs-এ `https://*-vercel.app/**` নেই | §২৫.১ ধাপ ২ দেখে `https://*-vercel.app/**` + `https://*-<team>.vercel.app/**` যোগ → Save |
+| `/admin` 404 কিন্তু `/foisal` ও 404 | `ADMIN_PATH` / `NEXT_PUBLIC_ADMIN_PATH` mismatch বা redeploy হয়নি | দুটো env একই (`foisal`), তারপর redeploy। `/admin` ইচ্ছাকৃত 404 — `LEGACY_ADMIN_BASE` rewrite, redirect নয় |
+
+> **Preview-এ লগইন টেস্ট:** PR-এর `https://<branch>-<project>.vercel.app/foisal/login` খুলে admin দিয়ে লগইন করুন — Supabase Site URL production `vercel.app`-ই থাকে, preview `Redirect URLs` wildcard-এ কভার হয়। `NEXT_PUBLIC_SITE_URL` preview-এ `VERCEL_URL` থেকে অটো-ধরে (lib/site-url.ts), তাই canonical preview-তে ভুল domain যায় না।
 
 ---
 

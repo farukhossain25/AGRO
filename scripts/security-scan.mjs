@@ -37,7 +37,6 @@ for (const file of source.filter((f) => f.startsWith("app/api") && f.endsWith("r
   const guarded =
     /requirePermission\(|requireAdmin\(|requireStaff\(|requireUser\(/.test(body) ||
     /currentUser\(/.test(body) ||
-    /safeEqual\(|timingSafeEqual|SEED_SECRET/.test(body) || // one-shot bootstrap
     /verifyStreamToken/.test(body) || // token-gated stream proxy
     /auth\.signInWithPassword|supabaseAnonServer/.test(body); // credential check itself
 

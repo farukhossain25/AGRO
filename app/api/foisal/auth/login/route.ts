@@ -5,7 +5,7 @@ import { clientKey, fail, handleError, ok, rateLimit, tooMany } from "@/lib/api"
 import { sessionCookie, signSession } from "@/lib/auth";
 import { toSessionUser, type Profile } from "@/lib/profile";
 import { authErrorBn, clientIp, isLockedOut, recordAttempt } from "@/lib/auth-attempts";
-import { isSupabaseAuthConfigured, shapeAuthUser, supabaseAnonServer } from "@/lib/supabase-server";
+import { isSupabaseAuthConfigured, shapeAuthUser } from "@/lib/supabase-server";
 import { verifyTotp } from "@/lib/totp";
 import { isStaffRole } from "@/lib/permissions";
 import type { UserRole } from "@/lib/types";
@@ -47,13 +47,33 @@ export async function POST(req: Request) {
 
     if (!isSupabaseAuthConfigured()) {
       return fail(
-        "অ্যাডমিন লগইন এখনো কনফিগার করা হয়নি — Supabase URL/anon key সেট করুন এবং একবার seed-admin চালান।",
+        "অ্যাডমিন লগইন এখনো কনফিগার করা হয়নি — NEXT_PUBLIC_SUPABASE_URL ও NEXT_PUBLIC_SUPABASE_ANON_KEY সেট করুন।",
         503
       );
     }
 
-    // ---- 1. credential check
-    const { data: signIn, error: signInError } = await supabaseAnonServer().auth.signInWithPassword({
+    /* ---- 1. credential check -------------------------------------------
+       The @supabase/ssr server client persists the session into cookies, which
+       middleware.ts needs: the admin gate validates the Supabase session and
+       the current profiles.role on every request. The app's own ba_admin JWT
+       is still minted below for the layout and API routes. */
+    const cookieStore = await cookies();
+    const pendingCookies: { name: string; value: string; options?: Record<string, unknown> }[] = [];
+    const { createServerClient } = await import("@supabase/ssr");
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll: () => cookieStore.getAll().map((c) => ({ name: c.name, value: c.value })),
+          setAll: (toSet) => {
+            for (const item of toSet) pendingCookies.push(item);
+          },
+        },
+      }
+    );
+
+    const { data: signIn, error: signInError } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -135,6 +155,16 @@ export async function POST(req: Request) {
     const options = { ...sessionCookie.options, maxAge: ADMIN_SESSION_SECONDS };
     store.set(sessionCookie.adminName, token, options);
     store.set(sessionCookie.name, token, options);
+    /* The Supabase session cookies captured during sign-in. middleware.ts
+       validates this session (and the fresh profiles.role) on every admin
+       request, so it must be present or the admin is bounced to /login. */
+    for (const item of pendingCookies) {
+      try {
+        store.set(item.name, item.value, item.options as never);
+      } catch {
+        /* a header already sent for another cookie — safe to skip */
+      }
+    }
 
     await Promise.allSettled([
       db()

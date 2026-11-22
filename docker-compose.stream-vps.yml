@@ -1,0 +1,121 @@
+# ============================================================================
+#  docker-compose.stream-vps.yml — the live-CCTV stack on its own small VPS
+# ----------------------------------------------------------------------------
+#  WHY THIS IS SEPARATE FROM VERCEL
+#  Vercel runs serverless functions: they cannot hold a socket open, cannot keep
+#  an RTSP connection alive, and have a read-only filesystem. MediaMTX/go2rtc
+#  need all three, so the stream edge lives on a $4–6/month VPS (or a Raspberry
+#  Pi at the farm) and Vercel only ever hands out a signed, 5-minute URL.
+#
+#  Two ways to expose it. Pick ONE.
+#
+#  ── OPTION A: Cloudflare Tunnel (recommended, no open ports, free) ─────────
+#    1. Add your domain to Cloudflare (free plan is fine).
+#    2. Cloudflare Zero Trust → Networks → Tunnels → Create tunnel.
+#    3. Copy the token into .env on the VPS as CF_TUNNEL_TOKEN.
+#    4. In the tunnel's Public Hostname tab:
+#         stream.example.com   → http://caddy:8080
+#    5. Run:  docker compose -f docker-compose.stream-vps.yml --profile tunnel up -d
+#    No inbound ports, no TLS certificate to renew, the VPS is unreachable from
+#    the internet except through Cloudflare.
+#
+#  ── OPTION B: public HTTPS with a real certificate ────────────────────────
+#    1. Point an A record at the VPS IP.
+#    2. Run the proxy profile below (Caddy gets a Let's Encrypt cert itself).
+#    3. Open 80 and 443 only.
+#    Run:  docker compose -f docker-compose.stream-vps.yml --profile public up -d
+#
+#  THEN, in Vercel → Settings → Environment Variables:
+#        STREAM_PROXY_TARGET = https://stream.example.com
+#        GO2RTC_WHEP_URL     = https://stream.example.com/webrtc
+#        STREAM_PROXY_SECRET = <same long random string as below>
+#    Reusing STREAM_PROXY_TARGET's host in CSP: middleware.ts reads
+#    NEXT_PUBLIC_SUPABASE_URL for Supabase, and app/api/stream/* proxies the
+#    media itself, so the browser never talks to the VPS directly. That is why
+#    the CSP does not need stream.example.com in connect-src or media-src.
+#
+#  VERIFY
+#    curl -s -o /dev/null -w '%{http_code}\n' https://stream.example.com/hls/test/index.m3u8
+#    403 without X-Proxy-Secret = correct (Caddy rejected it)
+# ============================================================================
+
+services:
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    container_name: ba-mediamtx
+    restart: unless-stopped
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml:ro
+    environment:
+      MTX_PROTOCOLS: tcp
+      MTX_HLS: "yes"
+      MTX_HLS_VARIANT: lowLatency
+      MTX_HLS_SEGMENTDURATION: 1s
+      MTX_HLS_SEGMENTCOUNT: 7
+      MTX_HLS_ALWAYSREMOVESEGMENTS: "yes"
+      # HLS is consumed through the Caddy proxy, never straight from a browser,
+      # so the origin itself does not need a wide CORS policy.
+      MTX_HLS_ALLOWORIGIN: "https://biswas-agro.vercel.app,https://bishwasagro.com"
+      MTX_RTSPTRANSPORTS: tcp
+      MTX_AUTHINTERNALUSERS: "yes"
+      MTX_HLSDIRECTORY: /tmp/hls
+      MTX_LOGLEVEL: info
+    expose:
+      - "8888"
+      - "8889"
+      - "8554"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8888/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    # Cameras live on the LAN, so only the RTSP side needs host networking.
+    # If the cameras are reachable by IP from another VLAN, delete this block.
+    network_mode: host
+
+  go2rtc:
+    image: alexxit/go2rtc:latest
+    container_name: ba-go2rtc
+    restart: unless-stopped
+    volumes:
+      - ./go2rtc.yaml:/config/go2rtc.yaml:ro
+    ports:
+      # WebRTC signalling. 8555/udp carries the media.
+      - "1984:1984"
+      - "8555:8555/udp"
+      - "8555:8555/tcp"
+
+  # ── OPTION A ──────────────────────────────────────────────────────────────
+  caddy:
+    profiles: ["tunnel", "public"]
+    image: caddy:2-alpine
+    container_name: ba-caddy
+    restart: unless-stopped
+    environment:
+      STREAM_PROXY_SECRET: ${STREAM_PROXY_SECRET:?set STREAM_PROXY_SECRET in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    # The Caddyfile listens on :8080 and auto_https is off, because TLS is
+    # terminated by Cloudflare (Option A) or by a separate Caddy instance
+    # (Option B). Keeping one Caddyfile for both avoids drift.
+    expose:
+      - "8080"
+    depends_on:
+      - mediamtx
+
+  cloudflared:
+    profiles: ["tunnel"]
+    image: cloudflare/cloudflared:latest
+    container_name: ba-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CF_TUNNEL_TOKEN:?set CF_TUNNEL_TOKEN in .env}
+    depends_on:
+      - caddy
+
+volumes:
+  caddy_data:
+  caddy_config:
