@@ -43,6 +43,7 @@ const STORAGE_KEY = "ba_cart_v1";
 
 function readCart(): CartLine[] {
   try {
+    if (typeof window === "undefined") return [];
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
@@ -135,6 +136,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
 export function useCart(): CartContextValue {
   const ctx = useContext(CartContext);
-  if (!ctx) throw new Error("useCart must be used inside <CartProvider>");
+  if (!ctx) {
+    // Never crash a page if provider is missing — return empty cart
+    const noop = () => {};
+    return {
+      items: [],
+      count: 0,
+      subtotal: 0,
+      ready: true,
+      add: noop as never,
+      remove: noop as never,
+      setQty: noop as never,
+      clear: noop as never,
+      qtyOf: () => 0,
+      has: () => false,
+    };
+  }
   return ctx;
 }

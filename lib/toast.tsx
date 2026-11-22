@@ -93,6 +93,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
 export function useToast(): ToastContextValue {
   const ctx = useContext(ToastContext);
-  if (!ctx) throw new Error("useToast must be used inside <ToastProvider>");
+  if (!ctx) {
+    // Never crash the login page if the provider is missing (e.g. preview /
+    // static export). Return a no-op that silently swallows toasts.
+    const noop = () => {};
+    return { toast: noop as never, success: noop as never, error: noop as never, info: noop as never };
+  }
   return ctx;
 }
