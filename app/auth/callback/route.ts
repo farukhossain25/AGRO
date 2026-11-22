@@ -95,8 +95,8 @@ export async function GET(req: Request) {
 
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (error || !data.user) {
-      console.warn("[auth/callback] exchange failed:", error?.message);
-      return failTo(req, "exchange_failed");
+      console.error("[auth/callback] exchange failed:", error?.message ?? "No user returned");
+      return failTo(req, "exchange_failed", error?.message);
     }
 
     const authUser = shapeAuthUser(data.user);
@@ -197,9 +197,10 @@ function safeRedirectPath(value: string): string {
   return value;
 }
 
-function failTo(req: Request, reason: FailReason): NextResponse {
+function failTo(req: Request, reason: FailReason, detail?: string): NextResponse {
   const url = new URL("/login", new URL(req.url).origin);
   url.searchParams.set("error", reason);
+  if (detail) url.searchParams.set("reason", detail);
   const res = NextResponse.redirect(url);
   res.headers.set("Cache-Control", "no-store, max-age=0, must-revalidate");
   /* Belt and braces: if the failure happened because a broken session cookie
