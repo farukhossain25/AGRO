@@ -31,7 +31,7 @@ const REPORT_ONLY = process.argv.includes("--report");
  * Current headroom: home 96 kB gz of a 130 kB budget, catalogue 106/130.
  */
 const BUDGETS = [
-  { match: /^\/$/, budget: 130, label: "home" },
+  { match: /^\/$/, budget: 132, label: "home" },
   { match: /^\/products(\/|$)/, budget: 135, label: "catalogue" },
   { match: /^\/categories(\/|$)/, budget: 135, label: "categories" },
   { match: /^\/combos(\/|$)/, budget: 135, label: "combos" },

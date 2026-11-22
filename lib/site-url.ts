@@ -52,22 +52,78 @@ export const IS_PREVIEW = VERCEL_ENV === "preview";
 /**
  * The canonical origin, without a trailing slash.
  *
- * Deliberately NOT `new URL(...)` — a malformed value in the dashboard should
- * degrade to the fallback, not throw during `next build` and fail the deploy.
+ * A malformed value (e.g. `bishwasagro.netlify.app` without `https://`,
+ * trailing spaces, or an empty string) must NOT throw during `next build` —
+ * it would fail the whole “Collecting page data” phase (see Netlify deploy
+ * log: `ERR_INVALID_URL bishwasagro.netlify.app`). Every branch validates
+ * that the returned string is a real `new URL(...)` and falls back otherwise.
  */
 export function resolveSiteUrl(): string {
   const explicit = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  if (explicit) return stripTrailingSlash(explicit);
+  if (explicit) {
+    const normalized = withHttps(explicit);
+    try {
+      // Validate — `new URL(\"bishwasagro.netlify.app\")` throws, `new URL(\"https://bishwasagro.netlify.app\")` does not.
+      new URL(normalized);
+      return normalized;
+    } catch {
+      // fall through to Vercel-injected hosts / localhost
+    }
+  }
 
   // Injected by Vercel at build time. Server-only, hence the guard.
   if (typeof process.env.VERCEL_PROJECT_PRODUCTION_URL === "string") {
     const host = process.env.VERCEL_PROJECT_PRODUCTION_URL.trim();
-    if (host) return withHttps(host);
+    if (host) {
+      const normalized = withHttps(host);
+      try {
+        new URL(normalized);
+        return normalized;
+      } catch {
+        // ignore and try next fallback
+      }
+    }
   }
 
   if (typeof process.env.VERCEL_URL === "string") {
     const host = process.env.VERCEL_URL.trim();
-    if (host) return withHttps(host);
+    if (host) {
+      const normalized = withHttps(host);
+      try {
+        new URL(normalized);
+        return normalized;
+      } catch {
+        // ignore and fall through
+      }
+    }
+  }
+
+  // Netlify also injects URL / DEPLOY_URL — accept them so a stray Netlify
+  // build (still connected to GitHub) does not crash when NEXT_PUBLIC_SITE_URL
+  // is set to a bare hostname like `bishwasagro.netlify.app`.
+  if (typeof process.env.URL === "string") {
+    const host = process.env.URL.trim();
+    if (host) {
+      const normalized = withHttps(host);
+      try {
+        new URL(normalized);
+        return normalized;
+      } catch {
+        // ignore
+      }
+    }
+  }
+  if (typeof process.env.DEPLOY_URL === "string") {
+    const host = process.env.DEPLOY_URL.trim();
+    if (host) {
+      const normalized = withHttps(host);
+      try {
+        new URL(normalized);
+        return normalized;
+      } catch {
+        // ignore
+      }
+    }
   }
 
   return "http://localhost:3000";
@@ -98,8 +154,14 @@ export function isVercelAppDomain(): boolean {
  * the server-side fallback where `window` does not exist.
  */
 export function authCallbackUrl(next?: string): string {
-  const origin =
-    typeof window !== "undefined" ? window.location.origin : resolveSiteUrl();
+  let origin: string;
+  try {
+    origin =
+      typeof window !== "undefined" ? window.location.origin : resolveSiteUrl();
+    new URL(origin);
+  } catch {
+    origin = "http://localhost:3000";
+  }
   const url = new URL("/auth/callback", origin);
   if (next) url.searchParams.set("next", next);
   return url.toString();
