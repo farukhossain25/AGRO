@@ -1,5 +1,6 @@
 import { AuthProvider } from "@/components/auth/auth-provider";
 import { SiteHeader } from "@/components/site-header";
+import { AnnouncementMarquee } from "@/components/announcement-marquee";
 import { SiteFooter } from "@/components/site-footer";
 import { SocialLinks } from "@/components/social-links";
 import { FloatingActions } from "@/components/floating-actions";
@@ -7,15 +8,17 @@ import { currentUser } from "@/lib/api";
 import { getProfileByLegacyId } from "@/lib/profile";
 import { resolvePremiumState } from "@/lib/premium";
 import { getCategories } from "@/lib/data";
+import { getAnnouncementSettings } from "@/lib/site-settings";
 
 /**
  * Storefront chrome lives here (not in the root layout) so that the panel can
  * render its own shell without the public header, footer and floating widgets.
  */
 export default async function StorefrontLayout({ children }: { children: React.ReactNode }) {
-  const [categories, user] = await Promise.all([
+  const [categories, user, announcement] = await Promise.all([
     getCategories().catch(() => []),
     currentUser().catch(() => null),
+    getAnnouncementSettings().catch(() => null),
   ]);
 
   // Header avatar + premium badge — one extra read, fails soft.
@@ -35,6 +38,7 @@ export default async function StorefrontLayout({ children }: { children: React.R
 
   return (
     <AuthProvider initialUser={user}>
+      {announcement ? <AnnouncementMarquee settings={announcement} /> : null}
       <SiteHeader
         socials={<SocialLinks placement="header" size="sm" />}
         categories={navCats}

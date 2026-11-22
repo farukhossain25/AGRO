@@ -1,5 +1,6 @@
 import { db, isDbConfigured } from "@/lib/db";
 import { SettingsManager } from "@/components/admin/settings-manager";
+import { AnnouncementEditor } from "@/components/admin/announcement-editor";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +38,8 @@ export default async function AdminSettingsPage() {
           ডেটাবেজে সংযোগ হচ্ছে না — এখন সেভ করলে কাজ হবে না। কিছুক্ষণ পর আবার চেষ্টা করুন।
         </div>
       ) : null}
+
+      <AnnouncementEditor initial={settings.announcement} />
 
       <SettingsManager initial={settings} />
     </div>

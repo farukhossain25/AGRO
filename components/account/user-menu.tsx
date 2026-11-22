@@ -11,12 +11,14 @@ import {
   LogOut,
   Package,
   Settings,
+  ShieldCheck,
   Sparkles,
   User as UserIcon,
 } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useLocale } from "@/lib/locale";
 import { useToast } from "@/lib/toast";
+import { ADMIN_BASE } from "@/lib/paths";
 
 /* ==========================================================================
    UserMenu — the header avatar dropdown
@@ -25,8 +27,9 @@ import { useToast } from "@/lib/toast";
    Logged in  → avatar + the six destinations from the brief + log out
 
    The identity comes from AuthProvider (Supabase session), so signing in or
-   out updates this instantly without a reload. There is deliberately no admin
-   link: admins are never advertised in the public UI.
+   out updates this instantly without a reload. The admin panel link exists
+   only in the menu of a signed-in admin — customers never see it, so the panel
+   is still not advertised anywhere public.
    ========================================================================== */
 
 export type HeaderUser = {
@@ -160,6 +163,22 @@ export function UserMenu({ premium = false }: { premium?: boolean }) {
               </Link>
             ))}
           </div>
+
+          {/* Admin-only shortcut. Ordinary customers never see this row, so the
+              panel URL is still not advertised anywhere public. */}
+          {user.role === "admin" ? (
+            <div className="border-t border-white/[0.07] py-1">
+              <Link
+                href={ADMIN_BASE}
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className="flex min-h-[38px] items-center gap-2.5 px-4 py-2 text-[12.5px] font-semibold text-leaf-200 transition hover:bg-leaf-600/15"
+              >
+                <ShieldCheck className="h-3.5 w-3.5" />
+                {t("অ্যাডমিন প্যানেল", "Admin panel")}
+              </Link>
+            </div>
+          ) : null}
 
           <div className="border-t border-white/[0.07] py-1">
             <button

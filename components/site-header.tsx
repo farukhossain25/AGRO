@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   ChevronDown,
   Globe,
@@ -22,6 +22,7 @@ import { Logo } from "./icon-logo";
 import { CartDrawer } from "./cart-drawer";
 import { SocialLinks } from "./social-links";
 import { UserMenu } from "./account/user-menu";
+import { SearchBox } from "./shop/search-box";
 
 type Cat = { slug: string; name_bn: string; name_en: string; icon: string | null };
 
@@ -35,17 +36,14 @@ export function SiteHeader({
   /** Server-rendered social icons (admin-managed). */
   socials?: React.ReactNode;
 }) {
-  const { isBn, t, toggle, locale } = useLocale();
+  const { t, toggle, locale } = useLocale();
   const cart = useCart();
-  const router = useRouter();
   const pathname = usePathname();
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [catOpen, setCatOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setMenuOpen(false);
@@ -53,46 +51,15 @@ export function SiteHeader({
     setSearchOpen(false);
   }, [pathname]);
 
-  useEffect(() => {
-    if (searchOpen) searchRef.current?.focus();
-  }, [searchOpen]);
-
-  function submitSearch(e: React.FormEvent) {
-    e.preventDefault();
-    const q = query.trim();
-    router.push(q ? `/products?q=${encodeURIComponent(q)}` : "/products");
-    setSearchOpen(false);
-  }
-
   return (
     <>
-      {/* ── Announcement bar */}
-      <div className="relative overflow-hidden border-b border-leaf-600/25 bg-gradient-to-r from-leaf-800 via-leaf-700 to-leaf-800">
-        <div className="container-x flex h-9 items-center justify-center gap-2 overflow-hidden">
-          <p className="truncate text-center text-[11.5px] font-medium text-leaf-100 sm:text-xs">
-            <span className="mr-1.5" aria-hidden>🚚</span>
-            {t(
-              "খামার থেকে সরাসরি আপনার পরিবারের খাবার টেবিলে · সারা বাংলাদেশে ডেলিভারি",
-              "Straight from the farm to your family table · Nationwide delivery across Bangladesh"
-            )}
-          </p>
-          <Link
-            href={`tel:${site.phone}`}
-            className="ml-3 hidden shrink-0 items-center gap-1 text-[11px] font-semibold text-leaf-100/80 hover:text-white sm:flex"
-          >
-            <Phone className="h-3 w-3" />
-            {site.phoneDisplay}
-          </Link>
-        </div>
-      </div>
-
       {/* ── Header */}
       <header
         className="sticky top-0 z-50 border-b border-white/[0.06] bg-ink-900/85 backdrop-blur-xl"
         style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
         <div className="container-x">
-          <div className="flex h-[62px] items-center gap-2 sm:h-[72px] sm:gap-4">
+          <div className="flex h-[62px] items-center gap-1.5 min-[400px]:gap-2 sm:h-[72px] sm:gap-4">
             {/* Mobile menu button */}
             <button
               onClick={() => setMenuOpen(true)}
@@ -103,7 +70,9 @@ export function SiteHeader({
               <Menu className="h-5 w-5" />
             </button>
 
-            <Logo />
+            <div className="min-w-0 shrink">
+              <Logo />
+            </div>
 
             {/* Desktop social icons — admin-managed, hidden on small screens */}
             {socials ? <div className="ml-auto hidden items-center xl:flex">{socials}</div> : null}
@@ -158,26 +127,18 @@ export function SiteHeader({
               })}
             </nav>
 
-            {/* Desktop search */}
-            <form onSubmit={submitSearch} className="ml-auto hidden flex-1 max-w-sm md:block">
-              <label className="relative block">
-                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-sand-100/35" />
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder={t("পণ্য খুঁজুন… (যেমন: আম, ইলিশ)", "Search products… (mango, fish)")}
-                  className="input !rounded-full !py-2.5 !pl-10 !pr-4 text-[13px]"
-                  aria-label={t("পণ্য খুঁজুন", "Search products")}
-                />
-              </label>
-            </form>
+            {/* Desktop search — with live suggestions (see components/shop/search-box) */}
+            <div className="ml-auto hidden min-w-0 max-w-sm flex-1 xl:block">
+              <SearchBox />
+            </div>
 
             {/* Actions */}
-            <div className="ml-auto flex items-center gap-0.5 md:ml-0">
+            <div className="ml-auto flex shrink-0 items-center gap-0.5 xl:ml-0">
               <button
                 onClick={() => setSearchOpen((v) => !v)}
-                className="grid h-10 w-10 place-items-center rounded-xl text-sand-100/80 transition hover:bg-white/[0.06] md:hidden"
+                className="grid h-10 w-10 place-items-center rounded-xl text-sand-100/80 transition hover:bg-white/[0.06] xl:hidden"
                 aria-label={t("খুঁজুন", "Search")}
+                aria-expanded={searchOpen}
               >
                 <Search className="h-5 w-5" />
               </button>
@@ -218,22 +179,14 @@ export function SiteHeader({
             </div>
           </div>
 
-          {/* Mobile search row */}
+          {/* Mobile / tablet search row — same component, so the suggestions
+              and the keyboard behaviour are identical on every screen size. */}
           {searchOpen ? (
-            <form onSubmit={submitSearch} className="pb-3 md:hidden">
-              <label className="relative block">
-                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-sand-100/35" />
-                <input
-                  ref={searchRef}
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder={t("পণ্য খুঁজুন…", "Search products…")}
-                  className="input !rounded-full !py-2.5 !pl-10"
-                  aria-label={t("পণ্য খুঁজুন", "Search products")}
-                />
-              </label>
-            </form>
+            <div className="pb-3 xl:hidden">
+              <SearchBox autoFocus onSubmitted={() => setSearchOpen(false)} />
+            </div>
           ) : null}
+
         </div>
       </header>
 

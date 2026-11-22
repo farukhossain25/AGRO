@@ -45,6 +45,11 @@ type FriendlyError = {
   resend?: boolean;
   /** show the "sign up instead" hint */
   isNewUser?: boolean;
+  /**
+   * A concrete next step offered under the message. `diagnose()` sets one after
+   * a rejected password so the visitor is never left with a dead end.
+   */
+  action?: "google" | "reset" | "signup";
 };
 
 /** Supabase's English error strings → Bangla, with an actionable next step. */
@@ -69,7 +74,11 @@ function friendlyError(raw: string): FriendlyError {
     return { bn: "পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে।" };
   }
   if (message.includes("rate limit") || message.includes("too many requests") || message.includes("over_email_send_rate_limit")) {
-    return { bn: "অনেকবার চেষ্টা করা হয়েছে। ১ মিনিট পর আবার চেষ্টা করুন।" };
+    /* The built-in sender allows only a couple of mails an hour; say so instead
+       of a vague "try later" that makes the owner think the site is broken. */
+    return {
+      bn: "ইমেইল পাঠানোর সীমা শেষ (ঘণ্টায় মাত্র ২টি যায়)। কিছুক্ষণ পরে আবার চেষ্টা করুন — জরুরি হলে সরাসরি হটলাইনে কল করুন।",
+    };
   }
   if (message.includes("unable to validate email") || message.includes("invalid email") || message.includes("invalid format")) {
     return { bn: "ইমেইল ঠিকানাটি সঠিক নয় — যেমন you@gmail.com ফরম্যাটে লিখুন।" };
@@ -146,6 +155,61 @@ export function LoginForm() {
 
   const cleanEmail = () => email.trim().toLowerCase();
 
+  /* --------------------------------------------------- why did it fail? */
+  /**
+   * Supabase answers a wrong password, an unknown address and a Google-created
+   * account identically. /api/auth/login-help (service key, rate limited) tells
+   * them apart so the message can point at the right button.
+   */
+  async function diagnose(address: string) {
+    try {
+      const res = await fetch("/api/auth/login-help", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: address }),
+      });
+      if (!res.ok) return;
+      const json = await res.json().catch(() => null);
+      const info = json?.data as
+        | { exists: boolean | null; hasPassword: boolean | null; providers: string[]; unconfirmed: boolean | null }
+        | undefined;
+      if (!info || info.exists === null) return;
+
+      // The visitor may have edited the field while we were asking.
+      if (cleanEmail() !== address) return;
+
+      const googleOnly = info.providers.includes("google") && info.hasPassword === false;
+
+      if (info.exists === false) {
+        setError({
+          bn: "এই ইমেইলে আমাদের কোনো অ্যাকাউন্ট নেই। আগে সাইন আপ করুন — অথবা বানান ঠিক আছে কি না দেখুন।",
+          action: "signup",
+        });
+        return;
+      }
+      if (info.unconfirmed) {
+        setError({
+          bn: "অ্যাকাউন্টটি আছে, কিন্তু ইমেইল এখনো যাচাই হয়নি। ইনবক্সের লিংকে ক্লিক করুন, অথবা নিচের বাটনে আবার পাঠান।",
+          resend: true,
+        });
+        return;
+      }
+      if (googleOnly) {
+        setError({
+          bn: "এই অ্যাকাউন্টটি Google দিয়ে তৈরি — এতে পাসওয়ার্ড নেই। নিচের Google বাটনে চাপ দিন, অথবা পাসওয়ার্ড ভুলে গেছি দিয়ে একটি পাসওয়ার্ড সেট করুন।",
+          action: "google",
+        });
+        return;
+      }
+      setError({
+        bn: "পাসওয়ার্ড মিলছে না। পাসওয়ার্ড ভুলে গেছে? নিচের বাটনে চাপ দিয়ে নতুন পাসওয়ার্ড সেট করুন।",
+        action: "reset",
+      });
+    } catch {
+      /* the original message is already on screen — this is only an upgrade */
+    }
+  }
+
   /* ------------------------------------------------------------ email login */
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -168,9 +232,15 @@ export function LoginForm() {
       });
 
       if (signInError) {
-        setError(friendlyError(signInError.message));
+        const mapped = friendlyError(signInError.message);
+        setError(mapped);
         // never log the password; the message alone is enough for support
         console.error("[auth] signInWithPassword:", signInError.message);
+        /* "Invalid login credentials" covers three very different situations.
+           Ask our own endpoint which one it is, then say something useful. */
+        if (/invalid login credentials/i.test(signInError.message)) {
+          void diagnose(cleanEmail());
+        }
         return;
       }
       if (!data.session) {
@@ -402,6 +472,37 @@ export function LoginForm() {
                 className="mt-2 inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-red-300/30 px-3 py-1 text-[11.5px] font-semibold text-red-100 hover:bg-red-500/10 disabled:opacity-60"
               >
                 যাচাই ইমেইল আবার পাঠান
+              </button>
+            ) : null}
+
+            {error.action === "google" ? (
+              <button
+                type="button"
+                onClick={continueWithGoogle}
+                disabled={busy}
+                className="mt-2 inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-red-300/30 px-3 py-1 text-[11.5px] font-semibold text-red-100 hover:bg-red-500/10 disabled:opacity-60"
+              >
+                Google দিয়ে লগইন
+              </button>
+            ) : null}
+
+            {error.action === "reset" ? (
+              <button
+                type="button"
+                onClick={() => setMode("forgot")}
+                className="mt-2 inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-red-300/30 px-3 py-1 text-[11.5px] font-semibold text-red-100 hover:bg-red-500/10"
+              >
+                পাসওয়ার্ড রিসেট করুন
+              </button>
+            ) : null}
+
+            {error.action === "signup" ? (
+              <button
+                type="button"
+                onClick={() => setMode("signup")}
+                className="mt-2 inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-red-300/30 px-3 py-1 text-[11.5px] font-semibold text-red-100 hover:bg-red-500/10"
+              >
+                সাইন আপ করুন
               </button>
             ) : null}
           </div>
