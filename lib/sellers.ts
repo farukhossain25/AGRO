@@ -1,0 +1,190 @@
+import { db, isDbConfigured } from "./db";
+import type { Seller } from "./types";
+
+/* ==========================================================================
+   Sellers — multi-vendor marketplace layer
+   --------------------------------------------------------------------------
+   A seller owns products (products.seller_id) and, optionally, one farm
+   (sellers.farm_id) which is what gives them live cameras.
+
+   Money flow:  gross = Σ sub_orders.subtotal
+                commission = gross × sellers.commission_percent / 100
+                net = gross − commission
+   ========================================================================== */
+
+export type SellerSettings = {
+  default_commission_percent: number;
+  auto_approve: boolean;
+};
+
+export const defaultSellerSettings: SellerSettings = {
+  default_commission_percent: 10,
+  auto_approve: false,
+};
+
+export async function getSellerSettings(): Promise<SellerSettings> {
+  try {
+    const { data } = await db()
+      .from("settings")
+      .select("value")
+      .eq("key", "seller")
+      .maybeSingle();
+    if (!data?.value) return defaultSellerSettings;
+    return { ...defaultSellerSettings, ...(data.value as Partial<SellerSettings>) };
+  } catch {
+    return defaultSellerSettings;
+  }
+}
+
+export const sellerStatusLabelBn: Record<string, string> = {
+  pending: "যাচাই চলছে",
+  approved: "অনুমোদিত",
+  rejected: "বাতিল",
+  suspended: "স্থগিত",
+};
+
+export type SellerWithStats = Seller & {
+  orders_count: number;
+  gross: number;
+  commission: number;
+  net: number;
+  product_count: number;
+};
+
+export async function getSellerByUser(userId: string): Promise<Seller | null> {
+  if (!isDbConfigured()) return null;
+  const { data, error } = await db().from("sellers").select("*").eq("user_id", userId).maybeSingle();
+  if (error) throw error;
+  return (data as Seller) ?? null;
+}
+
+export async function getApprovedSellers(limit = 60): Promise<SellerWithStats[]> {
+  if (!isDbConfigured()) return [];
+
+  try {
+    return await queryApprovedSellers(limit);
+  } catch (error) {
+    // Offline / DB outage: the marketplace renders an empty state instead of 500.
+    console.warn("[sellers] list failed:", (error as Error).message);
+    return [];
+  }
+}
+
+async function queryApprovedSellers(limit: number): Promise<SellerWithStats[]> {
+  const client = db();
+  const { data, error } = await client
+    .from("sellers")
+    .select("*")
+    .eq("status", "approved")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+  const sellers = (data ?? []) as Seller[];
+  if (!sellers.length) return [];
+
+  const ids = sellers.map((s) => s.id);
+
+  const [{ data: subs }, { data: prods }] = await Promise.all([
+    client.from("sub_orders").select("seller_id, subtotal, commission, seller_earning").in("seller_id", ids),
+    client.from("products").select("seller_id").in("seller_id", ids).eq("is_active", true),
+  ]);
+
+  const agg = new Map<string, { orders: number; gross: number; commission: number; net: number }>();
+  for (const row of subs ?? []) {
+    if (!row.seller_id) continue;
+    const cur = agg.get(row.seller_id) ?? { orders: 0, gross: 0, commission: 0, net: 0 };
+    cur.orders += 1;
+    cur.gross += Number(row.subtotal ?? 0);
+    cur.commission += Number(row.commission ?? 0);
+    cur.net += Number(row.seller_earning ?? 0);
+    agg.set(row.seller_id, cur);
+  }
+
+  const productCount = new Map<string, number>();
+  for (const p of prods ?? []) {
+    if (!p.seller_id) continue;
+    productCount.set(p.seller_id, (productCount.get(p.seller_id) ?? 0) + 1);
+  }
+
+  return sellers.map((s) => {
+    const stats = agg.get(s.id) ?? { orders: 0, gross: 0, commission: 0, net: 0 };
+    return {
+      ...s,
+      orders_count: stats.orders,
+      gross: stats.gross,
+      commission: stats.commission,
+      net: stats.net,
+      product_count: productCount.get(s.id) ?? 0,
+    };
+  });
+}
+
+export async function getSellerBySlug(slug: string) {
+  if (!isDbConfigured()) return null;
+
+  const { data, error } = await db()
+    .from("sellers")
+    .select("*")
+    .eq("slug", slug)
+    .eq("status", "approved")
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) return null;
+
+  const { data: products } = await db()
+    .from("products")
+    .select("*")
+    .eq("seller_id", data.id)
+    .eq("is_active", true)
+    .eq("approval_status", "approved")
+    .order("created_at", { ascending: false })
+    .limit(48);
+
+  return { seller: data as Seller, products: products ?? [] };
+}
+
+/** Split an order across sellers into sub_orders (called after createOrder). */
+export async function createSubOrders(orderId: string, lines: Array<{ seller_id?: string | null; lineTotal: number }>) {
+  const client = db();
+
+  const grouped = new Map<string, number>();
+  for (const line of lines) {
+    if (!line.seller_id) continue;
+    grouped.set(line.seller_id, (grouped.get(line.seller_id) ?? 0) + line.lineTotal);
+  }
+  if (!grouped.size) return [];
+
+  const { data: sellers } = await client
+    .from("sellers")
+    .select("id, name_bn, commission_percent")
+    .in("id", Array.from(grouped.keys()));
+
+  const defaults = await getSellerSettings();
+  const rows = (sellers ?? []).map((s, i) => {
+    const subtotal = Math.round((grouped.get(s.id) ?? 0) * 100) / 100;
+    const pct = Number(s.commission_percent ?? defaults.default_commission_percent);
+    const commission = Math.round(subtotal * (pct / 100) * 100) / 100;
+    return {
+      order_id: orderId,
+      sub_no: `SO-${Date.now().toString(36).toUpperCase()}-${i + 1}`,
+      seller_id: s.id,
+      seller_name: s.name_bn,
+      subtotal,
+      commission,
+      seller_earning: Math.round((subtotal - commission) * 100) / 100,
+      status: "received" as const,
+    };
+  });
+
+  const { data, error } = await client.from("sub_orders").insert(rows).select();
+  if (error) throw error;
+  return data ?? [];
+}
+
+export const payoutStatusLabelBn: Record<string, string> = {
+  pending: "বাকি",
+  paid: "পরিশোধিত",
+  cancelled: "বাতিল",
+};
