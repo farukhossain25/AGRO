@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { db, isDbConfigured } from "@/lib/db";
-import { fail, handleError, ok, requireAdmin, sanitizeText } from "@/lib/api";
+import { fail, handleError, ok, requirePermission, sanitizeText } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -20,7 +20,7 @@ const schema = z.object({
 
 export async function PATCH(req: Request) {
   try {
-    const admin = await requireAdmin();
+    const admin = await requirePermission("reviews.moderate");
     if (!isDbConfigured()) return fail("ডেটাবেস কনফিগার করা নেই", 503);
 
     const { id, action, reason } = schema.parse(await req.json());
@@ -82,7 +82,7 @@ export async function PATCH(req: Request) {
   } catch (error) {
     const code = (error as { status?: number }).status;
     if (code === 401) return fail("অনুমতি নেই", 401);
-    if (code === 403) return fail("শুধুমাত্র অ্যাডমিন", 403);
+    if (code === 403) return fail("এই কাজের অনুমতি আপনার নেই", 403);
     return handleError(error);
   }
 }

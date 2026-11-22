@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { fail, handleError, ok, requireAdmin } from "@/lib/api";
+import { fail, handleError, ok, requirePermission } from "@/lib/api";
 import { notify } from "@/lib/notify";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +13,7 @@ const schema = z.object({
 
 export async function PATCH(req: Request) {
   try {
-    await requireAdmin();
+    await requirePermission("orders.read");
     const { id, status, payment_status } = schema.parse(await req.json());
 
     const patch: Record<string, unknown> = {};
@@ -53,7 +53,7 @@ export async function PATCH(req: Request) {
   } catch (error) {
     const code = (error as { status?: number }).status;
     if (code === 401) return fail("অনুমতি নেই", 401);
-    if (code === 403) return fail("শুধুমাত্র অ্যাডমিন", 403);
+    if (code === 403) return fail("এই কাজের অনুমতি আপনার নেই", 403);
     return handleError(error);
   }
 }
@@ -61,7 +61,7 @@ export async function PATCH(req: Request) {
 /** Order counts + revenue grouped by day, used by the reports page. */
 export async function GET(req: Request) {
   try {
-    await requireAdmin();
+    await requirePermission("orders.write");
     const days = Math.min(180, Number(new URL(req.url).searchParams.get("days") ?? 30) || 30);
 
     const since = new Date();
@@ -78,7 +78,7 @@ export async function GET(req: Request) {
   } catch (error) {
     const code = (error as { status?: number }).status;
     if (code === 401) return fail("অনুমতি নেই", 401);
-    if (code === 403) return fail("শুধুমাত্র অ্যাডমিন", 403);
+    if (code === 403) return fail("এই কাজের অনুমতি আপনার নেই", 403);
     return handleError(error);
   }
 }

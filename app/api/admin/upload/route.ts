@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { fail, handleError, ok, requireAdmin } from "@/lib/api";
+import { fail, handleError, ok, requirePermission } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +14,7 @@ const BUCKET = "product-images";
  */
 export async function POST(req: Request) {
   try {
-    await requireAdmin();
+    await requirePermission("media.write");
 
     const form = await req.formData();
     const file = form.get("file");
@@ -46,7 +46,7 @@ export async function POST(req: Request) {
   } catch (error) {
     const status = (error as { status?: number }).status;
     if (status === 401) return fail("অনুমতি নেই", 401);
-    if (status === 403) return fail("শুধুমাত্র অ্যাডমিন", 403);
+    if (status === 403) return fail("এই কাজের অনুমতি আপনার নেই", 403);
     return handleError(error);
   }
 }

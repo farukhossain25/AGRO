@@ -13,7 +13,7 @@ import type { SessionUser } from "./auth";
    plumbing (linking, role checks, onboarding state).
    ========================================================================== */
 
-export type ProfileRole = "customer" | "seller" | "premium" | "admin";
+export type ProfileRole = "customer" | "seller" | "premium" | "staff" | "manager" | "admin";
 
 export type Profile = {
   id: string;
@@ -243,9 +243,10 @@ export async function touchLastSeen(authId: string): Promise<void> {
   }
 }
 
-/** Map a profile role to the app's coarser UserRole. */
+/** Map a profile role to the app's UserRole — a straight pass-through now that
+ *  the ladder is identical on both sides (section F). */
 export function roleToSessionRole(role: ProfileRole): UserRole {
-  return role === "admin" ? "admin" : "customer";
+  return role;
 }
 
 /** Bengali label for a profile role, used by the header + profile page. */
@@ -253,5 +254,7 @@ export const roleLabelBn: Record<ProfileRole, string> = {
   customer: "গ্রাহক",
   seller: "সেলার",
   premium: "প্রিমিয়াম",
+  staff: "স্টাফ",
+  manager: "ম্যানেজার",
   admin: "অ্যাডমিন",
 };

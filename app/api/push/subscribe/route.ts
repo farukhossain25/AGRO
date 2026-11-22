@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { created, fail, handleError, requireUser } from "@/lib/api";
+import { created, fail, handleError, limitGuard, requireUser } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +15,8 @@ const schema = z.object({
 /** POST /api/push/subscribe — store (or refresh) this browser's push endpoint. */
 export async function POST(req: Request) {
   try {
+    const limit = limitGuard(req, "api-push-subscribe", 30, 60_000);
+    if (limit) return limit;
     const user = await requireUser();
     const data = schema.parse(await req.json());
 
@@ -44,6 +46,8 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
+    const limit = limitGuard(req, "api-push-subscribe", 30, 60_000);
+    if (limit) return limit;
     const user = await requireUser();
     const endpoint = new URL(req.url).searchParams.get("endpoint");
     if (!endpoint) return fail("endpoint দিন", 422);

@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { PWARegister } from "@/components/pwa-register";
@@ -129,7 +130,12 @@ const SPLASH = [
   { w: 2048, h: 2732, ratio: 2, dpr: 2 },
 ] as const;
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  /* Per-request CSP nonce minted in middleware.ts. Passing it here makes Next
+     stamp every bootstrap/flight script it emits, which is what lets the policy
+     run without 'unsafe-inline' for scripts. */
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   return (
     <html lang="bn" suppressHydrationWarning>
       <head>

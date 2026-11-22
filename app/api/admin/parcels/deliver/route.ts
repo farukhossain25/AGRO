@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { fail, handleError, ok, requireAdmin } from "@/lib/api";
+import { fail, handleError, ok, requirePermission } from "@/lib/api";
 import { markDelivered } from "@/lib/parcels";
 import { db } from "@/lib/db";
 import { notify } from "@/lib/notify";
@@ -11,7 +11,7 @@ const schema = z.object({ token: z.string().min(16).max(64) });
 /** POST /api/admin/parcels/deliver — rider scans, staff confirms */
 export async function POST(req: Request) {
   try {
-    const admin = await requireAdmin();
+    const admin = await requirePermission("orders.write");
     const { token } = schema.parse(await req.json());
 
     const parcel = await markDelivered(token, admin.id);
@@ -43,7 +43,7 @@ export async function POST(req: Request) {
   } catch (error) {
     const code = (error as { status?: number }).status;
     if (code === 401) return fail("অনুমতি নেই", 401);
-    if (code === 403) return fail("শুধুমাত্র অ্যাডমিন", 403);
+    if (code === 403) return fail("এই কাজের অনুমতি আপনার নেই", 403);
     return handleError(error);
   }
 }

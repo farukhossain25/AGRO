@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { fail, handleError, ok, requireAdmin } from "@/lib/api";
+import { fail, handleError, ok, requirePermission } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
@@ -8,7 +8,7 @@ const schema = z.object({ id: z.string().uuid(), is_approved: z.coerce.boolean()
 
 export async function PATCH(req: Request) {
   try {
-    await requireAdmin();
+    await requirePermission("reviews.moderate");
     const { id, is_approved } = schema.parse(await req.json());
 
     const { data, error } = await db()
@@ -23,14 +23,14 @@ export async function PATCH(req: Request) {
   } catch (error) {
     const code = (error as { status?: number }).status;
     if (code === 401) return fail("অনুমতি নেই", 401);
-    if (code === 403) return fail("শুধুমাত্র অ্যাডমিন", 403);
+    if (code === 403) return fail("এই কাজের অনুমতি আপনার নেই", 403);
     return handleError(error);
   }
 }
 
 export async function DELETE(req: Request) {
   try {
-    await requireAdmin();
+    await requirePermission("reviews.moderate");
     const id = new URL(req.url).searchParams.get("id");
     if (!id) return fail("আইডি দিন", 422);
 
@@ -40,7 +40,7 @@ export async function DELETE(req: Request) {
   } catch (error) {
     const code = (error as { status?: number }).status;
     if (code === 401) return fail("অনুমতি নেই", 401);
-    if (code === 403) return fail("শুধুমাত্র অ্যাডমিন", 403);
+    if (code === 403) return fail("এই কাজের অনুমতি আপনার নেই", 403);
     return handleError(error);
   }
 }

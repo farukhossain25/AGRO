@@ -1,5 +1,6 @@
+import { z } from "zod";
 import { db } from "@/lib/db";
-import { fail, handleError, ok, requireUser } from "@/lib/api";
+import { fail, handleError, limitGuard, ok, requireUser } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
@@ -41,8 +42,14 @@ export async function GET(req: Request) {
 /** PATCH /api/notifications { id } | { all: true } — mark read. */
 export async function PATCH(req: Request) {
   try {
+    const limit = limitGuard(req, "api-notifications", 30, 60_000);
+    if (limit) return limit;
     const user = await requireUser();
-    const body = (await req.json().catch(() => ({}))) as { id?: string; all?: boolean };
+    // Validate before the query: a malformed id would otherwise reach Postgres
+    // and come back as a raw "invalid input syntax for uuid" error.
+    const body = z
+      .object({ id: z.string().uuid().optional(), all: z.boolean().optional() })
+      .parse(await req.json().catch(() => ({})));
     const client = db();
 
     if (body.all) {

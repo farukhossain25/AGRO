@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { fail, handleError, ok, requireUser } from "@/lib/api";
+import { fail, handleError, limitGuard, ok, requireUser } from "@/lib/api";
 import { notify } from "@/lib/notify";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +22,8 @@ const schema = z.object({
  */
 export async function POST(req: Request) {
   try {
+    const limit = limitGuard(req, "api-premium-activate", 30, 60_000);
+    if (limit) return limit;
     const user = await requireUser();
     const { subNo, reference } = schema.parse(await req.json());
 
@@ -106,6 +108,8 @@ export async function GET(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
+    const limit = limitGuard(req, "api-premium-activate", 30, 60_000);
+    if (limit) return limit;
     const user = await requireUser();
     const { subNo } = schema.parse(await req.json());
 

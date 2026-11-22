@@ -11,33 +11,17 @@ import type { NextConfig } from "next";
    statically. Keeping all three in sync is deliberate — see README §17.
    ========================================================================== */
 
-const isDev = process.env.NODE_ENV === "development";
-
 /* Content-Security-Policy ------------------------------------------------
-   `'unsafe-inline'` for styles is required by Next.js injected CSS and by
-   Tailwind's runtime-free output; scripts stay strict apart from the inline
-   bootstrap Next emits (nonce-based CSP needs a middleware rewrite and is
-   planned for the section G audit). */
-const csp = [
-  "default-src 'self'",
-  // Next's inline bootstrap + Vercel Analytics + the map/stream workers
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://va.vercel-scripts.com https://unpkg.com`,
-  "style-src 'self' 'unsafe-inline' https://unpkg.com",
-  "img-src 'self' data: blob: https://lyihdzgmtjkkhybpkqot.supabase.co https://images.unsplash.com https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com",
-  "font-src 'self' data:",
-  "connect-src 'self' https://lyihdzgmtjkkhybpkqot.supabase.co wss://lyihdzgmtjkkhybpkqot.supabase.co https://vitals.vercel-insights.com https://*.tile.openstreetmap.org",
-  "media-src 'self' blob: https://lyihdzgmtjkkhybpkqot.supabase.co",
-  "worker-src 'self' blob:",
-  "frame-src 'self' https://www.google.com",
-  "frame-ancestors 'self'",
-  "base-uri 'self'",
-  "form-action 'self'",
-  "object-src 'none'",
-  ...(isDev ? [] : ["upgrade-insecure-requests"]),
-].join("; ");
+   CSP is set per-request in middleware.ts, with a fresh nonce. It cannot live
+   here: headers() is fixed for the whole build, while a nonce changes on every
+   response. Two policies would also both arrive at the browser, and the
+   stricter intersection of the two would apply.
+
+   Everything else (HSTS, nosniff, frame options, permissions) stays here so
+   the CDN can serve it without invoking the function layer.
+*/
 
 const securityHeaders = [
-  { key: "Content-Security-Policy", value: csp },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "SAMEORIGIN" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },

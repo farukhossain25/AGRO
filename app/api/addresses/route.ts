@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { created, currentUser, fail, handleError, ok } from "@/lib/api";
+import { created, currentUser, fail, handleError, limitGuard, ok } from "@/lib/api";
 import { bdPhone } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +37,8 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    const limit = limitGuard(req, "api-addresses", 30, 60_000);
+    if (limit) return limit;
     const user = await currentUser();
     if (!user) return fail("লগইন করুন", 401);
 
@@ -61,6 +63,8 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
+    const limit = limitGuard(req, "api-addresses", 30, 60_000);
+    if (limit) return limit;
     const user = await currentUser();
     if (!user) return fail("লগইন করুন", 401);
 

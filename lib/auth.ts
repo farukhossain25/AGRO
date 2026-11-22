@@ -51,7 +51,10 @@ export async function verifySession(token: string | undefined): Promise<SessionU
       name: (p.name as string) ?? null,
       email: (p.email as string) ?? null,
       phone: (p.phone as string) ?? null,
-      role: p.role === "admin" ? "admin" : "customer",
+      // Keep the full ladder (seller / premium / staff / manager); collapsing
+      // every non-admin to "customer" silently locked sellers out of their own
+      // panel and made `requireStaff` checks impossible.
+      role: (p.role as UserRole) ?? "customer",
     };
   } catch {
     return null;

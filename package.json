@@ -2,7 +2,7 @@
   "name": "biswas-agro",
   "version": "1.0.0",
   "private": true,
-  "description": "বিশ্বাস এগ্রো (Biswas Agro) — Farm to Family. Organic food & fresh produce delivery in Bangladesh.",
+  "description": "\u09ac\u09bf\u09b6\u09cd\u09ac\u09be\u09b8 \u098f\u0997\u09cd\u09b0\u09cb (Biswas Agro) \u2014 Farm to Family. Organic food & fresh produce delivery in Bangladesh.",
   "scripts": {
     "dev": "next dev -H 0.0.0.0 -p 3000",
     "build": "next build",
@@ -18,7 +18,9 @@
     "analyze": "ANALYZE=true next build",
     "budget": "node scripts/check-bundle-budget.mjs",
     "budget:report": "node scripts/check-bundle-budget.mjs --report",
-    "lighthouse": "node scripts/lighthouse-audit.mjs"
+    "lighthouse": "node scripts/lighthouse-audit.mjs",
+    "security": "node scripts/security-scan.mjs",
+    "verify": "npm run typecheck && npm run security && npm run budget"
   },
   "dependencies": {
     "@fontsource/hind-siliguri": "^5.3.0",

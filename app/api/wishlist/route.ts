@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { db, isDbConfigured } from "@/lib/db";
-import { currentUser, fail, handleError, ok } from "@/lib/api";
+import { currentUser, fail, handleError, limitGuard, ok } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -45,6 +45,8 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    const limit = limitGuard(req, "api-wishlist", 30, 60_000);
+    if (limit) return limit;
     const session = await currentUser();
     if (!session) return fail("উইশলিস্টে রাখতে আগে লগইন করুন", 401);
     if (!isDbConfigured()) return fail("ডেটাবেস কনফিগার করা নেই", 503);
@@ -77,6 +79,8 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
+    const limit = limitGuard(req, "api-wishlist", 30, 60_000);
+    if (limit) return limit;
     const session = await currentUser();
     if (!session) return fail("আগে লগইন করুন", 401);
     if (!isDbConfigured()) return fail("ডেটাবেস কনফিগার করা নেই", 503);

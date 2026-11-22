@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { ZodError } from "zod";
 import { verifySession, sessionCookie, type SessionUser } from "./auth";
+import { can, isStaffRole, type Permission } from "./permissions";
 
 export function ok<T>(data: T, init?: ResponseInit) {
   return NextResponse.json({ ok: true, data }, { status: 200, ...init });
@@ -44,6 +45,23 @@ export function handleError(error: unknown) {
     );
   }
 
+  // requireUser / requireStaff / requirePermission throw errors carrying a
+  // status. Without this branch every guard failure became a 500, which hid the
+  // real reason from the client and made the logs look like a code bug.
+  const status = (error as { status?: number } | null)?.status;
+  if (status === 401) {
+    return NextResponse.json(
+      { ok: false, message: "এই কাজটি করতে আগে লগইন করুন", code: "UNAUTHORIZED" },
+      { status: 401 }
+    );
+  }
+  if (status === 403) {
+    return NextResponse.json(
+      { ok: false, message: "এই কাজের অনুমতি আপনার নেই", code: "FORBIDDEN" },
+      { status: 403 }
+    );
+  }
+
   console.error("[api]", error);
   const message =
     process.env.NODE_ENV !== "production" ? raw : "সার্ভারে সমস্যা হয়েছে, আবার চেষ্টা করুন";
@@ -66,6 +84,43 @@ export async function requireUser(): Promise<SessionUser> {
   return user;
 }
 
+/**
+ * Staff gate — staff, manager or admin. `/admin` is no longer admin-only: a
+ * staff account may curate the catalogue. Individual screens still call
+ * `requirePermission()` for the actions that matter (money, team, settings).
+ */
+export async function requireStaff(): Promise<SessionUser> {
+  const user = await currentUser();
+  if (!user || !isStaffRole(user.role)) {
+    const err = new Error("FORBIDDEN") as Error & { status?: number };
+    err.status = user ? 403 : 401;
+    throw err;
+  }
+  return user;
+}
+
+/** Permission gate. Throws 401 when logged out, 403 when the role is too low. */
+export async function requirePermission(permission: Permission): Promise<SessionUser> {
+  const user = await currentUser();
+  if (!user) {
+    const err = new Error("UNAUTHORIZED") as Error & { status?: number };
+    err.status = 401;
+    throw err;
+  }
+  if (!can(user, permission)) {
+    const err = new Error("FORBIDDEN") as Error & { status?: number; permission?: string };
+    err.status = 403;
+    err.permission = permission;
+    throw err;
+  }
+  return user;
+}
+
+/**
+ * Strict admin gate. Kept for the handful of surfaces that are genuinely
+ * admin-only (settings, destructive maintenance). Everything else uses
+ * `requirePermission()` so managers and staff can do their jobs.
+ */
 export async function requireAdmin(): Promise<SessionUser> {
   const user = await currentUser();
   if (!user || user.role !== "admin") {

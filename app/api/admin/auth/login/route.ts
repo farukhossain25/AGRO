@@ -7,6 +7,8 @@ import { toSessionUser, type Profile } from "@/lib/profile";
 import { authErrorBn, clientIp, isLockedOut, recordAttempt } from "@/lib/auth-attempts";
 import { isSupabaseAuthConfigured, shapeAuthUser, supabaseAnonServer } from "@/lib/supabase-server";
 import { verifyTotp } from "@/lib/totp";
+import { isStaffRole } from "@/lib/permissions";
+import type { UserRole } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -72,9 +74,11 @@ export async function POST(req: Request) {
 
     if (profileError) throw profileError;
 
-    if (!profileRow || profileRow.role !== "admin") {
+    // staff / manager / admin all sign in here; the scoped permission checks
+    // inside each route decide what they may actually do (section F)
+    if (!profileRow || !isStaffRole(profileRow.role as UserRole)) {
       await recordAttempt({ identifier: email, scope: "admin-login", ok: false, ip });
-      return fail("প্রবেশাধিকার নেই (Access denied) — এই অ্যাকাউন্টের অ্যাডমিন অনুমতি নেই", 403);
+      return fail("প্রবেশাধিকার নেই (Access denied) — এই অ্যাকাউন্টের টিম অনুমতি নেই", 403);
     }
 
     const legacyUserId = profileRow.legacy_user_id;
@@ -111,7 +115,7 @@ export async function POST(req: Request) {
       phone: profileRow.phone,
       avatar_url: profileRow.avatar_url,
       bio: null,
-      role: "admin",
+      role: profileRow.role as UserRole,
       language: (profileRow.language as "bn" | "en") ?? "bn",
       theme: "dark",
       notifications: { email: true, push: true, sms: false },

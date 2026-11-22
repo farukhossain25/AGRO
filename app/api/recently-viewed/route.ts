@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { db, isDbConfigured } from "@/lib/db";
-import { currentUser, fail, handleError, ok } from "@/lib/api";
+import { currentUser, fail, handleError, limitGuard, ok } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -41,6 +41,8 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    const limit = limitGuard(req, "api-recently-viewed", 30, 60_000);
+    if (limit) return limit;
     const session = await currentUser();
     // Silent for guests — the client keeps its own localStorage list.
     if (!session || !isDbConfigured()) return ok({ tracked: false });

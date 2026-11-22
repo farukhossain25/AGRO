@@ -318,7 +318,7 @@ export type Banner = {
   sort_order: number;
 };
 
-export type UserRole = "customer" | "premium" | "seller" | "admin";
+export type UserRole = "customer" | "premium" | "seller" | "staff" | "manager" | "admin";
 
 export type User = {
   id: string;

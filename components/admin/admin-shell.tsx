@@ -6,8 +6,12 @@ import { useState, type ReactNode } from "react";
 import {
   AlertTriangle,
   BarChart3,
+  BookOpen,
   Camera,
   FileText,
+  HelpCircle,
+  Images,
+  ScrollText,
   Search,
   Image as ImageIcon,
   LayoutGrid,
@@ -30,8 +34,18 @@ import {
 } from "lucide-react";
 import { Logo } from "@/components/icon-logo";
 import type { SessionUser } from "@/lib/auth";
+import { can, roleLabelBn, type Permission } from "@/lib/permissions";
 
-const navGroups = [
+type NavItem = {
+  href: string;
+  label: string;
+  Icon: typeof LayoutGrid;
+  /** Hidden from the sidebar when the signed-in role lacks it. The API is the
+   *  real gate — this only stops staff seeing doors they cannot open. */
+  perm?: Permission;
+};
+
+const navGroups: { title: string; items: NavItem[] }[] = [
   {
     title: "ওভারভিউ",
     items: [{ href: "/admin", label: "ড্যাশবোর্ড", Icon: LayoutGrid }],
@@ -39,51 +53,58 @@ const navGroups = [
   {
     title: "বিক্রয়",
     items: [
-      { href: "/admin/orders", label: "অর্ডার", Icon: ShoppingCart },
-      { href: "/admin/subscriptions", label: "সাবস্ক্রিপশন", Icon: Repeat },
-      { href: "/admin/customers", label: "কাস্টমার", Icon: Users },
-      { href: "/admin/reports", label: "রিপোর্ট", Icon: BarChart3 },
+      { href: "/admin/orders", label: "অর্ডার", Icon: ShoppingCart, perm: "orders.read" },
+      { href: "/admin/subscriptions", label: "সাবস্ক্রিপশন", Icon: Repeat, perm: "orders.read" },
+      { href: "/admin/customers", label: "কাস্টমার", Icon: Users, perm: "customers.read" },
+      { href: "/admin/reports", label: "রিপোর্ট", Icon: BarChart3, perm: "reports.view" },
     ],
   },
   {
     title: "প্রিমিয়াম",
     items: [
-      { href: "/admin/premium", label: "সাবস্ক্রিপশন", Icon: Sparkles },
-      { href: "/admin/plans", label: "প্ল্যান", Icon: Ticket },
-      { href: "/admin/codes", label: "অ্যাক্সেস কোড", Icon: Ticket },
-      { href: "/admin/farms", label: "খামার", Icon: Sprout },
-      { href: "/admin/cameras", label: "ক্যামেরা", Icon: Camera },
+      { href: "/admin/premium", label: "সাবস্ক্রিপশন", Icon: Sparkles, perm: "premium.manage" },
+      { href: "/admin/plans", label: "প্ল্যান", Icon: Ticket, perm: "premium.manage" },
+      { href: "/admin/codes", label: "অ্যাক্সেস কোড", Icon: Ticket, perm: "premium.manage" },
+      { href: "/admin/farms", label: "খামার", Icon: Sprout, perm: "cams.manage" },
+      { href: "/admin/cameras", label: "ক্যামেরা", Icon: Camera, perm: "cams.manage" },
     ],
   },
   {
     title: "মার্কেটপ্লেস",
     items: [
-      { href: "/admin/sellers", label: "সেলার", Icon: Store },
-      { href: "/admin/suppliers/quality", label: "কোয়ালিটি স্কোর", Icon: ShieldCheck },
-      { href: "/admin/camera-requests", label: "ক্যামেরা রিকোয়েস্ট", Icon: Camera },
+      { href: "/admin/sellers", label: "সেলার", Icon: Store, perm: "sellers.read" },
+      { href: "/admin/suppliers/quality", label: "কোয়ালিটি স্কোর", Icon: ShieldCheck, perm: "sellers.read" },
+      { href: "/admin/camera-requests", label: "ক্যামেরা রিকোয়েস্ট", Icon: Camera, perm: "cams.manage" },
     ],
   },
   {
     title: "ক্যাটালগ",
     items: [
-      { href: "/admin/products", label: "পণ্য", Icon: Package },
-      { href: "/admin/categories", label: "ক্যাটাগরি", Icon: Tags },
-      { href: "/admin/reviews", label: "রিভিউ", Icon: MessageSquare },
-      { href: "/admin/complaints", label: "অভিযোগ", Icon: AlertTriangle },
+      { href: "/admin/products", label: "পণ্য", Icon: Package, perm: "products.read" },
+      { href: "/admin/categories", label: "ক্যাটাগরি", Icon: Tags, perm: "products.read" },
+      { href: "/admin/reviews", label: "রিভিউ", Icon: MessageSquare, perm: "reviews.moderate" },
+      { href: "/admin/complaints", label: "অভিযোগ", Icon: AlertTriangle, perm: "complaints.handle" },
     ],
   },
   {
     title: "মার্কেটিং",
     items: [
-      { href: "/admin/coupons", label: "কুপন", Icon: Percent },
-      { href: "/admin/banners", label: "ব্যানার", Icon: ImageIcon },
-      { href: "/admin/blog", label: "ব্লগ", Icon: FileText },
-      { href: "/admin/seo", label: "SEO", Icon: Search },
+      { href: "/admin/coupons", label: "কুপন", Icon: Percent, perm: "coupons.write" },
+      { href: "/admin/banners", label: "ব্যানার", Icon: ImageIcon, perm: "content.write" },
+      { href: "/admin/blog", label: "ব্লগ", Icon: FileText, perm: "content.write" },
+      { href: "/admin/cms", label: "সাইড পেজ", Icon: BookOpen, perm: "content.write" },
+      { href: "/admin/faq", label: "প্রশ্ন-উত্তর", Icon: HelpCircle, perm: "content.write" },
+      { href: "/admin/media", label: "মিডিয়া", Icon: Images, perm: "media.write" },
+      { href: "/admin/seo", label: "SEO", Icon: Search, perm: "seo.write" },
     ],
   },
   {
-    title: "সেটিংস",
-    items: [{ href: "/admin/delivery", label: "ডেলিভারি চার্জ", Icon: Truck }],
+    title: "টিম ও সিস্টেম",
+    items: [
+      { href: "/admin/team", label: "টিম ও রোল", Icon: ShieldCheck, perm: "team.read" },
+      { href: "/admin/audit", label: "অডিট লগ", Icon: ScrollText, perm: "audit.read" },
+      { href: "/admin/delivery", label: "ডেলিভারি চার্জ", Icon: Truck, perm: "settings.write" },
+    ],
   },
 ];
 
@@ -108,7 +129,10 @@ export function AdminShell({ user, children }: { user: SessionUser; children: Re
       </div>
 
       <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-4" aria-label="অ্যাডমিন নেভিগেশন">
-        {navGroups.map((group) => (
+        {navGroups
+          .map((group) => ({ ...group, items: group.items.filter((item) => !item.perm || can(user, item.perm)) }))
+          .filter((group) => group.items.length > 0)
+          .map((group) => (
           <div key={group.title}>
             <p className="mb-1.5 px-2.5 text-[9.5px] font-semibold uppercase tracking-[0.16em] text-sand-100/30">
               {group.title}
@@ -148,7 +172,9 @@ export function AdminShell({ user, children }: { user: SessionUser; children: Re
           </span>
           <div className="min-w-0 flex-1">
             <p className="truncate text-[11.5px] font-semibold">{user.name ?? "Admin"}</p>
-            <p className="truncate text-[9.5px] text-sand-100/35">{user.email}</p>
+            <p className="truncate text-[9.5px] text-sand-100/35">
+              {roleLabelBn(user.role)} · {user.email}
+            </p>
           </div>
           <button onClick={signOut} className="rounded-lg p-1.5 text-sand-100/40 hover:bg-red-500/15 hover:text-red-300" aria-label="লগআউট">
             <LogOut className="h-3.5 w-3.5" />
