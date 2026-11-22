@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { LoginForm } from "@/components/auth/login-form";
 
 export const metadata: Metadata = {
-  title: "লগইন / সাইন আপ | বিশ্বাস এগ্রো",
+  title: "লগইন / সাইন আপ",
   description:
     "বিশ্বাস এগ্রো অ্যাকাউন্টে লগইন করুন — অর্ডার হিস্ট্রি, সেভ করা ঠিকানা ও প্রিমিয়াম স্ট্যাটাস এক জায়গায়। ইমেইল/পাসওয়ার্ড বা Google দিয়ে সাইন ইন করুন।",
   robots: { index: false, follow: true },
