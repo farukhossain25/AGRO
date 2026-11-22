@@ -218,11 +218,72 @@ on conflict (id) do nothing;`);
 /* ----------------------------------------------------------------- banners */
 const bannerRows = seed.seedBanners.map((b, i) => {
   const id = `c0de6000-0000-4000-8000-${String(i + 1).padStart(12, "0")}`;
-  return `(${[q(id), q(b.title_bn), q(b.image ?? ""), q(b.link ?? "/products"), q(true), q(i + 1)].join(", ")})`;
+  return `(${[
+    q(id),
+    q(b.title_bn), // legacy `title`, kept in step with title_bn
+    q(b.title_bn),
+    q(b.subtitle_bn ?? ""),
+    q(b.image ?? ""),
+    q(b.link ?? "/products"),
+    q("home_hero"),
+    q(true),
+    q(true),
+    q(i + 1),
+  ].join(", ")})`;
 });
-out.push(`insert into public.banners (id, title, image, link, active, sort_order)
+out.push(`insert into public.banners
+  (id, title, title_bn, subtitle_bn, image, link, placement, active, is_active, sort_order)
 values
 ${bannerRows.join(",\n")}
+on conflict (id) do update set
+  title = excluded.title,
+  title_bn = excluded.title_bn,
+  subtitle_bn = excluded.subtitle_bn,
+  image = excluded.image,
+  link = excluded.link,
+  placement = excluded.placement,
+  is_active = excluded.is_active,
+  sort_order = excluded.sort_order;`);
+
+/* ------------------------------------------------------------- blog posts */
+const postRows = seed.seedPosts.map((p, i) => {
+  const id = `c0de7000-0000-4000-8000-${String(i + 1).padStart(12, "0")}`;
+  const published = new Date(Date.now() - i * 3 * 86_400_000).toISOString();
+  return `(${[
+    q(id),
+    q(p.slug),
+    q(p.title_bn),
+    q(p.excerpt_bn ?? ""),
+    q(p.content_bn),
+    q(p.cover ?? ""),
+    q("বিশ্বাস এগ্রো টিম"),
+    q(p.tag_bn ?? ""),
+    q(p.read_minutes ?? 4),
+    q(published),
+    q(true),
+  ].join(", ")})`;
+});
+out.push(`insert into public.blog_posts
+  (id, slug, title_bn, excerpt_bn, content_bn, cover, author_bn, tag_bn,
+   read_minutes, published_at, is_active)
+values
+${postRows.join(",\n")}
 on conflict (id) do nothing;`);
+
+/* ---------------------------------------------------------------- reviews */
+const reviewRows = seed.seedReviews.map((r, i) => {
+  const id = `c0de8000-0000-4000-8000-${String(i + 1).padStart(12, "0")}`;
+  const created = new Date(Date.now() - (i + 1) * 2 * 86_400_000).toISOString();
+  return `(${[
+    q(id),
+    q(r.name_bn),
+    q(r.location_bn ?? null),
+    q(r.rating),
+    q(r.comment),
+    q(true),
+    q(created),
+  ].join(", ")})`;
+});
+out.push(["insert into public.reviews (id, name_bn, location_bn, rating, comment, is_approved, created_at)", "values", reviewRows.join(",\n"), "on conflict (id) do nothing;"].join("\n"));
 
 console.log(out.join("\n\n"));
