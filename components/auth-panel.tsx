@@ -52,11 +52,45 @@ const CALLBACK_ERRORS: Record<string, { bn: string; en: string }> = {
 
 export function AuthPanel() {
   const router = useRouter();
-  const params = useSearchParams();
-  const { t } = useLocale();
-  const toast = useToast();
+  // useSearchParams must be inside <Suspense> — login/page.tsx already does.
+  // Guard for prerender / test where it can be null or throw.
+  let params: ReturnType<typeof useSearchParams> | null = null;
+  try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    params = useSearchParams();
+  } catch {
+    params = null;
+  }
+  const safeGet = (k: string): string | null => {
+    try {
+      return params?.get(k) ?? null;
+    } catch {
+      return null;
+    }
+  };
+  // useLocale/useToast themselves protected in providers, but never let a
+  // missing provider crash the login page — show a fallback instead.
+  let t: (bn: string, en?: string) => string = (bn, en) => bn;
+  let toast: ReturnType<typeof useToast> = { success: () => {}, error: () => {}, info: () => {} } as unknown as ReturnType<typeof useToast>;
+  try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    t = useLocale().t;
+  } catch {}
+  try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    toast = useToast();
+  } catch {}
 
-  const [mode, setMode] = useState<Mode>(params.get("mode") === "register" ? "register" : "login");
+  const initialMode: Mode = (() => {
+    try {
+      const m = safeGet("mode");
+      if (m === "register" || m === "otp" || m === "forgot" || m === "reset") return m;
+      return "login";
+    } catch {
+      return "login";
+    }
+  })();
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [devCode, setDevCode] = useState<string | null>(null);
@@ -72,7 +106,12 @@ export function AuthPanel() {
   const [notice, setNotice] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
-  const redirectTo = params.get("next") || "/account";
+  const redirectTo = (() => {
+    const n = safeGet("next");
+    // only allow internal paths to prevent open-redirect
+    if (n && n.startsWith("/") && !n.startsWith("//")) return n;
+    return "/account";
+  })();
 
   useEffect(() => {
     setErrors({});
@@ -187,9 +226,10 @@ export function AuthPanel() {
       if (!identifier.includes("@")) {
         throw new Error("পাসওয়ার্ড রিসেটের জন্য ইমেইল দিন");
       }
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
       const { error } = await supabaseBrowser().auth.resetPasswordForEmail(
         identifier.trim().toLowerCase(),
-        { redirectTo: `${window.location.origin}/auth/callback?next=/account/security&type=recovery` }
+        { redirectTo: `${origin}/auth/callback?next=/account/security&type=recovery` }
       );
       if (error) throw error;
       setResetSent(true);
@@ -219,7 +259,7 @@ export function AuthPanel() {
           password,
           options: {
             data: { full_name: name, phone, locale: "bn" },
-            emailRedirectTo: `${window.location.origin}/auth/callback?next=/account/profile?welcome=1`,
+            emailRedirectTo: `${typeof window !== "undefined" ? window.location.origin : ""}/auth/callback?next=/account/profile?welcome=1`,
           },
         });
         if (error) throw error;
@@ -412,7 +452,7 @@ export function AuthPanel() {
           </p>
         </div>
 
-        {params.get("error") ? (
+        {safeGet("error") ? (
           <div
             role="alert"
             className="mt-5 flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-[12px] leading-relaxed text-red-200 lg:border-red-200 lg:bg-red-50 lg:text-red-700"
@@ -420,7 +460,8 @@ export function AuthPanel() {
             <span aria-hidden>⚠</span>
             <span>
               {(() => {
-                const entry = CALLBACK_ERRORS[params.get("error") ?? ""];
+                const key = safeGet("error") ?? "";
+                const entry = CALLBACK_ERRORS[key];
                 return entry ? t(entry.bn, entry.en) : t("লগইন সম্পন্ন হয়নি।", "Sign-in did not complete.");
               })()}
             </span>

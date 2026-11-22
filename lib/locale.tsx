@@ -87,7 +87,18 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
 
 export function useLocale(): LocaleContextValue {
   const ctx = useContext(LocaleContext);
-  if (!ctx) throw new Error("useLocale must be used inside <LocaleProvider>");
+  if (!ctx) {
+    // Graceful fallback: never throw on the login page if provider is missing
+    // (e.g. during static prerender or error boundary). Default to bn.
+    const noop = () => {};
+    return {
+      locale: "bn" as Locale,
+      setLocale: noop as unknown as (l: Locale) => void,
+      toggle: noop as unknown as () => void,
+      isBn: true,
+      t: (bn: string, en?: string) => bn ?? en ?? "",
+    };
+  }
   return ctx;
 }
 
