@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { fail, handleError, ok, requirePermission } from "@/lib/api";
-import { clientIp } from "@/lib/auth-attempts";
+import { clientIp } from "@/lib/api";
 import { paymentDecisionSchema } from "@/lib/validation";
 import { decidePayment, getReconciliation, toCsv } from "@/lib/manual-payments";
 import type { PaymentQueueRow } from "@/lib/types";

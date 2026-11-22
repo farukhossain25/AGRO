@@ -3,9 +3,10 @@ import { db } from "@/lib/db";
 import { ADMIN_LOGIN_PATH } from "@/lib/paths";
 import { site } from "@/lib/site";
 import { created, fail, handleError, ok, requirePermission } from "@/lib/api";
-import { clientIp } from "@/lib/auth-attempts";
+import { clientIp } from "@/lib/api";
 import { recordAudit } from "@/lib/audit";
-import { isSupabaseAuthConfigured, supabaseService } from "@/lib/supabase-server";
+import { supabaseAdmin } from "@/lib/supabase/server";
+import { isSupabaseAdminConfigured } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -73,13 +74,13 @@ export async function POST(req: Request) {
       return fail("নিজের চেয়ে বড় রোল দেওয়া যাবে না", 403);
     }
 
-    if (!isSupabaseAuthConfigured()) {
+    if (!isSupabaseAdminConfigured) {
       return fail("Supabase Auth কনফিগার করা নেই — টিম মেম্বার যোগ করা যাবে না", 503);
     }
 
     let admin;
     try {
-      admin = supabaseService();
+      admin = supabaseAdmin();
     } catch {
       return fail("সার্ভিস রোল কী নেই", 503);
     }
@@ -187,7 +188,7 @@ export async function PATCH(req: Request) {
     // an admin-capable profile
     let admin = null;
     try {
-      admin = supabaseService();
+      admin = supabaseAdmin();
     } catch {
       /* service key missing: the users row above is still updated */
     }
@@ -195,7 +196,7 @@ export async function PATCH(req: Request) {
       const profilePatch: Record<string, unknown> = {};
       if (body.role) profilePatch.role = body.role;
       if (Object.keys(profilePatch).length) {
-        await admin.from("profiles").update(profilePatch).eq("legacy_user_id", body.userId);
+        await admin.from("profiles").update(profilePatch).eq("id", body.userId);
       }
       if (body.is_active === false) {
         try {

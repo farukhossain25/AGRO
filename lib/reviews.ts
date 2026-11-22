@@ -77,12 +77,12 @@ export async function getProductReviews(
     if (userIds.length) {
       const { data: profiles } = await db()
         .from("profiles")
-        .select("legacy_user_id, full_name, avatar_url")
-        .in("legacy_user_id", userIds);
+        .select("id, full_name, avatar_url")
+        .in("id", userIds);
 
       const map = new Map(
         (profiles ?? []).map((p) => [
-          p.legacy_user_id as string,
+          p.id as string,
           {
             full_name: (p.full_name as string | null) ?? null,
             avatar_url: (p.avatar_url as string | null) ?? null,

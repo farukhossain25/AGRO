@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { fail, handleError, ok, requirePermission } from "@/lib/api";
-import { clientIp } from "@/lib/auth-attempts";
+import { clientIp } from "@/lib/api";
 import { recordAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";

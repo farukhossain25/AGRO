@@ -1,6 +1,5 @@
-import { cookies } from "next/headers";
 import { db, dbUsable } from "@/lib/db";
-import { verifySession, sessionCookie } from "@/lib/auth";
+import { getSessionUser } from "@/lib/supabase/server";
 import { can } from "@/lib/permissions";
 import { TeamManager, type TeamRow } from "@/components/admin/team-manager";
 
@@ -9,10 +8,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "টিম ও রোল", robots: { index: false, follow: false } };
 
 export default async function AdminTeamPage() {
-  const store = await cookies();
-  const user = await verifySession(
-    store.get(sessionCookie.adminName)?.value ?? store.get(sessionCookie.name)?.value
-  );
+  const user = await getSessionUser();
 
   let rows: TeamRow[] = [];
   if (dbUsable()) {

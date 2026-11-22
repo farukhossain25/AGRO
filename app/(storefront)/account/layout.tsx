@@ -1,9 +1,6 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/api";
 import { AccountNav } from "@/components/account-nav";
-import { ADMIN_BASE } from "@/lib/paths";
-import { isStaffRole } from "@/lib/permissions";
 
 export default async function AccountLayout({ children }: { children: React.ReactNode }) {
   const user = await currentUser();
@@ -21,13 +18,6 @@ export default async function AccountLayout({ children }: { children: React.Reac
             ) : null}
           </p>
         </div>
-        {/* Staff-only shortcut. It must never render for a customer: a public
-            HTML link to the panel would defeat the point of hiding its URL. */}
-        {isStaffRole(user.role) ? (
-          <Link href={ADMIN_BASE} className="hidden text-[12px] text-sand-100/40 hover:text-leaf-200 sm:block">
-            অ্যাডমিন প্যানেল →
-          </Link>
-        ) : null}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[220px_1fr]">

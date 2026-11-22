@@ -20,6 +20,7 @@ import {
   User as UserIcon,
   X,
 } from "lucide-react";
+import { createClient, supabaseConfigured } from "@/lib/supabase/client";
 import { useLocale } from "@/lib/locale";
 import { useToast } from "@/lib/toast";
 import { formatDateBn } from "@/lib/format";
@@ -153,18 +154,53 @@ export function ProfileForm({
     toast.success(t("নোটিফিকেশন সেটিং আপডেট হয়েছে", "Notification preference updated"));
   }
 
+  /* Avatar goes straight to Supabase Storage, bucket "avatars", inside the
+     user's own folder (`<uid>/…`). The bucket policy allows a write only when
+     the first path segment equals auth.uid(), so the browser cannot touch
+     anybody else's folder. Type and size are checked before the upload too. */
+  const AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp"];
+  const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
+
+  async function persistAvatar(url: string | null) {
+    const res = await fetch("/api/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ avatar_url: url ?? "" }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json?.message ?? "প্রোফাইল আপডেট ব্যর্থ");
+  }
+
   async function uploadAvatar(file: File) {
+    if (!supabaseConfigured) {
+      toast.error(t("আপলোড ব্যর্থ", "Upload failed"), "Supabase কনফিগার করা নেই");
+      return;
+    }
+    if (!AVATAR_TYPES.includes(file.type)) {
+      toast.error(t("ছবির ধরন সমর্থিত নয়", "Unsupported file type"), "JPG, PNG বা WebP ছবি দিন");
+      return;
+    }
+    if (file.size > AVATAR_MAX_BYTES) {
+      toast.error(t("ছবি বড়", "Photo too large"), "সর্বোচ্চ ২ MB ছবি দিন");
+      return;
+    }
+
     setUploading(true);
     try {
-      const body = new FormData();
-      body.append("file", file);
+      const supabase = createClient();
+      const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+      const path = `${session.id}/avatar-${Date.now()}.${ext}`;
 
-      const res = await fetch("/api/profile/avatar", { method: "POST", body });
-      const json = await res.json();
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, { cacheControl: "3600", upsert: true, contentType: file.type });
+      if (uploadError) throw new Error(uploadError.message);
 
-      if (!res.ok) throw new Error(json?.message ?? "আপলোড ব্যর্থ");
+      const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+      const url = data.publicUrl;
 
-      setAvatar(json.data.url);
+      await persistAvatar(url);
+      setAvatar(url);
       toast.success(t("ছবি আপডেট হয়েছে", "Photo updated"));
       router.refresh();
     } catch (err) {
@@ -178,8 +214,16 @@ export function ProfileForm({
   async function removeAvatar() {
     setUploading(true);
     try {
-      const res = await fetch("/api/profile/avatar", { method: "DELETE" });
-      if (!res.ok) throw new Error("মুছে ফেলা যায়নি");
+      const supabase = createClient();
+      // Best-effort: drop the file from Storage, then clear the column.
+      const marker = "/storage/v1/object/public/avatars/";
+      if (avatar && avatar.includes(marker)) {
+        const path = decodeURIComponent(avatar.split(marker)[1] ?? "");
+        if (path.startsWith(`${session.id}/`)) {
+          await supabase.storage.from("avatars").remove([path]).catch(() => undefined);
+        }
+      }
+      await persistAvatar(null);
       setAvatar(null);
       toast.success(t("ছবি সরানো হয়েছে", "Photo removed"));
       router.refresh();
@@ -572,18 +616,34 @@ function SecurityPanel() {
       return;
     }
 
+    if (next.length < 8) {
+      setErrors({ newPassword: "নতুন পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে" });
+      return;
+    }
+
     setSaving(true);
     try {
-      const res = await fetch("/api/auth/password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currentPassword: current, newPassword: next }),
+      if (!supabaseConfigured) throw new Error("Supabase কনফিগার করা নেই");
+      const supabase = createClient();
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser();
+      const email = authUser?.email;
+      if (!email) throw new Error("অ্যাকাউন্টের ইমেইল পাওয়া যায়নি");
+
+      // Prove the current password first, then set the new one.
+      const { error: checkError } = await supabase.auth.signInWithPassword({
+        email: email.toLowerCase(),
+        password: current,
       });
-      const json = await res.json();
-      if (!res.ok) {
-        if (json?.errors) setErrors(json.errors);
-        throw new Error(json?.message ?? "পাসওয়ার্ড পরিবর্তন ব্যর্থ");
+      if (checkError) {
+        setErrors({ currentPassword: "বর্তমান পাসওয়ার্ড মিলছে না" });
+        return;
       }
+
+      const { error: updateError } = await supabase.auth.updateUser({ password: next });
+      if (updateError) throw new Error(updateError.message);
+
       toast.success(t("পাসওয়ার্ড পরিবর্তন হয়েছে", "Password changed"));
       setCurrent("");
       setNext("");
@@ -656,7 +716,7 @@ function SecurityPanel() {
         href="/account/security"
         className="block text-center text-[12px] text-sand-100/45 hover:text-leaf-200"
       >
-        টু-স্টেপ যাচাই ও সেশন সেটিংস →
+        নিরাপত্তা ও সেশন সেটিংস →
       </Link>
     </form>
   );

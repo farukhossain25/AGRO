@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRealtimeTable } from "@/lib/use-realtime";
-import { supabaseConfigured } from "@/lib/supabase-browser";
+import { supabaseConfigured } from "@/lib/supabase/client";
 import Image from "next/image";
 import Link from "next/link";
 import {

@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { created, fail, handleError, ok, requirePermission } from "@/lib/api";
 import { diffOf, recordAudit } from "@/lib/audit";
-import { clientIp } from "@/lib/auth-attempts";
+import { clientIp } from "@/lib/api";
 import { productSchema } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";

@@ -1,8 +1,8 @@
 import { db } from "@/lib/db";
 import { fail, handleError, ok, requirePermission } from "@/lib/api";
-import { clientIp } from "@/lib/auth-attempts";
+import { clientIp } from "@/lib/api";
 import { recordAudit } from "@/lib/audit";
-import { supabaseService } from "@/lib/supabase-server";
+import { supabaseAdmin } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -80,7 +80,7 @@ export async function POST(req: Request) {
     const name = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
     const path = `library/${new Date().toISOString().slice(0, 7)}/${name}`;
 
-    const storage = supabaseService().storage.from(bucket);
+    const storage = supabaseAdmin().storage.from(bucket);
     const { error: uploadError } = await storage.upload(path, buffer, {
       contentType: sniffed,
       cacheControl: "31536000",

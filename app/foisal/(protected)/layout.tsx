@@ -1,20 +1,25 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { verifySession, sessionCookie } from "@/lib/auth";
+import { getSessionUser } from "@/lib/supabase/server";
 import { AdminShell } from "@/components/admin/admin-shell";
-import { isStaffRole } from "@/lib/permissions";
-import { ADMIN_LOGIN_PATH } from "@/lib/paths";
 
-/* Staff, managers and admins share this shell (section F). Hiding the controls
-   is not the security boundary — every API route re-checks the permission —
-   but it keeps a staff account from wandering into money screens by URL. */
+/* ==========================================================================
+   Admin panel shell — /foisal
+   --------------------------------------------------------------------------
+   The real gate is here, on the server: role = 'admin' read from
+   `profiles.role` for the CURRENT Supabase session. middleware.ts applies the
+   same rule before this layout runs, so a customer never even reaches the
+   render. There is no admin link anywhere in the public UI.
+   ========================================================================== */
+
+export const dynamic = "force-dynamic";
+
 export default async function ProtectedAdminLayout({ children }: { children: React.ReactNode }) {
-  const store = await cookies();
-  const token = store.get(sessionCookie.adminName)?.value ?? store.get(sessionCookie.name)?.value;
-  const user = await verifySession(token);
+  const user = await getSessionUser();
 
-  if (!user || !isStaffRole(user.role)) {
-    redirect(ADMIN_LOGIN_PATH);
+  if (!user) redirect("/login?next=/foisal");
+  if (user.role !== "admin") {
+    // Same 404 a customer sees for any other unknown URL.
+    redirect("/forbidden");
   }
 
   return <AdminShell user={user}>{children}</AdminShell>;

@@ -25,12 +25,26 @@ export type StreamTokenPayload = {
   fp?: string;
 };
 
+/**
+ * Signing key for stream tokens.
+ *
+ * This is NOT the app session — user sessions are Supabase cookies only. This
+ * key only protects the short-lived HLS proxy URL for one camera.
+ * `STREAM_TOKEN_SECRET` wins when set; otherwise a stable per-project key is
+ * derived from the server-only Supabase credentials, so no extra env var is
+ * required and rotating the service key rotates this too.
+ */
 function secret(): Uint8Array {
-  const value = process.env.STREAM_TOKEN_SECRET ?? process.env.JWT_SECRET;
-  if (!value || value.length < 16) {
-    throw new Error("STREAM_TOKEN_SECRET / JWT_SECRET missing or too short");
+  const explicit = process.env.STREAM_TOKEN_SECRET;
+  if (explicit && explicit.length >= 16) return new TextEncoder().encode(explicit);
+
+  const base = `${process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}|${
+    process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? ""
+  }`;
+  if (base.length < 40) {
+    throw new Error("STREAM_TOKEN_SECRET missing (and no Supabase server credentials to derive one)");
   }
-  return new TextEncoder().encode(value);
+  return new Uint8Array(createHash("sha256").update(`stream-token:${base}`).digest());
 }
 
 export async function signStreamToken(payload: StreamTokenPayload): Promise<string> {

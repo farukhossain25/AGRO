@@ -5,9 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
-  Bell,
   BadgeCheck,
-  Heart,
+  Bell,
   Layers,
   LogOut,
   Package,
@@ -15,15 +14,19 @@ import {
   Sparkles,
   User as UserIcon,
 } from "lucide-react";
+import { useAuth } from "@/components/auth/auth-provider";
 import { useLocale } from "@/lib/locale";
-import { ADMIN_BASE } from "@/lib/paths";
 import { useToast } from "@/lib/toast";
 
 /* ==========================================================================
-   UserMenu — the header avatar dropdown (section C)
+   UserMenu — the header avatar dropdown
    --------------------------------------------------------------------------
-   Logged out  → "লগইন / সাইন আপ"
-   Logged in   → avatar + dropdown with the seven destinations from the brief
+   Logged out → "লগইন / সাইন আপ"
+   Logged in  → avatar + the six destinations from the brief + log out
+
+   The identity comes from AuthProvider (Supabase session), so signing in or
+   out updates this instantly without a reload. There is deliberately no admin
+   link: admins are never advertised in the public UI.
    ========================================================================== */
 
 export type HeaderUser = {
@@ -39,14 +42,14 @@ const ITEMS = [
   { href: "/account/combos", labelBn: "আমার কম্বো", labelEn: "My combos", Icon: Layers },
   { href: "/account/premium", labelBn: "প্রিমিয়াম স্ট্যাটাস", labelEn: "Premium status", Icon: Sparkles },
   { href: "/account/notifications", labelBn: "নোটিফিকেশন", labelEn: "Notifications", Icon: Bell },
-  { href: "/account/wishlist", labelBn: "পছন্দের তালিকা", labelEn: "Wishlist", Icon: Heart },
-  { href: "/account/addresses", labelBn: "সেটিংস", labelEn: "Settings", Icon: Settings },
+  { href: "/account/security", labelBn: "সেটিংস", labelEn: "Settings", Icon: Settings },
 ] as const;
 
-export function UserMenu({ user }: { user: HeaderUser | null }) {
+export function UserMenu({ premium = false }: { premium?: boolean }) {
   const { t } = useLocale();
   const toast = useToast();
   const router = useRouter();
+  const { user, loading, signOut } = useAuth();
   const [open, setOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -67,19 +70,11 @@ export function UserMenu({ user }: { user: HeaderUser | null }) {
     };
   }, [open]);
 
-  async function signOut() {
+  async function handleSignOut() {
+    if (signingOut) return;
     setSigningOut(true);
     try {
-      // Both auth modes clear the same cookie; also drop the Supabase session
-      // so a Google/OAuth login is fully signed out.
-      await Promise.allSettled([
-        fetch("/api/auth/logout", { method: "POST" }),
-        (async () => {
-          const { supabaseBrowser, supabaseConfigured } = await import("@/lib/supabase-browser");
-          if (supabaseConfigured) await supabaseBrowser().auth.signOut();
-        })(),
-      ]);
-
+      await signOut();
       toast.success(t("লগআউট হয়েছে", "Signed out"));
       setOpen(false);
       router.push("/");
@@ -96,17 +91,19 @@ export function UserMenu({ user }: { user: HeaderUser | null }) {
     return (
       <Link
         href="/login"
-        className="flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-[12px] font-semibold text-sand-100/80 transition hover:bg-white/[0.06] hover:text-sand-100 sm:px-3"
+        aria-label={t("লগইন / সাইন আপ", "Login / Sign up")}
+        className="flex min-h-[40px] items-center gap-1.5 rounded-xl px-2.5 py-2 text-[12px] font-semibold text-sand-100/80 transition hover:bg-white/[0.06] hover:text-sand-100 sm:px-3"
       >
         <UserIcon className="h-4 w-4" />
         <span className="hidden sm:inline">{t("লগইন / সাইন আপ", "Login / Sign up")}</span>
         <span className="sm:hidden">{t("লগইন", "Login")}</span>
+        {loading ? <span className="sr-only">{t("লোড হচ্ছে", "Loading")}</span> : null}
       </Link>
     );
   }
 
   /* ---------------------------------------------------------- logged in */
-  const initial = (user.name ?? "U").trim().charAt(0).toUpperCase();
+  const initial = (user.name ?? user.email ?? "U").trim().charAt(0).toUpperCase();
 
   return (
     <div ref={ref} className="relative">
@@ -117,9 +114,9 @@ export function UserMenu({ user }: { user: HeaderUser | null }) {
         aria-expanded={open}
         aria-haspopup="menu"
       >
-        {user.avatar ? (
+        {user.avatarUrl ? (
           <Image
-            src={user.avatar}
+            src={user.avatarUrl}
             alt={user.name ?? ""}
             width={40}
             height={40}
@@ -131,7 +128,7 @@ export function UserMenu({ user }: { user: HeaderUser | null }) {
             {initial}
           </span>
         )}
-        {user.premium ? (
+        {premium ? (
           <BadgeCheck className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full bg-ink-900 text-amber-400" />
         ) : null}
       </button>
@@ -143,12 +140,9 @@ export function UserMenu({ user }: { user: HeaderUser | null }) {
         >
           <div className="border-b border-white/[0.07] px-4 py-3">
             <p className="truncate text-[13px] font-semibold">{user.name ?? t("গ্রাহক", "Customer")}</p>
-            <p className="mt-0.5 text-[11px] text-sand-100/45">
-              {user.role === "admin"
-                ? t("অ্যাডমিন", "Administrator")
-                : user.premium
-                  ? t("প্রিমিয়াম সদস্য", "Premium member")
-                  : t("গ্রাহক", "Customer")}
+            <p className="mt-0.5 truncate text-[11px] text-sand-100/45">
+              {user.email ??
+                (premium ? t("প্রিমিয়াম সদস্য", "Premium member") : t("গ্রাহক", "Customer"))}
             </p>
           </div>
 
@@ -159,32 +153,20 @@ export function UserMenu({ user }: { user: HeaderUser | null }) {
                 href={item.href}
                 role="menuitem"
                 onClick={() => setOpen(false)}
-                className="flex items-center gap-2.5 px-4 py-2 text-[12.5px] text-sand-100/75 transition hover:bg-white/[0.06] hover:text-sand-100"
+                className="flex min-h-[38px] items-center gap-2.5 px-4 py-2 text-[12.5px] text-sand-100/75 transition hover:bg-white/[0.06] hover:text-sand-100"
               >
                 <item.Icon className="h-3.5 w-3.5 text-sand-100/40" />
                 {t(item.labelBn, item.labelEn)}
               </Link>
             ))}
-
-            {user.role === "admin" ? (
-              <Link
-                href={ADMIN_BASE}
-                role="menuitem"
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-2.5 px-4 py-2 text-[12.5px] font-semibold text-leaf-300 transition hover:bg-leaf-600/10"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                অ্যাডমিন প্যানেল
-              </Link>
-            ) : null}
           </div>
 
           <div className="border-t border-white/[0.07] py-1">
             <button
               role="menuitem"
-              onClick={signOut}
+              onClick={handleSignOut}
               disabled={signingOut}
-              className="flex w-full items-center gap-2.5 px-4 py-2 text-[12.5px] text-red-300 transition hover:bg-red-500/10 disabled:opacity-60"
+              className="flex min-h-[38px] w-full items-center gap-2.5 px-4 py-2 text-[12.5px] text-red-300 transition hover:bg-red-500/10 disabled:opacity-60"
             >
               <LogOut className="h-3.5 w-3.5" />
               {signingOut ? t("বের হচ্ছে…", "Signing out…") : t("লগআউট", "Log out")}
