@@ -9,8 +9,8 @@ export const metadata: Metadata = {
 
 /**
  * /forbidden — explicit 403 page.
- * Used when a signed-in non-admin deliberately opens /admin: the middleware
- * sends admins to /admin/login, but an authenticated customer landing here
+ * Used when a signed-in non-admin deliberately opens the panel: the middleware
+ * sends admins to the login screen, but an authenticated customer landing here
  * gets a clear "Access denied" rather than a login loop.
  */
 export default function ForbiddenPage() {

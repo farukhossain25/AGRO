@@ -4,6 +4,7 @@ import { clientKey, fail, handleError, ok, rateLimit, tooMany } from "@/lib/api"
 import { sessionCookie, signSession } from "@/lib/auth";
 import { ensureLinkedUser, toSessionUser } from "@/lib/profile";
 import { isSupabaseAuthConfigured, shapeAuthUser, supabaseAnonServer } from "@/lib/supabase-server";
+import { ADMIN_BASE } from "@/lib/paths";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -112,7 +113,7 @@ export async function POST(req: Request) {
         onboarded: profile.onboarded,
         avatar: profile.avatar_url,
       },
-      redirect: isAdmin ? "/admin" : "/account",
+      redirect: isAdmin ? ADMIN_BASE : "/account",
       sessionExpiresIn: maxAge,
     });
   } catch (error) {

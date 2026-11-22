@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db, isDbConfigured } from "@/lib/db";
 import { fail, handleError, ok } from "@/lib/api";
 import { isSupabaseAuthConfigured, supabaseService } from "@/lib/supabase-server";
+import { ADMIN_LOGIN_PATH } from "@/lib/paths";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -184,7 +185,7 @@ export async function POST(req: Request) {
       email,
       authId,
       legacyUserId: legacy!.id,
-      next: "Now sign in at /admin/login and then remove SEED_SECRET from Vercel.",
+      next: `Now sign in at ${ADMIN_LOGIN_PATH} and then remove SEED_SECRET from Vercel.`,
     });
   } catch (error) {
     return handleError(error);

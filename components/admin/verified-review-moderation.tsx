@@ -47,7 +47,7 @@ export function VerifiedReviewModeration({ initial }: { initial: ModReviewRow[] 
   async function moderate(id: string, action: "hide" | "restore") {
     setBusy(id);
     try {
-      const res = await fetch("/api/admin/reviews/moderate", {
+      const res = await fetch("/api/foisal/reviews/moderate", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, action }),

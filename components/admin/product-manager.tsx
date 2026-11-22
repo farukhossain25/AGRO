@@ -94,7 +94,7 @@ export function ProductManager({
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
+      const res = await fetch("/api/foisal/upload", { method: "POST", body: fd });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message ?? "আপলোড ব্যর্থ");
       setEditing((f) => (f ? { ...f, image: json.data.url } : f));
@@ -112,7 +112,7 @@ export function ProductManager({
     setSaving(true);
     setErrors({});
     try {
-      const res = await fetch("/api/admin/products", {
+      const res = await fetch("/api/foisal/products", {
         method: editing.id ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editing),
@@ -140,7 +140,7 @@ export function ProductManager({
 
   async function remove(id: string) {
     try {
-      const res = await fetch(`/api/admin/products?id=${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/foisal/products?id=${id}`, { method: "DELETE" });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message ?? "মুছে ফেলা যায়নি");
       setProducts((prev) => prev.filter((p) => p.id !== id));

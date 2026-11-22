@@ -119,6 +119,88 @@ const auth = readFileSync("lib/auth.ts", "utf8");
 if (!/httpOnly:\s*true/.test(auth)) add("error", "lib/auth.ts", "session cookie is not httpOnly");
 if (!/sameSite/.test(auth)) add("warn", "lib/auth.ts", "session cookie has no SameSite attribute");
 
+/* 9 ── manual payments: the verdict must stay server-side -------------------- */
+/* A payment is only allowed to become `verified` through decidePayment(), which
+   requires `payments.verify` (admin) and re-checks the duplicate TrxID. If some
+   future route writes `status: "verified"` directly with a narrower guard, the
+   shop accepts unpaid orders. */
+for (const file of source.filter((f) => f.endsWith(".ts") && f.startsWith("app/api"))) {
+  const body = readFileSync(file, "utf8");
+  const writesVerified = /status:\s*["']verified["']/.test(body);
+  const isDecisionPath = /decidePayment\(/.test(body) || file.includes("api/foisal/payments/");
+  if (writesVerified && !isDecisionPath) {
+    add("error", file, 'writes status: "verified" outside decidePayment()');
+  }
+}
+
+const mp = readFileSync("lib/manual-payments.ts", "utf8");
+if (!/export async function decidePayment/.test(mp)) {
+  add("error", "lib/manual-payments.ts", "decidePayment() is missing — nothing may approve a payment");
+}
+if (!/trx_norm/.test(mp)) {
+  add("error", "lib/manual-payments.ts", "duplicate-TrxID check is gone");
+}
+
+/* 10 ── the admin URL must stay in one place -------------------------------- */
+/* Every link, redirect and guard must import from lib/paths.ts. A hard-coded
+   "/foisal" or "/admin" literal anywhere else means changing ADMIN_PATH would
+   half-work — the worst possible outcome for a hidden panel. */
+const pathAllow = new Set(["lib/paths.ts", "app/robots.ts", "middleware.ts"]);
+for (const file of source.filter((f) => /^(app|components|lib)\//.test(f) && /\.(ts|tsx)$/.test(f))) {
+  if (pathAllow.has(file)) continue;
+  const body = readFileSync(file, "utf8");
+  // ignore comments — the docs mention the URLs constantly
+  const code = body
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .split("\n")
+    .filter((line) => !/^\s*(\/\/|\*)/.test(line))
+    .join("\n");
+  /* Any *literal* of the admin path — not just fetch/href — is a bug waiting
+     for the day the owner changes ADMIN_PATH. Route folders and imports are
+     identifiers, not strings, so they never match here. */
+  if (/[`"']\/foisal(\/|["'`?])/.test(code)) {
+    add("warn", file, 'hard-coded "/foisal" — import ADMIN_BASE from lib/paths.ts');
+  }
+  if (/[`"']\/admin(\/|["'`?])/.test(code)) {
+    add("error", file, 'links to the removed "/admin" path');
+  }
+}
+
+/* 11 ── the legacy URL constant must actually be the legacy URL ------------ */
+/* A bulk find-and-replace once rewrote LEGACY_ADMIN_BASE to the *new* path,
+   which made the middleware 404 the live admin panel. Silent, total outage of
+   the panel with no error anywhere — worth a permanent guard. */
+{
+  const paths = readFileSync("lib/paths.ts", "utf8");
+  const match = paths.match(/LEGACY_ADMIN_BASE\s*=\s*"([^"]+)"/);
+  const adminPath = (process.env.NEXT_PUBLIC_ADMIN_PATH || process.env.ADMIN_PATH || "foisal");
+  if (!match) {
+    add("error", "lib/paths.ts", "LEGACY_ADMIN_BASE is missing");
+  } else if (match[1].replace(/^\//, "") === adminPath) {
+    add("error", "lib/paths.ts", "LEGACY_ADMIN_BASE equals the live admin path — the panel would 404");
+  }
+}
+
+/* 12 ── no public door to the panel ---------------------------------------- */
+/* The brief is explicit: no admin links anywhere in public HTML. The footer and
+   the account header both used to carry one. A component under
+   app/(storefront) or components/ that links to ADMIN_BASE without a role gate
+   is a leak, so flag any adminHref/ADMIN_BASE reference whose file does not
+   also test a staff/admin role. */
+{
+  const publicRoots = "^(app/\\(storefront\\)|components/(?!admin/))";
+  for (const file of source.filter((f) => new RegExp(publicRoots).test(f) && /\.(ts|tsx)$/.test(f))) {
+    if (file.startsWith("app/(storefront)/foisal")) continue;
+    const body = readFileSync(file, "utf8");
+    if (!/(ADMIN_BASE|adminHref\(|ADMIN_LOGIN_PATH)/.test(body)) continue;
+    const gated =
+      /isStaffRole|role === "admin"|role === "staff"|role === "manager"|can\(/.test(body);
+    if (!gated) {
+      add("error", file, "references the admin URL without a staff/admin gate — a public admin link leaks the hidden path");
+    }
+  }
+}
+
 /* report --------------------------------------------------------------------- */
 const errors = findings.filter((f) => f.level === "error");
 const warns = findings.filter((f) => f.level === "warn");

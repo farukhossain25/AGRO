@@ -1,5 +1,6 @@
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { SocialLinks } from "@/components/social-links";
 import { FloatingActions } from "@/components/floating-actions";
 import { currentUser } from "@/lib/api";
 import { getProfileByLegacyId } from "@/lib/profile";
@@ -7,7 +8,7 @@ import { resolvePremiumState } from "@/lib/premium";
 import { getCategories } from "@/lib/data";
 
 /**
- * Storefront chrome lives here (not in the root layout) so that /admin can
+ * Storefront chrome lives here (not in the root layout) so that the panel can
  * render its own shell without the public header, footer and floating widgets.
  */
 export default async function StorefrontLayout({ children }: { children: React.ReactNode }) {
@@ -34,6 +35,7 @@ export default async function StorefrontLayout({ children }: { children: React.R
   return (
     <>
       <SiteHeader
+        socials={<SocialLinks placement="header" size="sm" />}
         categories={navCats}
         user={
           user

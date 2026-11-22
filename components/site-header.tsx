@@ -20,6 +20,7 @@ import { useLocale } from "@/lib/locale";
 import { nav, site } from "@/lib/site";
 import { Logo } from "./icon-logo";
 import { CartDrawer } from "./cart-drawer";
+import { SocialLinks } from "./social-links";
 import { UserMenu } from "./account/user-menu";
 
 type Cat = { slug: string; name_bn: string; name_en: string; icon: string | null };
@@ -27,9 +28,12 @@ type Cat = { slug: string; name_bn: string; name_en: string; icon: string | null
 export function SiteHeader({
   categories,
   user,
+  socials,
 }: {
   categories: Cat[];
   user: { name: string | null; role?: string; avatar?: string | null; premium?: boolean } | null;
+  /** Server-rendered social icons (admin-managed). */
+  socials?: React.ReactNode;
 }) {
   const { isBn, t, toggle, locale } = useLocale();
   const cart = useCart();
@@ -100,6 +104,9 @@ export function SiteHeader({
             </button>
 
             <Logo />
+
+            {/* Desktop social icons — admin-managed, hidden on small screens */}
+            {socials ? <div className="ml-auto hidden items-center xl:flex">{socials}</div> : null}
 
             {/* Desktop nav */}
             <nav className="ml-2 hidden items-center gap-0.5 lg:flex" aria-label={t("প্রধান মেনু", "Main navigation")}>

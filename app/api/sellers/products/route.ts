@@ -3,6 +3,7 @@ import { created, fail, handleError, limitGuard, ok, requireUser } from "@/lib/a
 import { sellerProductSchema } from "@/lib/validation";
 import { getSellerByUser } from "@/lib/sellers";
 import { notifyAdmins } from "@/lib/notify";
+import { ADMIN_BASE } from "@/lib/paths";
 
 export const dynamic = "force-dynamic";
 
@@ -91,7 +92,7 @@ export async function POST(req: Request) {
       kind: "product",
       title: "নতুন পণ্য অনুমোদনের অপেক্ষায়",
       body: `${data.name_bn} · ${seller.name_bn}`,
-      link: "/admin/products",
+      link: `${ADMIN_BASE}/products`,
     }).catch(() => undefined);
 
     return created({

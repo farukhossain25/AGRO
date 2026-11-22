@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Facebook, Instagram, Mail, MapPin, Phone, Send, Youtube } from "lucide-react";
+import { Mail, MapPin, Phone, Send } from "lucide-react";
 import { useLocale } from "@/lib/locale";
 import { useToast } from "@/lib/toast";
 import { footerLinks, site } from "@/lib/site";
 import { Logo } from "./icon-logo";
+import { SocialLinks } from "./social-links";
 import { Spinner } from "./ui";
 
 export function SiteFooter({ categories }: { categories: { slug: string; name_bn: string; name_en: string }[] }) {
@@ -98,24 +99,9 @@ export function SiteFooter({ categories }: { categories: { slug: string; name_bn
             </li>
           </ul>
 
-          <div className="mt-5 flex gap-2">
-            {[
-              { href: site.social.facebook, Icon: Facebook, label: "Facebook" },
-              { href: site.social.youtube, Icon: Youtube, label: "YouTube" },
-              { href: site.social.instagram, Icon: Instagram, label: "Instagram" },
-            ].map(({ href, Icon, label }) => (
-              <a
-                key={label}
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={label}
-                className="grid h-9 w-9 place-items-center rounded-full border border-white/10 text-sand-100/60 transition hover:border-leaf-500/50 hover:bg-leaf-600/15 hover:text-leaf-200"
-              >
-                <Icon className="h-4 w-4" />
-              </a>
-            ))}
-          </div>
+          {/* Social icons come from the `social_links` table — reorder, hide or
+              add platforms in /foisal/social without touching this file. */}
+          <SocialLinks placement="footer" className="mt-5" />
         </div>
 
         <FooterCol title={t("কেনাকাটা", "Shop")} links={footerLinks.shop} />
@@ -166,7 +152,6 @@ export function SiteFooter({ categories }: { categories: { slug: string; name_bn
             <Link href="/policies/privacy" className="hover:text-leaf-200">{t("প্রাইভেসি", "Privacy")}</Link>
             <Link href="/policies/terms" className="hover:text-leaf-200">{t("শর্তাবলী", "Terms")}</Link>
             <Link href="/policies/refund" className="hover:text-leaf-200">{t("রিফান্ড", "Refund")}</Link>
-            <Link href="/admin" className="hover:text-leaf-200">{t("অ্যাডমিন", "Admin")}</Link>
           </div>
         </div>
         <div className="container-x border-t border-white/[0.04] py-4 text-center text-[11.5px] text-sand-100/35">

@@ -153,7 +153,7 @@ export function SimpleManager({
     setErrors({});
     try {
       const isEdit = Boolean(form.id);
-      const res = await fetch(`/api/admin/${resource}`, {
+      const res = await fetch(`/api/foisal/${resource}`, {
         method: isEdit ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
@@ -176,7 +176,7 @@ export function SimpleManager({
 
   async function remove(id: string) {
     try {
-      const res = await fetch(`/api/admin/${resource}?id=${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/foisal/${resource}?id=${id}`, { method: "DELETE" });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message ?? "মুছে ফেলা যায়নি");
       setRows((prev) => prev.filter((r) => r.id !== id));

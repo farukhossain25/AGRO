@@ -61,7 +61,7 @@ export type PageSeo = {
   type?: "website" | "article" | "product" | "profile";
   publishedTime?: string | null;
   modifiedTime?: string | null;
-  /** set true for /account, /admin, /cart, /checkout… */
+  /** set true for /account, the panel, /cart, /checkout… */
   noindex?: boolean;
   keywords?: string[];
   /** English twin for hreflang; defaults to `?lang=en` on the same path */

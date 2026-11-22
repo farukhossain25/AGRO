@@ -5,7 +5,7 @@ import { db, dbUsable } from "./db";
    Editable SEO copy (migration 0006 → `seo_meta`)
    --------------------------------------------------------------------------
    Every page ships with a hand-written Bangla title/description in code. The
-   admin panel at /admin/seo can override any of them per route without a
+   admin panel at the panel’s SEO screen can override any of them per route without a
    deploy. Rules:
 
      • A blank column means "keep the code default" — never render an empty

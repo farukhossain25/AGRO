@@ -13,6 +13,7 @@ import {
 } from "@/lib/api";
 import { notify } from "@/lib/notify";
 import { getComplaintsForUser } from "@/lib/reviews";
+import { ADMIN_BASE } from "@/lib/paths";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -205,7 +206,7 @@ async function notifyComplaint(complaintId: string, ticketNo: string, problemTyp
           kind: "order",
           title: `অভিযোগ #${ticketNo} — ${label}`,
           body: `${name} · অর্ডার ${orderNo}`,
-          link: `/admin/complaints`,
+          link: `${ADMIN_BASE}/complaints`,
           meta: { complaintId, ticketNo },
           push: true,
         }).catch(() => undefined)

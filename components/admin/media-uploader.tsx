@@ -7,7 +7,7 @@ import { useToast } from "@/lib/toast";
 import { Spinner } from "@/components/ui";
 
 /**
- * Admin upload button for the media library. Posts to /api/admin/media, which
+ * Admin upload button for the media library. Posts to /api/foisal/media, which
  * stores the file in a public bucket and indexes it in `media_assets`.
  * The picker is a plain <label>+<input type="file"> so it works with a keyboard
  * and on iOS without any JS branching.
@@ -26,7 +26,7 @@ export function MediaUploader() {
       body.append("file", file);
       body.append("bucket", "product-images");
       body.append("alt", alt);
-      const res = await fetch("/api/admin/media", { method: "POST", body });
+      const res = await fetch("/api/foisal/media", { method: "POST", body });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.message ?? "আপলোড ব্যর্থ");
       toast.success("আপলোড হয়েছে", "লাইব্রেরিতে যোগ হয়েছে");

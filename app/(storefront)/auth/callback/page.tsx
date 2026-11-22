@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase-browser";
+import { ADMIN_BASE } from "@/lib/paths";
 
 /* ==========================================================================
    /auth/callback — Google (and magic-link) return address
@@ -73,7 +74,7 @@ function CallbackInner() {
         if (cancelled) return;
 
         const isAdmin = json.data?.user?.role === "admin";
-        const target = isAdmin ? "/admin" : next;
+        const target = isAdmin ? ADMIN_BASE : next;
 
         router.replace(target);
         router.refresh();

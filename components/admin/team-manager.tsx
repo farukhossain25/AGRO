@@ -49,7 +49,7 @@ export function TeamManager({
     e.preventDefault();
     setInviting(true);
     try {
-      const res = await fetch("/api/admin/team", {
+      const res = await fetch("/api/foisal/team", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
@@ -69,7 +69,7 @@ export function TeamManager({
   async function patch(row: TeamRow, body: { role?: UserRole; is_active?: boolean }) {
     setBusy(row.id);
     try {
-      const res = await fetch("/api/admin/team", {
+      const res = await fetch("/api/foisal/team", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: row.id, ...body }),

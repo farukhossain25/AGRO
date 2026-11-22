@@ -62,7 +62,7 @@ export function ComplaintInbox({ initial }: { initial: SellerComplaint[] }) {
 
     setBusy(id);
     try {
-      const res = await fetch(`/api/admin/complaints/${id}`, {
+      const res = await fetch(`/api/foisal/complaints/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

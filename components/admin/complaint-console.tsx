@@ -7,7 +7,7 @@ import { formatDateBn, toBn } from "@/lib/format";
 import { Spinner } from "@/components/ui";
 
 /* ==========================================================================
-   ComplaintConsole — /admin/complaints
+   ComplaintConsole — the panel’s complaint console
    --------------------------------------------------------------------------
    Filter by status and by seller, read the thread, reply, and move the ticket
    through Open → In review → Resolved / Rejected. Resolving requires a note
@@ -93,7 +93,7 @@ export function ComplaintConsole({ initial }: { initial: AdminComplaintRow[] }) 
   async function act(id: string, next: AdminComplaintRow["status"]) {
     setBusy(id);
     try {
-      const res = await fetch(`/api/admin/complaints/${id}`, {
+      const res = await fetch(`/api/foisal/complaints/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

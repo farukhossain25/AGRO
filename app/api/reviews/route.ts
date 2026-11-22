@@ -37,7 +37,7 @@ export async function POST(req: Request) {
         location_bn: sanitizeText(data.location_bn ?? "", 60) || null,
         rating: data.rating,
         comment: sanitizeText(data.comment, 600),
-        is_approved: false, // moderated from /admin/reviews
+        is_approved: false, // moderated from the panel’s review moderation
       })
       .select("id")
       .single();

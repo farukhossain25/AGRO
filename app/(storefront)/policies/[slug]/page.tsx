@@ -10,7 +10,7 @@ import { site } from "@/lib/site";
 import { dynamicAlternates } from "@/lib/seo";
 
 /* Content now comes from `cms_pages` (migration 0007) so the legal copy is
-   editable at /admin/cms. lib/cms.ts falls back to lib/policies.ts when the
+   editable at the panel’s pages screen. lib/cms.ts falls back to lib/policies.ts when the
    table is empty, which is why this page still prerenders without a database. */
 export const revalidate = 600;
 

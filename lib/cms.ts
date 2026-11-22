@@ -4,7 +4,7 @@ import { policies, type Policy } from "./policies";
 /* ==========================================================================
    CMS (section E) — pages, FAQ, media
    --------------------------------------------------------------------------
-   Content lives in Postgres so a non-developer can edit it from /admin. Every
+   Content lives in Postgres so a non-developer can edit it from the admin panel. Every
    reader here degrades to the copy that used to be hard-coded in the page, so:
 
      • a fresh database without the 0007 seed still renders

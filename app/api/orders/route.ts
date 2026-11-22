@@ -3,6 +3,7 @@ import { checkoutSchema } from "@/lib/validation";
 import { createOrder } from "@/lib/orders";
 import { ensureParcel } from "@/lib/parcels";
 import { notify, notifyAdmins } from "@/lib/notify";
+import { ADMIN_BASE } from "@/lib/paths";
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +46,7 @@ export async function POST(req: Request) {
         kind: "order",
         title: `নতুন অর্ডার #${order.order_no}`,
         body: `${order.customer_name} · ৳${order.total} · ${order.district}`,
-        link: `/admin/orders`,
+        link: `${ADMIN_BASE}/orders`,
       }),
     ];
     if (user?.id) {

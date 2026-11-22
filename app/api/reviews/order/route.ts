@@ -12,6 +12,7 @@ import {
   tooMany,
 } from "@/lib/api";
 import { notify } from "@/lib/notify";
+import { ADMIN_BASE } from "@/lib/paths";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -273,7 +274,7 @@ async function maybeNotifyLowRating(input: {
           kind: "product",
           title: `কম রেটিং (${input.rating}★) — ${productName}`,
           body: `অর্ডার ${input.orderNo} · ${reason}`,
-          link: `/admin/reviews`,
+          link: `${ADMIN_BASE}/reviews`,
           meta: { reviewId: input.reviewId, productId: input.productId, sellerId: input.sellerId },
           push: true,
         }).catch(() => undefined)

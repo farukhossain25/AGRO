@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { site } from "@/lib/site";
+import { ADMIN_BASE } from "@/lib/paths";
 
 /* ==========================================================================
    /robots.txt
@@ -22,8 +23,8 @@ export default function robots(): MetadataRoute.Robots {
         userAgent: "*",
         allow: "/",
         disallow: [
-          "/admin",
-          "/admin/",
+          ADMIN_BASE,
+          `${ADMIN_BASE}/`,
           "/account",
           "/account/",
           "/api/",
@@ -44,7 +45,7 @@ export default function robots(): MetadataRoute.Robots {
         ],
       },
       // Google's own crawler is welcome to the whole catalogue.
-      { userAgent: "Googlebot", allow: "/", disallow: ["/admin", "/account", "/api/", "/cart", "/checkout", "/payment", "/seller"] },
+      { userAgent: "Googlebot", allow: "/", disallow: [ADMIN_BASE, "/account", "/api/", "/cart", "/checkout", "/payment", "/seller"] },
       // Aggressive scrapers get nothing but the homepage.
       { userAgent: ["AhrefsBot", "SemrushBot", "MJ12bot", "DotBot"], allow: ["/$"], disallow: "/" },
     ],

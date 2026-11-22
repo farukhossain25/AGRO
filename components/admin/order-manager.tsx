@@ -7,6 +7,7 @@ import { Download, Printer, QrCode, Search, X } from "lucide-react";
 import { useToast } from "@/lib/toast";
 import { formatDateTimeBn, money, toBn } from "@/lib/format";
 import type { Order } from "@/lib/types";
+import { adminHref } from "@/lib/paths";
 
 const statuses = [
   { key: "received", label: "গৃহীত", tone: "bg-white/[0.07] text-sand-100/70" },
@@ -53,7 +54,7 @@ export function OrderManager({ initial, dbReady }: { initial: Order[]; dbReady: 
   async function updateStatus(order: Order, status: string) {
     setBusy(order.id);
     try {
-      const res = await fetch("/api/admin/orders", {
+      const res = await fetch("/api/foisal/orders", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: order.id, status }),
@@ -73,7 +74,7 @@ export function OrderManager({ initial, dbReady }: { initial: Order[]; dbReady: 
   async function markPaid(order: Order) {
     setBusy(order.id);
     try {
-      const res = await fetch("/api/admin/orders", {
+      const res = await fetch("/api/foisal/orders", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: order.id, payment_status: "paid" }),
@@ -303,7 +304,7 @@ export function OrderManager({ initial, dbReady }: { initial: Order[]; dbReady: 
                 <Printer className="h-3.5 w-3.5" /> ইনভয়েস প্রিন্ট
               </button>
               <Link
-                href={`/admin/orders/${selected.order_no}/label`}
+                href={adminHref(`orders/${selected.order_no}/label`)}
                 className="btn-primary btn-sm"
                 target="_blank"
               >

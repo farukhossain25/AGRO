@@ -3,6 +3,7 @@ import { created, fail, handleError, limitGuard, ok, requireUser } from "@/lib/a
 import { sellerApplySchema } from "@/lib/validation";
 import { getSellerSettings, getSellerByUser } from "@/lib/sellers";
 import { notify, notifyAdmins } from "@/lib/notify";
+import { ADMIN_BASE } from "@/lib/paths";
 
 export const dynamic = "force-dynamic";
 
@@ -101,7 +102,7 @@ export async function POST(req: Request) {
       kind: "seller",
       title: "নতুন সেলার আবেদন",
       body: `${data.name_bn} · ${data.district}`,
-      link: "/admin/sellers",
+      link: `${ADMIN_BASE}/sellers`,
     }).catch(() => undefined);
 
     return created(seller);

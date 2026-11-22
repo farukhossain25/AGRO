@@ -79,6 +79,21 @@
     Cache-Control = "public, max-age=3600, s-maxage=3600"
 
 # ── private surfaces
+#    The admin panel lives at /foisal (ADMIN_PATH). Change the env var AND this
+#    block together — netlify.toml is static and cannot read the variable.
+[[headers]]
+  for = "/foisal/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow, noarchive"
+    Cache-Control = "no-store, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/foisal"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow, noarchive"
+    Cache-Control = "no-store, max-age=0, must-revalidate"
+
+# The old URL must look dead. No redirect — a redirect would confirm the move.
 [[headers]]
   for = "/admin/*"
   [headers.values]
@@ -87,6 +102,13 @@
 [[headers]]
   for = "/account/*"
   [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+
+# ── manual payment proofs are private: never cache, never index
+[[headers]]
+  for = "/payment/*"
+  [headers.values]
+    Cache-Control = "no-store, max-age=0, must-revalidate"
     X-Robots-Tag = "noindex, nofollow"
 
 # ── permanent moves (kept in sync with next.config.ts + vercel.json)
@@ -127,3 +149,18 @@
 
 # ── SPA fallback is NOT used: every route is a real Next.js page, so a missing
 # URL must return a genuine 404 (important for SEO).
+
+# ── /admin is gone. It 404s at the function layer (middleware), which is what
+#    keeps the page body generic — but Netlify answers /admin before the
+#    function for a cached 404, so make it explicit.
+[[redirects]]
+  from = "/admin"
+  to = "/__not_found__"
+  status = 404
+  force = false
+
+[[redirects]]
+  from = "/admin/*"
+  to = "/__not_found__"
+  status = 404
+  force = false

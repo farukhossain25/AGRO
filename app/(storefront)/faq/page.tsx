@@ -7,7 +7,7 @@ import { alternatesFor, breadcrumbLd, faqLd, jsonLdScript } from "@/lib/seo";
 import { withSeo } from "@/lib/seo-db";
 import { getFaqGroups } from "@/lib/cms";
 
-/* Built-in copy is the fallback; /admin/seo can override it per route
+/* Built-in copy is the fallback; the panel’s SEO screen can override it per route
    without a deploy (migration 0006). */
 export async function generateMetadata(): Promise<Metadata> {
   return withSeo("/faq", {
@@ -19,7 +19,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /* Questions and answers live in `faq_items` (migration 0007) so the team can
-   edit them at /admin/faq. lib/cms.ts keeps a small bundled fallback for when
+   edit them at the panel’s FAQ screen. lib/cms.ts keeps a small bundled fallback for when
    the database is unreachable, so this page never renders empty. */
 export const revalidate = 300;
 

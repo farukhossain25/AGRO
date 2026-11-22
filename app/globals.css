@@ -153,6 +153,16 @@
     @apply mb-1.5 block text-[13px] font-medium text-sand-100/70;
   }
 
+  /* Compact variant for dense admin forms (payment methods, slides, layout).
+     Same palette and focus ring as `.input`, just tighter. */
+  .inp {
+    @apply w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[12.5px] text-sand-100 placeholder:text-sand-100/30 transition focus:border-leaf-500/60 focus:bg-white/[0.06] focus:outline-none;
+  }
+
+  .inp-select {
+    @apply inp appearance-none pr-8;
+  }
+
   .chip {
     @apply inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-sand-100/80 transition hover:border-leaf-500/50 hover:text-leaf-200;
   }

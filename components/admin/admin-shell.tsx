@@ -6,13 +6,17 @@ import { useState, type ReactNode } from "react";
 import {
   AlertTriangle,
   BarChart3,
+  Banknote,
   BookOpen,
   Camera,
+  CreditCard,
   FileText,
   HelpCircle,
   Images,
+  LayoutTemplate,
   ScrollText,
   Search,
+  Share2,
   Image as ImageIcon,
   LayoutGrid,
   LogOut,
@@ -20,6 +24,7 @@ import {
   MessageSquare,
   Package,
   Percent,
+  PlaySquare,
   Repeat,
   ShieldCheck,
   ShoppingCart,
@@ -35,6 +40,8 @@ import {
 import { Logo } from "@/components/icon-logo";
 import type { SessionUser } from "@/lib/auth";
 import { can, roleLabelBn, type Permission } from "@/lib/permissions";
+import { ADMIN_BASE, ADMIN_LOGIN_PATH, adminHref } from "@/lib/paths";
+import { IdleGuard } from "./idle-guard";
 
 type NavItem = {
   href: string;
@@ -48,62 +55,77 @@ type NavItem = {
 const navGroups: { title: string; items: NavItem[] }[] = [
   {
     title: "ওভারভিউ",
-    items: [{ href: "/admin", label: "ড্যাশবোর্ড", Icon: LayoutGrid }],
+    items: [{ href: ADMIN_BASE, label: "ড্যাশবোর্ড", Icon: LayoutGrid }],
   },
   {
     title: "বিক্রয়",
     items: [
-      { href: "/admin/orders", label: "অর্ডার", Icon: ShoppingCart, perm: "orders.read" },
-      { href: "/admin/subscriptions", label: "সাবস্ক্রিপশন", Icon: Repeat, perm: "orders.read" },
-      { href: "/admin/customers", label: "কাস্টমার", Icon: Users, perm: "customers.read" },
-      { href: "/admin/reports", label: "রিপোর্ট", Icon: BarChart3, perm: "reports.view" },
+      { href: adminHref("orders"), label: "অর্ডার", Icon: ShoppingCart, perm: "orders.read" },
+      { href: adminHref("subscriptions"), label: "সাবস্ক্রিপশন", Icon: Repeat, perm: "orders.read" },
+      { href: adminHref("customers"), label: "কাস্টমার", Icon: Users, perm: "customers.read" },
+      { href: adminHref("reports"), label: "রিপোর্ট", Icon: BarChart3, perm: "reports.view" },
+    ],
+  },
+  {
+    title: "পেমেন্ট",
+    items: [
+      { href: adminHref("payments"), label: "যাচাই বাকি", Icon: Banknote, perm: "payments.read" },
+      { href: adminHref("payment-methods"), label: "মাধ্যম ও নম্বর", Icon: CreditCard, perm: "payments.manage" },
     ],
   },
   {
     title: "প্রিমিয়াম",
     items: [
-      { href: "/admin/premium", label: "সাবস্ক্রিপশন", Icon: Sparkles, perm: "premium.manage" },
-      { href: "/admin/plans", label: "প্ল্যান", Icon: Ticket, perm: "premium.manage" },
-      { href: "/admin/codes", label: "অ্যাক্সেস কোড", Icon: Ticket, perm: "premium.manage" },
-      { href: "/admin/farms", label: "খামার", Icon: Sprout, perm: "cams.manage" },
-      { href: "/admin/cameras", label: "ক্যামেরা", Icon: Camera, perm: "cams.manage" },
+      { href: adminHref("premium"), label: "সাবস্ক্রিপশন", Icon: Sparkles, perm: "premium.manage" },
+      { href: adminHref("plans"), label: "প্ল্যান", Icon: Ticket, perm: "premium.manage" },
+      { href: adminHref("codes"), label: "অ্যাক্সেস কোড", Icon: Ticket, perm: "premium.manage" },
+      { href: adminHref("farms"), label: "খামার", Icon: Sprout, perm: "cams.manage" },
+      { href: adminHref("cameras"), label: "ক্যামেরা", Icon: Camera, perm: "cams.manage" },
     ],
   },
   {
     title: "মার্কেটপ্লেস",
     items: [
-      { href: "/admin/sellers", label: "সেলার", Icon: Store, perm: "sellers.read" },
-      { href: "/admin/suppliers/quality", label: "কোয়ালিটি স্কোর", Icon: ShieldCheck, perm: "sellers.read" },
-      { href: "/admin/camera-requests", label: "ক্যামেরা রিকোয়েস্ট", Icon: Camera, perm: "cams.manage" },
+      { href: adminHref("sellers"), label: "সেলার", Icon: Store, perm: "sellers.read" },
+      { href: adminHref("suppliers/quality"), label: "কোয়ালিটি স্কোর", Icon: ShieldCheck, perm: "sellers.read" },
+      { href: adminHref("camera-requests"), label: "ক্যামেরা রিকোয়েস্ট", Icon: Camera, perm: "cams.manage" },
     ],
   },
   {
     title: "ক্যাটালগ",
     items: [
-      { href: "/admin/products", label: "পণ্য", Icon: Package, perm: "products.read" },
-      { href: "/admin/categories", label: "ক্যাটাগরি", Icon: Tags, perm: "products.read" },
-      { href: "/admin/reviews", label: "রিভিউ", Icon: MessageSquare, perm: "reviews.moderate" },
-      { href: "/admin/complaints", label: "অভিযোগ", Icon: AlertTriangle, perm: "complaints.handle" },
+      { href: adminHref("products"), label: "পণ্য", Icon: Package, perm: "products.read" },
+      { href: adminHref("categories"), label: "ক্যাটাগরি", Icon: Tags, perm: "products.read" },
+      { href: adminHref("reviews"), label: "রিভিউ", Icon: MessageSquare, perm: "reviews.moderate" },
+      { href: adminHref("complaints"), label: "অভিযোগ", Icon: AlertTriangle, perm: "complaints.handle" },
+    ],
+  },
+  {
+    title: "সাইট সাজান",
+    items: [
+      { href: adminHref("slides"), label: "হিরো স্লাইডার", Icon: PlaySquare, perm: "content.layout" },
+      { href: adminHref("homepage"), label: "হোমপেজ সেকশন", Icon: LayoutTemplate, perm: "content.layout" },
+      { href: adminHref("social"), label: "সোশ্যাল লিংক", Icon: Share2, perm: "content.social" },
     ],
   },
   {
     title: "মার্কেটিং",
     items: [
-      { href: "/admin/coupons", label: "কুপন", Icon: Percent, perm: "coupons.write" },
-      { href: "/admin/banners", label: "ব্যানার", Icon: ImageIcon, perm: "content.write" },
-      { href: "/admin/blog", label: "ব্লগ", Icon: FileText, perm: "content.write" },
-      { href: "/admin/cms", label: "সাইড পেজ", Icon: BookOpen, perm: "content.write" },
-      { href: "/admin/faq", label: "প্রশ্ন-উত্তর", Icon: HelpCircle, perm: "content.write" },
-      { href: "/admin/media", label: "মিডিয়া", Icon: Images, perm: "media.write" },
-      { href: "/admin/seo", label: "SEO", Icon: Search, perm: "seo.write" },
+      { href: adminHref("coupons"), label: "কুপন", Icon: Percent, perm: "coupons.write" },
+      { href: adminHref("banners"), label: "ব্যানার", Icon: ImageIcon, perm: "content.write" },
+      { href: adminHref("blog"), label: "ব্লগ", Icon: FileText, perm: "content.write" },
+      { href: adminHref("cms"), label: "সাইড পেজ", Icon: BookOpen, perm: "content.write" },
+      { href: adminHref("faq"), label: "প্রশ্ন-উত্তর", Icon: HelpCircle, perm: "content.write" },
+      { href: adminHref("media"), label: "মিডিয়া", Icon: Images, perm: "media.write" },
+      { href: adminHref("seo"), label: "SEO", Icon: Search, perm: "seo.write" },
     ],
   },
   {
     title: "টিম ও সিস্টেম",
     items: [
-      { href: "/admin/team", label: "টিম ও রোল", Icon: ShieldCheck, perm: "team.read" },
-      { href: "/admin/audit", label: "অডিট লগ", Icon: ScrollText, perm: "audit.read" },
-      { href: "/admin/delivery", label: "ডেলিভারি চার্জ", Icon: Truck, perm: "settings.write" },
+      { href: adminHref("team"), label: "টিম ও রোল", Icon: ShieldCheck, perm: "team.read" },
+      { href: adminHref("audit"), label: "অডিট লগ", Icon: ScrollText, perm: "audit.read" },
+      { href: adminHref("delivery"), label: "ডেলিভারি চার্জ", Icon: Truck, perm: "settings.write" },
     ],
   },
 ];
@@ -115,7 +137,7 @@ export function AdminShell({ user, children }: { user: SessionUser; children: Re
 
   async function signOut() {
     await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/admin/login");
+    router.push(ADMIN_LOGIN_PATH);
     router.refresh();
   }
 
@@ -139,7 +161,7 @@ export function AdminShell({ user, children }: { user: SessionUser; children: Re
             </p>
             <ul className="space-y-0.5">
               {group.items.map(({ href, label, Icon }) => {
-                const active = href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
+                const active = href === ADMIN_BASE ? pathname === ADMIN_BASE : pathname.startsWith(href);
                 return (
                   <li key={href}>
                     <Link
@@ -186,6 +208,7 @@ export function AdminShell({ user, children }: { user: SessionUser; children: Re
 
   return (
     <div className="admin-surface flex min-h-dvh">
+      <IdleGuard />
       {/* desktop sidebar */}
       <aside className="hidden w-60 shrink-0 border-r border-white/[0.06] bg-ink-900 lg:block">
         <div className="sticky top-0 h-dvh">{sidebar}</div>

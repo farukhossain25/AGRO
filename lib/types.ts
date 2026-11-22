@@ -136,6 +136,178 @@ export type Order = {
   order_items?: OrderItem[];
 };
 
+/* ==========================================================================
+   Manual payments (section A) — added by migration 0009
+   --------------------------------------------------------------------------
+   `PaymentMethod` above is the legacy union used by `orders.payment_method`;
+   `PaymentMethodRow` is the admin-managed table. The column keeps the legacy
+   union for backwards compatibility and gains a free-text fallback so a custom
+   method (e.g. "upay") can be stored without a migration.
+   ========================================================================== */
+
+export type PaymentMethodKind = "mfs" | "bank" | "cod" | "gateway" | "other";
+export type PaymentAccountType = "personal" | "agent" | "merchant" | "account";
+
+export type PaymentMethodRow = {
+  id: string;
+  code: string;
+  name_bn: string;
+  name_en: string | null;
+  kind: PaymentMethodKind;
+  logo_url: string | null;
+  account_type: PaymentAccountType | null;
+  account_number: string | null;
+  account_name: string | null;
+  bank_name: string | null;
+  branch_name: string | null;
+  routing_number: string | null;
+  instruction_bn: string | null;
+  min_amount: number;
+  max_amount: number | null;
+  trx_pattern: string | null;
+  requires_trx: boolean;
+  requires_sender: boolean;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+/** Everything the storefront needs to render "send money to this number". */
+export type PublicPaymentMethod = Pick<
+  PaymentMethodRow,
+  | "id"
+  | "code"
+  | "name_bn"
+  | "name_en"
+  | "kind"
+  | "logo_url"
+  | "account_type"
+  | "account_number"
+  | "account_name"
+  | "bank_name"
+  | "branch_name"
+  | "instruction_bn"
+  | "min_amount"
+  | "max_amount"
+  | "requires_trx"
+  | "requires_sender"
+>;
+
+export type PaymentStatusManual = "pending" | "verified" | "rejected" | "needs_info";
+export type PaymentPurpose = "order" | "premium";
+
+export type PaymentRow = {
+  id: string;
+  payment_no: string;
+  user_id: string | null;
+  purpose: PaymentPurpose;
+  order_id: string | null;
+  subscription_id: string | null;
+  method_id: string | null;
+  method_code: string;
+  method_name_bn: string | null;
+  expected_amount: number;
+  amount: number;
+  sender_number: string | null;
+  trx_id: string | null;
+  trx_norm: string | null;
+  paid_at: string | null;
+  screenshot_url: string | null;
+  status: PaymentStatusManual;
+  reject_reason: string | null;
+  admin_note: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  submitted_ip: string | null;
+  submitted_agent: string | null;
+  attempt_no: number;
+  created_at: string;
+  updated_at: string | null;
+};
+
+/** One row of the admin queue — the view adds these computed fields. */
+export type PaymentQueueRow = PaymentRow & {
+  amount_delta: number;
+  amount_matches: boolean;
+  trx_collision: boolean;
+  order_no: string | null;
+  customer_name: string | null;
+  customer_phone: string | null;
+  sub_no: string | null;
+  plan_name_bn: string | null;
+};
+
+export type PaymentLog = {
+  id: string;
+  payment_id: string;
+  actor_id: string | null;
+  actor_role: string | null;
+  action:
+    | "submitted"
+    | "resubmitted"
+    | "approved"
+    | "rejected"
+    | "needs_info"
+    | "reopened"
+    | "bulk_approved"
+    | "note";
+  from_status: string | null;
+  to_status: string | null;
+  note: string | null;
+  ip: string | null;
+  created_at: string;
+};
+
+/* ------------------------------------------------------------ site content */
+
+export type SocialLink = {
+  id: string;
+  platform: string;
+  label_bn: string | null;
+  url: string;
+  icon: string | null;
+  color: string | null;
+  sort_order: number;
+  is_active: boolean;
+  show_header: boolean;
+  show_footer: boolean;
+  show_contact: boolean;
+  created_at: string;
+};
+
+export type HeroSlide = {
+  id: string;
+  title_bn: string;
+  subtitle_bn: string | null;
+  image_url: string | null;
+  image_mobile_url: string | null;
+  video_url: string | null;
+  alt_bn: string | null;
+  cta_label_bn: string | null;
+  cta_href: string | null;
+  secondary_label_bn: string | null;
+  secondary_href: string | null;
+  text_position: "left" | "center" | "right";
+  text_tone: "light" | "dark";
+  overlay_opacity: number;
+  starts_at: string | null;
+  ends_at: string | null;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+};
+
+export type HomepageSection = {
+  id: string;
+  key: string;
+  label_bn: string;
+  is_visible: boolean;
+  sort_order: number;
+  config: Record<string, unknown>;
+  updated_at: string | null;
+};
+
 export type Subscription = {
   id: string;
   sub_no: string;
@@ -576,6 +748,7 @@ export type NotificationKind =
   | "seller"
   | "product"
   | "camera"
+  | "payment"
   | "system";
 
 export type Notification = {

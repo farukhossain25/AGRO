@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
-import { Clock, Facebook, Mail, MapPin, MessageCircle, Phone, Youtube } from "lucide-react";
+import { Clock, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
 import { ContactForm } from "@/components/contact-form";
 import { site } from "@/lib/site";
+import { SocialLinksList } from "@/components/social-links";
 import { alternatesFor } from "@/lib/seo";
 import { withSeo } from "@/lib/seo-db";
 
-/* Built-in copy is the fallback; /admin/seo can override it per route
+/* Built-in copy is the fallback; the panel’s SEO screen can override it per route
    without a deploy (migration 0006). */
 export async function generateMetadata(): Promise<Metadata> {
   return withSeo("/contact", {
@@ -79,14 +80,8 @@ export default function ContactPage() {
             </div>
           </div>
 
-          <div className="flex gap-2">
-            <a href={site.social.facebook} target="_blank" rel="noopener noreferrer" className="btn-ghost btn-sm flex-1">
-              <Facebook className="h-4 w-4" /> Facebook
-            </a>
-            <a href={site.social.youtube} target="_blank" rel="noopener noreferrer" className="btn-ghost btn-sm flex-1">
-              <Youtube className="h-4 w-4" /> YouTube
-            </a>
-          </div>
+          {/* Admin-managed: /foisal/social → "যোগাযোগ পেজে দেখান" */}
+          <SocialLinksList placement="contact" />
 
           <div className="card overflow-hidden p-0">
             <iframe

@@ -85,7 +85,7 @@ export async function requireUser(): Promise<SessionUser> {
 }
 
 /**
- * Staff gate — staff, manager or admin. `/admin` is no longer admin-only: a
+ * Staff gate — staff, manager or admin. The panel is no longer admin-only: a
  * staff account may curate the catalogue. Individual screens still call
  * `requirePermission()` for the actions that matter (money, team, settings).
  */

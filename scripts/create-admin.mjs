@@ -62,4 +62,4 @@ if (error) {
 console.log(`✅ Admin ${existing ? "updated" : "created"}`);
 console.log(`   email:    ${email}`);
 console.log(`   password: ${password}`);
-console.log(`   login:    /admin/login`);
+console.log(`   login:    /${process.env.ADMIN_PATH || process.env.NEXT_PUBLIC_ADMIN_PATH || "foisal"}/login`);

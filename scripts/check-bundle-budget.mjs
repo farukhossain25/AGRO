@@ -38,7 +38,7 @@ const BUDGETS = [
   { match: /^\/live(\/|$)/, budget: 150, label: "live" },
   { match: /^\/market(\/|$)/, budget: 135, label: "marketplace" },
   { match: /^\/blog(\/|$)/, budget: 125, label: "blog" },
-  { match: /^\/admin(\/|$)/, budget: 300, label: "admin" },
+  { match: /^\/foisal(\/|$)/, budget: 300, label: "admin" },
   { match: /^\/login$|^\/auth/, budget: 260, label: "auth" },
   { match: /^\/(account|cart|checkout|payment)(\/|$)/, budget: 160, label: "funnel" },
 ];

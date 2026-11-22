@@ -41,7 +41,21 @@ export function diffOf(
 
 export async function recordAudit(input: {
   actor: SessionUser | null;
-  action: "create" | "update" | "delete" | "login" | "logout" | "invite" | "role" | "suspend" | "export";
+  action:
+    | "create"
+    | "update"
+    | "delete"
+    | "deactivate"
+    | "reorder"
+    | "login"
+    | "logout"
+    | "invite"
+    | "role"
+    | "suspend"
+    | "export"
+    | "approve"
+    | "reject"
+    | "verify";
   entity: string;
   entityId?: string | null;
   diff?: Record<string, unknown> | null;

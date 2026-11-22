@@ -227,6 +227,146 @@ export const bannerSchema = z.object({
   sort_order: z.coerce.number().int().default(0),
 });
 
+/* ==========================================================================
+   Manual payments + editable content (section A/E, migration 0009)
+   ========================================================================== */
+
+/**
+ * A TrxID exactly as the customer typed it. Shape validation happens in
+ * lib/manual-payments.ts against the method's own `trx_pattern`, because
+ * bKash and a bank transfer do not share a format.
+ */
+export const trxId = z
+  .string()
+  .trim()
+  .min(4, "TrxID কমপক্ষে ৪ অক্ষরের")
+  .max(40, "TrxID অনেক বড়")
+  .regex(/^[A-Za-z0-9\s-]+$/, "TrxID-তে শুধু ইংরেজি অক্ষর ও সংখ্যা থাকবে");
+
+export const paymentSubmitSchema = z.object({
+  methodCode: z.string().trim().min(2, "পেমেন্ট মাধ্যম বেছে নিন").max(40),
+  orderNo: z.string().trim().min(3).max(40).optional(),
+  subNo: z.string().trim().min(3).max(40).optional(),
+  senderNumber: z.string().trim().max(20).optional().or(z.literal("")),
+  trxId: z.string().trim().max(40).optional().or(z.literal("")),
+  amount: z.coerce.number().positive("টাকার পরিমাণ দিন").max(1_000_000),
+  paidAt: z.string().trim().max(40).optional().or(z.literal("")),
+  /** storage path returned by /api/payments/upload-proof */
+  screenshotPath: z.string().trim().max(300).optional().or(z.literal("")),
+});
+
+export const paymentDecisionSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1, "কোনো পেমেন্ট বাছাই করা হয়নি").max(100),
+  decision: z.enum(["verified", "rejected", "needs_info"]),
+  reason: z.string().trim().max(300).optional().or(z.literal("")),
+  adminNote: z.string().trim().max(300).optional().or(z.literal("")),
+});
+
+export const paymentMethodSchema = z.object({
+  id: z.string().uuid().optional(),
+  code: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .min(2, "কোড দিন (যেমন bkash)")
+    .max(30)
+    .regex(/^[a-z0-9-]+$/, "কোডে শুধু ছোট হাতের ইংরেজি অক্ষর, সংখ্যা ও হাইফেন"),
+  name_bn: z.string().trim().min(2, "বাংলা নাম দিন").max(80),
+  name_en: z.string().trim().max(80).optional().or(z.literal("")),
+  kind: z.enum(["mfs", "bank", "cod", "gateway", "other"]).default("mfs"),
+  logo_url: z.string().trim().max(400).optional().or(z.literal("")),
+  account_type: z.enum(["personal", "agent", "merchant", "account"]).optional().nullable(),
+  account_number: z.string().trim().max(60).optional().or(z.literal("")),
+  account_name: z.string().trim().max(120).optional().or(z.literal("")),
+  bank_name: z.string().trim().max(120).optional().or(z.literal("")),
+  branch_name: z.string().trim().max(120).optional().or(z.literal("")),
+  routing_number: z.string().trim().max(60).optional().or(z.literal("")),
+  instruction_bn: z.string().trim().max(600).optional().or(z.literal("")),
+  min_amount: z.coerce.number().min(0).default(1),
+  max_amount: z.coerce.number().min(0).optional().nullable(),
+  trx_pattern: z
+    .string()
+    .trim()
+    .max(120)
+    .optional()
+    .or(z.literal(""))
+    .refine((v) => {
+      if (!v) return true;
+      try {
+        new RegExp(v);
+        return true;
+      } catch {
+        return false;
+      }
+    }, "রেগুলার এক্সপ্রেশনটি সঠিক নয়"),
+  requires_trx: z.coerce.boolean().default(true),
+  requires_sender: z.coerce.boolean().default(true),
+  is_active: z.coerce.boolean().default(true),
+  sort_order: z.coerce.number().int().default(0),
+});
+
+export const socialLinkSchema = z.object({
+  id: z.string().uuid().optional(),
+  platform: z.string().trim().min(2).max(30),
+  label_bn: z.string().trim().max(60).optional().or(z.literal("")),
+  url: z
+    .string()
+    .trim()
+    .min(8, "লিংক দিন")
+    .max(400)
+    .refine((v) => /^(https?:\/\/|mailto:|tel:|\/)/i.test(v), "লিংক https:// দিয়ে শুরু হতে হবে"),
+  icon: z.string().trim().max(40).optional().or(z.literal("")),
+  color: z.string().trim().max(30).optional().or(z.literal("")),
+  sort_order: z.coerce.number().int().default(0),
+  is_active: z.coerce.boolean().default(true),
+  show_header: z.coerce.boolean().default(false),
+  show_footer: z.coerce.boolean().default(true),
+  show_contact: z.coerce.boolean().default(true),
+});
+
+export const heroSlideSchema = z.object({
+  id: z.string().uuid().optional(),
+  title_bn: z.string().trim().min(2, "শিরোনাম দিন").max(120),
+  subtitle_bn: z.string().trim().max(300).optional().or(z.literal("")),
+  image_url: z.string().trim().max(400).optional().or(z.literal("")),
+  image_mobile_url: z.string().trim().max(400).optional().or(z.literal("")),
+  video_url: z.string().trim().max(400).optional().or(z.literal("")),
+  alt_bn: z.string().trim().max(160).optional().or(z.literal("")),
+  cta_label_bn: z.string().trim().max(40).optional().or(z.literal("")),
+  cta_href: z.string().trim().max(300).optional().or(z.literal("")),
+  secondary_label_bn: z.string().trim().max(40).optional().or(z.literal("")),
+  secondary_href: z.string().trim().max(300).optional().or(z.literal("")),
+  text_position: z.enum(["left", "center", "right"]).default("left"),
+  text_tone: z.enum(["light", "dark"]).default("light"),
+  overlay_opacity: z.coerce.number().int().min(0).max(90).default(45),
+  starts_at: z.string().trim().optional().or(z.literal("")),
+  ends_at: z.string().trim().optional().or(z.literal("")),
+  sort_order: z.coerce.number().int().default(0),
+  is_active: z.coerce.boolean().default(true),
+});
+
+export const homepageSectionSchema = z.object({
+  id: z.string().uuid(),
+  is_visible: z.coerce.boolean().default(true),
+  sort_order: z.coerce.number().int().default(0),
+  config: z.record(z.string(), z.unknown()).default({}),
+});
+
+/** Body of PUT /api/foisal/homepage-sections — one save for the whole order. */
+export const homepageLayoutSchema = z.object({
+  sections: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        is_visible: z.coerce.boolean(),
+        sort_order: z.coerce.number().int(),
+        config: z.record(z.string(), z.unknown()).optional(),
+      })
+    )
+    .min(1)
+    .max(40),
+});
+
 /** Flatten a ZodError into { field: message }. */
 export function fieldErrors(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {};

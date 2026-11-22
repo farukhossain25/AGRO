@@ -16,6 +16,7 @@ import {
   User as UserIcon,
 } from "lucide-react";
 import { useLocale } from "@/lib/locale";
+import { ADMIN_BASE } from "@/lib/paths";
 import { useToast } from "@/lib/toast";
 
 /* ==========================================================================
@@ -167,7 +168,7 @@ export function UserMenu({ user }: { user: HeaderUser | null }) {
 
             {user.role === "admin" ? (
               <Link
-                href="/admin"
+                href={ADMIN_BASE}
                 role="menuitem"
                 onClick={() => setOpen(false)}
                 className="flex items-center gap-2.5 px-4 py-2 text-[12.5px] font-semibold text-leaf-300 transition hover:bg-leaf-600/10"

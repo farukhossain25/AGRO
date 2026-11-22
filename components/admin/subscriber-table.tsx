@@ -28,7 +28,7 @@ export function SubscriberTable({ initial, dbReady }: { initial: Subscription[];
   async function setStatus(id: string, status: "active" | "paused" | "cancelled") {
     setBusy(id);
     try {
-      const res = await fetch("/api/admin/subscriptions", {
+      const res = await fetch("/api/foisal/subscriptions", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, status }),

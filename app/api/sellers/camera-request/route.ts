@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { created, fail, handleError, limitGuard, ok, requireUser } from "@/lib/api";
 import { getSellerByUser } from "@/lib/sellers";
 import { notifyAdmins } from "@/lib/notify";
+import { ADMIN_BASE } from "@/lib/paths";
 
 export const dynamic = "force-dynamic";
 
@@ -50,7 +51,7 @@ export async function POST(req: Request) {
       kind: "camera",
       title: "নতুন ক্যামেরা ইনস্টল রিকোয়েস্ট",
       body: `${seller.name_bn} · ${data.camera_count}টি ক্যামেরা`,
-      link: "/admin/cameras",
+      link: `${ADMIN_BASE}/cameras`,
     }).catch(() => undefined);
 
     return created(row);

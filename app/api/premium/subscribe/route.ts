@@ -2,7 +2,6 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { created, fail, handleError, ok, requireUser, limitGuard } from "@/lib/api";
 import { getPremiumSettings, listPlans } from "@/lib/premium";
-import { initPayment } from "@/lib/payments";
 
 export const dynamic = "force-dynamic";
 
@@ -92,28 +91,15 @@ export async function POST(req: Request) {
       return created({ subscription: sub, redirect: null, simulated: false, expiresAt: expires.toISOString() });
     }
 
-    const init = await initPayment(method, {
-      orderNo: subNo,
-      amount: plan.price,
-      customer: {
-        name: user.name ?? "গ্রাহক",
-        phone: user.phone ?? "",
-        email: user.email ?? undefined,
-        address: "",
-        district: "",
-      },
-    });
-
-    await client
-      .from("premium_subscriptions")
-      .update({ payment_ref: init.reference ?? null })
-      .eq("id", sub.id);
-
+    /* Section A: premium purchases use the SAME manual verification flow as
+       orders. The row stays `pending` until an admin approves the TrxID, which
+       is what activates the plan and issues the access code. No gateway call
+       happens here, so nothing can self-activate. */
     return created({
       subscription: sub,
-      redirect: init.redirectUrl,
-      simulated: init.simulated,
-      reference: init.reference,
+      redirect: `/payment/manual?sub=${encodeURIComponent(subNo)}&method=${encodeURIComponent(method)}`,
+      simulated: false,
+      reference: subNo,
       expiresAt: expires.toISOString(),
     });
   } catch (error) {

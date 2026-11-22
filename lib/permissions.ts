@@ -21,7 +21,7 @@ import type { SessionUser } from "./auth";
 
 export const PERMISSIONS = [
   /* ---- housekeeping: what each role can see in the admin shell ---- */
-  "admin.access", // may open /admin at all
+  "admin.access", // may open the panel at all
   "dashboard.view",
   "reports.view",
 
@@ -39,6 +39,12 @@ export const PERMISSIONS = [
   "coupons.write",
   "payouts.read",
   "payouts.write",
+  /** Manual payment verification — approve/reject a customer's TrxID claim.
+   *  Deliberately admin-only: approving a payment marks an order paid and
+   *  activates premium plans, so it is the single highest-value action in the
+   *  admin panel. A manager can READ the queue but cannot approve. */
+  "payments.verify",
+  "payments.read",
 
   /* ---- people ---- */
   "customers.read",
@@ -53,6 +59,12 @@ export const PERMISSIONS = [
   "content.write", // blog, CMS pages, banners, FAQ
   "seo.write",
   "media.write",
+  /** homepage section order + hero slides */
+  "content.layout",
+  /** social links in the header/footer/contact */
+  "content.social",
+  /** payment method receiving numbers */
+  "payments.manage",
 
   /* ---- moderation & premium ---- */
   "reviews.moderate",
@@ -85,11 +97,14 @@ const STAFF: Permission[] = [
   "customers.read",
   "sellers.read",
   "cams.manage",
+  "content.layout",
+  "content.social",
 ];
 
 const MANAGER: Permission[] = [
   ...STAFF,
   "reports.view",
+  "payments.read",
   "orders.write",
   "orders.refund",
   "coupons.write",
@@ -100,9 +115,22 @@ const MANAGER: Permission[] = [
   "team.read",
   "audit.read",
   "data.export",
+  "content.layout",
+  "content.social",
 ];
 
-const ADMIN: Permission[] = [...MANAGER, "team.invite", "team.role", "team.suspend", "settings.write"];
+const ADMIN: Permission[] = [
+  ...MANAGER,
+  // Approving a TrxID marks an order paid and activates premium plans — the
+  // single highest-value action in the panel. Managers may read the queue
+  // (`payments.read`) but only an admin holds this.
+  "payments.verify",
+  "payments.manage",
+  "team.invite",
+  "team.role",
+  "team.suspend",
+  "settings.write",
+];
 
 /** What each role may do. Keyed by role so a typo in a role string fails closed. */
 const ROLE_PERMISSIONS: Record<string, ReadonlySet<Permission>> = {

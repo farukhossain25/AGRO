@@ -25,7 +25,7 @@ export function ReviewModeration({ initial, dbReady }: { initial: Row[]; dbReady
   async function moderate(id: string, approved: boolean) {
     setBusy(id);
     try {
-      const res = await fetch("/api/admin/reviews", {
+      const res = await fetch("/api/foisal/reviews", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, is_approved: approved }),
@@ -44,7 +44,7 @@ export function ReviewModeration({ initial, dbReady }: { initial: Row[]; dbReady
   async function remove(id: string) {
     setBusy(id);
     try {
-      const res = await fetch(`/api/admin/reviews?id=${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/foisal/reviews?id=${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("মুছে ফেলা যায়নি");
       setRows((prev) => prev.filter((r) => r.id !== id));
       toast.success("রিভিউ মুছে ফেলা হয়েছে");

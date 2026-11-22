@@ -8,7 +8,7 @@ import { toBn } from "@/lib/format";
 import { Spinner } from "@/components/ui";
 
 /* ==========================================================================
-   SupplierQualityBoard — /admin/suppliers/quality
+   SupplierQualityBoard — the panel’s quality board
    ========================================================================== */
 
 export type QualityRow = {
@@ -65,7 +65,7 @@ export function SupplierQualityBoard({
 
     setBusy(true);
     try {
-      const res = await fetch("/api/admin/suppliers/quality", {
+      const res = await fetch("/api/foisal/suppliers/quality", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -14,7 +14,7 @@ export function MarkDelivered({ token }: { token: string }) {
   const submit = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/parcels/deliver", {
+      const res = await fetch("/api/foisal/parcels/deliver", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ token }),

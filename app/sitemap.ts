@@ -17,7 +17,7 @@ import { site } from "@/lib/site";
      farms · sellers (marketplace) · blog
 
    Excluded on purpose (also blocked in robots.ts):
-     /admin, /account, /api, /cart, /checkout, /payment, /login, /track…
+     /foisal (the panel), /account, /api, /cart, /checkout, /payment, /login, /track…
 
    `priority` and `changeFrequency` are hints only — Google ignores them for
    ranking, but they help a crawler decide where to spend its budget first.

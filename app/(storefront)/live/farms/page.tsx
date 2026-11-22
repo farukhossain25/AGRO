@@ -8,7 +8,7 @@ import { withSeo } from "@/lib/seo-db";
 
 export const dynamic = "force-dynamic";
 
-/* Built-in copy is the fallback; /admin/seo can override it per route
+/* Built-in copy is the fallback; the panel’s SEO screen can override it per route
    without a deploy (migration 0006). */
 export async function generateMetadata(): Promise<Metadata> {
   return withSeo("/live/farms", {
