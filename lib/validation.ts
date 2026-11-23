@@ -70,6 +70,22 @@ export const checkoutSchema = z.object({
   items: z.array(cartItemSchema).min(1, "কার্ট খালি"),
 });
 
+/* ------------------------------------------------------- payment submit --- */
+/** A customer reports a sent payment on the payment page. The TrxID and
+ *  sender number are stored on the order's (or subscription's) `payment_ref`
+ *  column — the owner verifies them from the admin panel. Exactly one of
+ *  `order_no` / `sub_no` is required. */
+export const paymentSubmitSchema = z
+  .object({
+    order_no: z.string().trim().min(1).max(30).optional(),
+    sub_no: z.string().trim().min(1).max(30).optional(),
+    trx_id: z.string().trim().min(2, "TrxID দিন").max(60),
+    sender_number: z.string().trim().max(30).optional().or(z.literal("")),
+  })
+  .refine((v) => Boolean(v.order_no) !== Boolean(v.sub_no), {
+    message: "অর্ডার নম্বর বা সাব নম্বর দিন",
+  });
+
 /* ---------------------------------------------------------- subscriptions */
 export const subscriptionSchema = z.object({
   package_id: z.string().uuid(),
