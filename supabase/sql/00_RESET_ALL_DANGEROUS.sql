@@ -112,8 +112,11 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
--- 5. Storage policies + app buckets (files inside the buckets are deleted with
---    the bucket rows).
+-- 5. Storage policies
+--    Note: Supabase blocks direct SQL DELETE on storage.buckets / storage.objects
+--    (storage.protect_delete trigger). Existing buckets are left intact and will
+--    be reused by 09_storage_buckets_and_policies.sql. To empty or delete a
+--    bucket, use Supabase Dashboard → Storage.
 -- ---------------------------------------------------------------------------
 drop policy if exists "public image read" on storage.objects;
 drop policy if exists "owners and admins upload images" on storage.objects;
@@ -122,13 +125,6 @@ drop policy if exists "owners and admins delete images" on storage.objects;
 drop policy if exists "payment proof owner read" on storage.objects;
 drop policy if exists "payment proof owner upload" on storage.objects;
 drop policy if exists "payment proof admin manage" on storage.objects;
-
-delete from storage.buckets
- where id in (
-   'avatars', 'product-images', 'category-images', 'farm-images', 'logos',
-   'slides', 'team', 'review-photos', 'complaint-photos', 'blog-images',
-   'payment-proofs'
- );
 
 -- ---------------------------------------------------------------------------
 -- 6. Final confirmation
