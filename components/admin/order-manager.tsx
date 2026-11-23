@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Download, Printer, QrCode, Search, X } from "lucide-react";
+import { CheckCircle2, Download, Printer, QrCode, Search, X } from "lucide-react";
 import { useToast } from "@/lib/toast";
 import { formatDateTimeBn, money, toBn } from "@/lib/format";
 import type { Order } from "@/lib/types";
@@ -81,7 +81,10 @@ export function OrderManager({ initial, dbReady }: { initial: Order[]; dbReady: 
       });
       if (!res.ok) throw new Error("আপডেট ব্যর্থ");
       setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, payment_status: "paid" } : o)));
-      toast.success("পেমেন্ট পরিশোধিত হিসেবে চিহ্নিত");
+      toast.success(
+        order.payment_ref ? `ভেরিফাই হয়েছে — TrxID: ${order.payment_ref}` : "পেমেন্ট পরিশোধিত হিসেবে চিহ্নিত",
+        order.order_no
+      );
     } catch (err) {
       toast.error("ব্যর্থ", (err as Error).message);
     } finally {
@@ -254,6 +257,38 @@ export function OrderManager({ initial, dbReady }: { initial: Order[]; dbReady: 
               </div>
             </div>
 
+            {/* ── payment verification ─────────────────────────────────────── */}
+            <div className="mt-3 rounded-xl border border-white/[0.08] bg-white/[0.02] p-3 print:border-black/15 print:bg-black/[0.02]">
+              <div className="flex items-center justify-between">
+                <p className="text-[9.5px] uppercase tracking-wider opacity-50">পেমেন্ট যাচাই</p>
+                <span className={`badge !text-[9px] ${selected.payment_status === "paid" ? "bg-leaf-600/20 text-leaf-200" : "bg-amber-500/15 text-amber-300"}`}>
+                  {selected.payment_status === "paid" ? "পরিশোধিত" : "বাকি"}
+                </span>
+              </div>
+              <div className="mt-1.5 flex items-center justify-between text-[11.5px]">
+                <span className="opacity-60">মাধ্যম</span>
+                <span className="font-medium uppercase">{selected.payment_method}</span>
+              </div>
+              {selected.payment_ref ? (
+                <>
+                  <div className="mt-1 flex items-start justify-between gap-3">
+                    <span className="opacity-60">TrxID</span>
+                    <span className="break-all text-right font-mono text-[11px] text-leaf-200">{selected.payment_ref}</span>
+                  </div>
+                  {selected.payment_ref.includes(" | ") ? (
+                    <div className="mt-1 flex items-center justify-between gap-3">
+                      <span className="opacity-60">প্রেমিত নম্বর</span>
+                      <span className="break-all text-right font-mono text-[11px]">{selected.payment_ref.split(" | ")[1]}</span>
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <p className="mt-1 text-[10.5px] italic opacity-50">
+                  গ্রাহক TrxID জমা দেননি — টাকা পাওয়ার পর চিহ্নিত করুন
+                </p>
+              )}
+            </div>
+
             <table className="mt-3 w-full text-[11.5px]">
               <thead className="border-y border-white/[0.08] text-[9.5px] uppercase tracking-wider opacity-50 print:border-black/20">
                 <tr>
@@ -296,10 +331,18 @@ export function OrderManager({ initial, dbReady }: { initial: Order[]; dbReady: 
 
             <div className="mt-4 flex flex-wrap gap-2 print:hidden">
               {selected.payment_status !== "paid" ? (
-                <button onClick={() => markPaid(selected)} disabled={busy === selected.id} className="btn-ghost btn-sm">
-                  পরিশোধিত চিহ্নিত করুন
+                <button
+                  onClick={() => markPaid(selected)}
+                  disabled={busy === selected.id}
+                  className="btn-primary btn-sm"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" /> ভেরিফাই করুন (পরিশোধিত)
                 </button>
-              ) : null}
+              ) : (
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-leaf-600/15 px-3 py-1.5 text-[11px] font-semibold text-leaf-200">
+                  <CheckCircle2 className="h-3.5 w-3.5" /> পরিশোধিত
+                </span>
+              )}
               <button onClick={() => window.print()} className="btn-ghost btn-sm">
                 <Printer className="h-3.5 w-3.5" /> ইনভয়েস প্রিন্ট
               </button>

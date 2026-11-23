@@ -148,7 +148,7 @@ export function ImageField({
                     alt=""
                     fill
                     sizes="(max-width: 768px) 100vw, 320px"
-                    className="object-cover"
+                    className={ratio === "square" ? "object-contain" : "object-cover"}
                     unoptimized={value.startsWith("data:")}
                   />
                   <span className="absolute inset-0 grid place-items-center bg-ink-950/0 text-[11px] font-semibold text-transparent transition hover:bg-ink-950/55 hover:text-sand-100">

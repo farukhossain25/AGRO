@@ -513,6 +513,11 @@ export function CheckoutFlow({ methods: initialMethods }: { methods: PublicPayme
 
             {step === 2 ? (
               <div className="space-y-3 p-5">
+                {/* hint */}
+                <p className="text-[11.5px] text-sand-100/45">
+                  {t("পেমেন্ট মাধ্যম বেছে নিন — এক ক্লিকে নির্দেশনা পাবেন", "Pick a payment method — you'll get instructions in one click")}
+                </p>
+
                 {methods.map((m) => {
                   const selected = m.code === payment;
                   return (
@@ -520,47 +525,45 @@ export function CheckoutFlow({ methods: initialMethods }: { methods: PublicPayme
                       key={m.code}
                       type="button"
                       onClick={() => setPayment(m.code)}
-                      className={`group w-full rounded-2xl border p-4 text-left transition ${
+                      className={`group flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition ${
                         selected
-                          ? "border-leaf-500 bg-leaf-600/[0.07] ring-1 ring-leaf-500/40"
-                          : "border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04]"
+                          ? "border-leaf-500 bg-leaf-600/[0.08] ring-2 ring-leaf-500/40"
+                          : "border-white/10 bg-white/[0.02] hover:border-white/25 hover:bg-white/[0.04]"
                       }`}
                     >
-                      <div className="flex items-start gap-3.5">
-                        <span
-                          className={`grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl text-xl ${
-                            selected ? "bg-leaf-600/20" : "bg-white/5"
-                          }`}
-                        >
-                          {m.logo_url ? (
-                            <Image src={m.logo_url} alt={m.name_bn} fill className="object-contain" unoptimized />
-                          ) : (
-                            <span aria-hidden>{METHOD_EMOJI[m.code] ?? "💳"}</span>
-                          )}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <p className="text-[14px] font-bold">{m.name_bn}</p>
-                            {m.name_en ? <p className="text-[11px] text-sand-100/40">{m.name_en}</p> : null}
-                          </div>
-                          {m.kind === "cod" ? (
-                            <p className="mt-0.5 text-[12px] text-sand-100/55">
-                              {m.instruction_bn ?? t("পণ্য হাতে পেয়ে টাকা দিন।", "Pay when you receive your order.")}
-                            </p>
-                          ) : (
-                            <p className="mt-0.5 truncate font-mono text-[12.5px] text-leaf-200/90">
-                              {m.account_number ?? m.bank_name ?? "—"}
-                            </p>
-                          )}
+                      <span
+                        className={`grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-2xl text-2xl ${
+                          selected ? "bg-leaf-600/20" : "bg-white/5"
+                        }`}
+                      >
+                        {m.logo_url ? (
+                          <Image src={m.logo_url} alt={m.name_bn} fill className="object-contain" unoptimized />
+                        ) : (
+                          <span aria-hidden>{METHOD_EMOJI[m.code] ?? "💳"}</span>
+                        )}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-[15px] font-bold">{m.name_bn}</p>
+                          {m.name_en ? <p className="text-[11px] text-sand-100/40">{m.name_en}</p> : null}
                         </div>
-                        <span
-                          className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border transition ${
-                            selected ? "border-leaf-500 bg-leaf-500 text-ink-900" : "border-white/15 text-transparent"
-                          }`}
-                        >
-                          <Check className="h-3.5 w-3.5" />
-                        </span>
+                        {m.kind === "cod" ? (
+                          <p className="mt-1 text-[12px] text-sand-100/55">
+                            {m.instruction_bn ?? t("পণ্য হাতে পেয়ে টাকা দিন।", "Pay when you receive your order.")}
+                          </p>
+                        ) : (
+                          <p className="mt-1 truncate font-mono text-[12.5px] text-leaf-200/90">
+                            {m.account_number ?? m.bank_name ?? "—"}
+                          </p>
+                        )}
                       </div>
+                      <span
+                        className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border-2 transition ${
+                          selected ? "border-leaf-500 bg-leaf-500 text-ink-900" : "border-white/15 text-transparent"
+                        }`}
+                      >
+                        <Check className="h-4 w-4" />
+                      </span>
                     </button>
                   );
                 })}
@@ -582,7 +585,7 @@ export function CheckoutFlow({ methods: initialMethods }: { methods: PublicPayme
                     }}
                     className="btn-primary"
                   >
-                    {t("নিশ্চিতকরণে যান", "Review order")}
+                    {t("পেমেন্ট করুন", "Pay now")}
                     <span aria-hidden>→</span>
                   </button>
                 </div>

@@ -13,6 +13,7 @@ import { getOrderByNo } from "@/lib/data";
 import { getMethodByCode } from "@/lib/payment-methods";
 import { money } from "@/lib/format";
 import { PaymentInstructions } from "@/components/payment/payment-instructions";
+import { PaymentSubmitForm } from "@/components/payment/payment-submit-form";
 import { db } from "@/lib/db";
 
 /* Private surface — keep it out of the index and out of snippets. */
@@ -193,6 +194,19 @@ export default async function PaymentPage({
               ) : null}
             </div>
 
+            {/* ── TrxID submission (non-COD methods only) ─────────────────── */}
+            {method.kind !== "cod" ? (
+              <PaymentSubmitForm
+                orderNo={orderNo ?? undefined}
+                subNo={subNo ?? undefined}
+                amount={amount}
+                methodName={method.name_bn}
+                requiresTrx={method.requires_trx}
+                requiresSender={method.requires_sender}
+                phone={order?.phone ?? undefined}
+              />
+            ) : null}
+
             {/* ── reassurance + actions ───────────────────────────────────── */}
             <div className="card p-4">
               <div className="flex items-start gap-2.5">
@@ -222,7 +236,7 @@ export default async function PaymentPage({
 async function getSubscription(subNo: string) {
   const { data, error } = await db()
     .from("user_subscriptions")
-    .select("sub_no, amount, status, plan_name_bn")
+    .select("sub_no, amount, status, plan_name_bn, user_id, payment_method")
     .eq("sub_no", subNo.toUpperCase())
     .maybeSingle();
   if (error) return null;
