@@ -60,12 +60,13 @@ declare
     'seller_payouts','seller_warnings','sellers','farms','categories',
     'coupons','delivery_charges',
     'order_items','sub_orders','parcels','payments','payment_logs','orders',
-    'cart_items','payment_methods','custom_combos',
+    'cart_items','payment_methods','payment_settings','custom_combos',
     'combo_items','combos','subscriptions','subscription_plans',
     'reviews','review_photos','review_tags','complaints','complaint_messages',
     'notifications','push_subscriptions','fcm_tokens','wishlist','recently_viewed',
     'access_codes','user_subscriptions','premium_devices','trials','stream_tokens','plans',
-    'hero_slides','homepage_sections','banners','menus','menu_items','blog_posts','faq_items'
+    'hero_slides','homepage_sections','banners','menus','menu_items','blog_posts','faq_items',
+    'seller_applications'
   ];
 begin
   foreach t in array tables loop

@@ -15,6 +15,22 @@ import { createHarness, runFile, ORDERED_FILES, SQL_DIR } from "./lib/sql-harnes
 const db = await createHarness();
 await db.exec("insert into auth.users (email) values ('foysaliqbal09@gmail.com')");
 
+/**
+ * Second-wave files: the storage fix, seller applications + panel path,
+ * the payments rebuild and its RLS/storage/seed. They build on the base
+ * chain and must be run in order after 13. Validated twice like the base.
+ */
+const EXTRA_FILES = [
+  "14_storage_fix.sql",
+  "15_seller_applications_and_panel_path.sql",
+  "16_verify_seller_rls_and_storage.sql",
+  "17_payments_reset.sql",
+  "18_payments_schema.sql",
+  "19_payments_functions.sql",
+  "20_payments_rls_storage.sql",
+  "21_payments_seed.sql",
+];
+
 async function run(file, round) {
   try {
     await runFile(db, file);
@@ -27,6 +43,8 @@ async function run(file, round) {
 
 for (const file of ORDERED_FILES) await run(file, 1);
 for (const file of ORDERED_FILES) await run(file, 2);
+for (const file of EXTRA_FILES) await run(file, 1);
+for (const file of EXTRA_FILES) await run(file, 2);
 await run("12_make_admin.sql", 1);
 await run("13_verify_setup.sql", 1);
 
