@@ -8,12 +8,8 @@ import {
   Globe,
   Heart,
   Menu,
-  Package,
-  Phone,
   Search,
   ShoppingBag,
-  User,
-  X,
 } from "lucide-react";
 import { useCart } from "@/lib/cart";
 import { useLocale } from "@/lib/locale";
@@ -23,6 +19,7 @@ import { CartDrawer } from "./cart-drawer";
 import { SocialLinks } from "./social-links";
 import { UserMenu } from "./account/user-menu";
 import { SearchBox } from "./shop/search-box";
+import { MobileNav } from "./mobile-nav";
 
 type Cat = { slug: string; name_bn: string; name_en: string; icon: string | null };
 
@@ -63,7 +60,7 @@ export function SiteHeader({
             {/* Mobile menu button */}
             <button
               onClick={() => setMenuOpen(true)}
-              className="grid h-11 w-11 place-items-center rounded-xl text-sand-100/80 transition hover:bg-white/[0.06] lg:hidden"
+              className="grid h-11 w-11 place-items-center rounded-xl border border-white/[0.07] bg-white/[0.03] text-sand-100/85 transition duration-300 hover:border-leaf-500/40 hover:bg-leaf-600/10 hover:text-white active:scale-95 lg:hidden"
               aria-label={t("মেনু খুলুন", "Open menu")}
               aria-expanded={menuOpen}
             >
@@ -190,77 +187,13 @@ export function SiteHeader({
         </div>
       </header>
 
-      {/* ── Mobile drawer */}
-      {menuOpen ? (
-        <div className="fixed inset-0 z-[90] lg:hidden" role="dialog" aria-modal="true">
-          <button
-            className="absolute inset-0 bg-ink-950/75 backdrop-blur-sm animate-fade-in"
-            onClick={() => setMenuOpen(false)}
-            aria-label={t("বন্ধ করুন", "Close")}
-          />
-          <aside className="absolute inset-y-0 left-0 flex w-[86%] max-w-xs flex-col border-r border-white/10 bg-ink-900 animate-[fade-up_.25s_ease]">
-            <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-4">
-              <Logo />
-              <button
-                onClick={() => setMenuOpen(false)}
-                className="grid h-9 w-9 place-items-center rounded-xl text-sand-100/60 hover:bg-white/10"
-                aria-label={t("বন্ধ করুন", "Close")}
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-3 py-4">
-              <p className="px-2 pb-2 text-[10.5px] font-semibold uppercase tracking-[0.18em] text-sand-100/35">
-                {t("ক্যাটাগরি", "Categories")}
-              </p>
-              <div className="mb-4 space-y-0.5">
-                {categories.map((c) => (
-                  <Link
-                    key={c.slug}
-                    href={`/categories/${c.slug}`}
-                    className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] transition hover:bg-white/[0.05]"
-                  >
-                    <span aria-hidden>{c.icon ?? "🌿"}</span>
-                    {t(c.name_bn, c.name_en)}
-                  </Link>
-                ))}
-              </div>
-
-              <p className="px-2 pb-2 text-[10.5px] font-semibold uppercase tracking-[0.18em] text-sand-100/35">
-                {t("মেনু", "Menu")}
-              </p>
-              <div className="space-y-0.5">
-                {nav.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] transition hover:bg-white/[0.05]"
-                  >
-                    {t(item.labelBn, item.labelEn)}
-                  </Link>
-                ))}
-                <Link
-                  href="/account"
-                  className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] transition hover:bg-white/[0.05]"
-                >
-                  <Package className="h-4 w-4" /> {t("আমার অর্ডার", "My orders")}
-                </Link>
-              </div>
-            </div>
-
-            <div className="border-t border-white/[0.06] p-3">
-              <button onClick={toggle} className="btn-ghost w-full !justify-start">
-                <Globe className="h-4 w-4" />
-                {locale === "bn" ? "English এ দেখুন" : "বাংলায় দেখুন"}
-              </button>
-              <a href={`tel:${site.phone}`} className="btn-primary mt-2 w-full">
-                <Phone className="h-4 w-4" /> {site.phoneDisplay}
-              </a>
-            </div>
-          </aside>
-        </div>
-      ) : null}
+      <MobileNav
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        onOpenCart={() => setCartOpen(true)}
+        categories={categories}
+        user={user ? { name: user.name } : null}
+      />
 
       <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} />
     </>
