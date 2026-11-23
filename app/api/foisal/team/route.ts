@@ -121,24 +121,10 @@ export async function POST(req: Request) {
 
     if (profileError) throw profileError;
 
-    // Mirror into public.users so order/audit foreign keys resolve.
-    const { error: mirrorError } = await admin.from("users").upsert(
-      {
-        id: authId,
-        name: body.full_name,
-        email: body.email,
-        phone: body.phone || null,
-        role: body.role,
-        is_active: true,
-      },
-      { onConflict: "id" }
-    );
-    if (mirrorError) console.warn("[team] users mirror skipped:", mirrorError.message);
-
     await recordAudit({
       actor,
       action: "invite",
-      entity: "users",
+      entity: "profiles",
       entityId: authId,
       diff: { email: body.email, role: body.role, full_name: body.full_name },
       ip: clientIp(req),
@@ -162,7 +148,7 @@ export async function PATCH(req: Request) {
     }
 
     const { data: target, error: readError } = await db()
-      .from("users")
+      .from("profiles")
       .select("id, email, role, is_active")
       .eq("id", body.userId)
       .maybeSingle();
@@ -176,12 +162,12 @@ export async function PATCH(req: Request) {
       return fail("নিজের চেয়ে বড় রোল দেওয়া যাবে না", 403);
     }
 
-    const patch: Record<string, unknown> = {};
+    const patch: { role?: "staff" | "manager" | "admin"; is_active?: boolean } = {};
     if (body.role) patch.role = body.role;
     if (typeof body.is_active === "boolean") patch.is_active = body.is_active;
     if (!Object.keys(patch).length) return fail("পরিবর্তনের কিছু নেই", 400);
 
-    const { error } = await db().from("users").update(patch).eq("id", body.userId);
+    const { error } = await db().from("profiles").update(patch).eq("id", body.userId);
     if (error) throw error;
 
     // keep the sign-in identity in step — a suspended manager must not keep
@@ -193,10 +179,11 @@ export async function PATCH(req: Request) {
       /* service key missing: the users row above is still updated */
     }
     if (admin) {
-      const profilePatch: Record<string, unknown> = {};
-      if (body.role) profilePatch.role = body.role;
-      if (Object.keys(profilePatch).length) {
-        await admin.from("profiles").update(profilePatch).eq("id", body.userId);
+      // app_metadata keeps the JWT claim in step with the profile row.
+      if (body.role) {
+        await admin.auth.admin.updateUserById(body.userId, {
+          app_metadata: { role: body.role },
+        });
       }
       if (body.is_active === false) {
         try {
@@ -210,7 +197,7 @@ export async function PATCH(req: Request) {
     await recordAudit({
       actor,
       action: body.role ? "role" : "suspend",
-      entity: "users",
+      entity: "profiles",
       entityId: body.userId,
       diff: { from: { role: target.role, is_active: target.is_active }, to: patch },
       ip: clientIp(req),

@@ -58,7 +58,8 @@ export async function GET(req: Request) {
 
     let query = db().from("v_payment_queue").select("*");
 
-    if (status !== "all" && FILTERABLE_STATUS.has(status)) query = query.eq("status", status);
+    if (status !== "all" && FILTERABLE_STATUS.has(status))
+      query = query.eq("status", status as "pending" | "verified" | "rejected" | "needs_info");
     if (method && method !== "all") query = query.eq("method_code", method);
     if (from) query = query.gte("created_at", new Date(from).toISOString());
     if (to) query = query.lte("created_at", new Date(`${to}T23:59:59`).toISOString());

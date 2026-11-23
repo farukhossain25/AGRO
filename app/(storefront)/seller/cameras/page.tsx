@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Camera, CheckCircle2, Clock, Video } from "lucide-react";

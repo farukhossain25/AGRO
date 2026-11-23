@@ -45,7 +45,7 @@ export default async function SellerDashboard() {
   const net = orders.reduce((n, o) => n + Number(o.seller_earning ?? 0), 0);
   const paidOut = (payouts ?? [])
     .filter((p) => p.status === "paid")
-    .reduce((n, p) => n + Number(p.net ?? 0), 0);
+    .reduce((n, p) => n + Number(p.amount ?? 0), 0);
 
   const pendingCount = (products ?? []).filter((p) => p.approval_status === "pending").length;
 
@@ -152,9 +152,9 @@ export default async function SellerDashboard() {
                   <li key={p.id} className="rounded-lg bg-white/[0.03] p-2.5 text-[11.5px]">
                     <div className="flex justify-between">
                       <span className="text-sand-100/60">
-                        {p.period_from} → {p.period_to}
+                        {p.paid_at ? new Date(p.paid_at).toLocaleDateString("bn-BD") : new Date(p.created_at).toLocaleDateString("bn-BD")}
                       </span>
-                      <span className="font-semibold text-mint">৳{Math.round(Number(p.net))}</span>
+                      <span className="font-semibold text-mint">৳{Math.round(Number(p.amount))}</span>
                     </div>
                     <p className="mt-0.5 text-[10px] text-sand-100/35">
                       {payoutStatusLabelBn[p.status]} {p.method ? `· ${p.method}` : ""}

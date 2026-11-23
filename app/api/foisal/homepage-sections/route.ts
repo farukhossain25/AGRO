@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
-import { fail, handleError, ok, requirePermission } from "@/lib/api";
+import type { Json } from "@/lib/database.types";
+import { handleError, ok, requirePermission } from "@/lib/api";
 import { clientIp } from "@/lib/api";
 import { recordAudit } from "@/lib/audit";
 import { revalidateContent } from "@/lib/content";
@@ -62,7 +63,7 @@ export async function POST(req: Request) {
           .update({
             is_visible: s.is_visible,
             sort_order: s.sort_order,
-            ...(s.config ? { config: s.config } : {}),
+            ...(s.config ? { config: s.config as unknown as Json } : {}),
           })
           .eq("id", s.id)
       );
@@ -78,7 +79,7 @@ export async function POST(req: Request) {
           label_bn: s.id.replace(/^fallback-/, ""),
           is_visible: s.is_visible,
           sort_order: s.sort_order,
-          config: s.config ?? {},
+          config: (s.config ?? {}) as unknown as Json,
         })),
         { onConflict: "key" }
       );

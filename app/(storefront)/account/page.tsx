@@ -25,7 +25,7 @@ export default async function AccountDashboard() {
     db().from("addresses").select("id").eq("user_id", user.id),
   ]);
 
-  const subs = (subsResult.data ?? []) as Subscription[];
+  const subs = (subsResult.data ?? []) as unknown as Subscription[];
   const addressCount = (addressesResult.data ?? []).length;
   const activeSubs = subs.filter((s) => s.status === "active").length;
   const spent = orders

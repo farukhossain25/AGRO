@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
+import type { TablesUpdate } from "@/lib/database.types";
 import { fail, handleError, ok, requirePermission } from "@/lib/api";
 import { notify } from "@/lib/notify";
 
@@ -16,7 +17,7 @@ export async function PATCH(req: Request) {
     await requirePermission("orders.read");
     const { id, status, payment_status } = schema.parse(await req.json());
 
-    const patch: Record<string, unknown> = {};
+    const patch: TablesUpdate<"orders"> = {};
     if (status) patch.status = status;
     if (payment_status) patch.payment_status = payment_status;
     if (!Object.keys(patch).length) return fail("আপডেট করার কিছু নেই", 422);

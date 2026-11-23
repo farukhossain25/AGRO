@@ -39,11 +39,11 @@ export async function POST(req: Request) {
       .insert({
         product_id: productId,
         user_id: user?.id ?? null,
-        name_bn: sanitizeText(data.name_bn, 60),
-        location_bn: sanitizeText(data.location_bn ?? "", 60) || null,
+        author_name: sanitizeText(data.name_bn, 60),
+        author_location: sanitizeText(data.location_bn ?? "", 60) || null,
         rating: data.rating,
         comment: sanitizeText(data.comment, 600),
-        is_approved: reviewRules.auto_publish,
+        status: reviewRules.auto_publish ? "published" : "hidden",
       })
       .select("id")
       .single();

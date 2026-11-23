@@ -1,6 +1,5 @@
 import { db, dbUsable, markDbUnreachable } from "./db";
 import type { Camera, Farm, FarmType } from "./types";
-import { seedCameras, seedFarms } from "./seed-premium";
 
 /* ==========================================================================
    Farms + cameras — the only data entry point for farm pages
@@ -42,9 +41,7 @@ function stripFarm(row: Record<string, unknown>): Farm {
 }
 
 export async function listFarms(filters: FarmFilters = {}): Promise<Farm[]> {
-  const fallback = filterSeedFarms(filters);
-
-  if (!dbUsable()) return fallback;
+  if (!dbUsable()) return [];
 
   try {
     let q = db()
@@ -64,7 +61,7 @@ export async function listFarms(filters: FarmFilters = {}): Promise<Farm[]> {
     const { data, error } = await q;
     if (error) throw error;
 
-    if (!data?.length) return fallback;
+    if (!data?.length) return [];
 
     return data.map((row) => {
       const farm = stripFarm(row as unknown as Record<string, unknown>);
@@ -76,8 +73,8 @@ export async function listFarms(filters: FarmFilters = {}): Promise<Farm[]> {
     });
   } catch (error) {
     markDbUnreachable();
-    console.warn("[farms] falling back to seed data:", (error as Error).message);
-    return fallback;
+    console.warn("[farms] list failed:", (error as Error).message);
+    return [];
   }
 }
 
@@ -104,7 +101,7 @@ export async function getFarmBySlug(slug: string): Promise<Farm | null> {
       console.warn("[farms] detail fallback:", (error as Error).message);
     }
   }
-  return seedFarms.find((f) => f.slug === slug) ?? null;
+  return null;
 }
 
 export async function getDairyFarms(): Promise<Farm[]> {
@@ -127,40 +124,13 @@ export async function listCamerasByFarm(farmId: string): Promise<Camera[]> {
       /* fall through */
     }
   }
-  return (seedCameras[farmId] ?? []).slice();
+  return [];
 }
 
 /** Every district that has at least one farm — used by the filter bar. */
 export async function farmDistricts(): Promise<string[]> {
   const farms = await listFarms({});
   return Array.from(new Set(farms.map((f) => f.district))).sort();
-}
-
-/* ------------------------------ fallbacks ------------------------------ */
-
-function filterSeedFarms(f: FarmFilters): Farm[] {
-  let rows = seedFarms.slice();
-  if (f.type && f.type !== "all") rows = rows.filter((r) => r.type === f.type);
-  if (f.district) rows = rows.filter((r) => r.district === f.district);
-  if (f.search) {
-    const q = f.search.toLowerCase();
-    rows = rows.filter(
-      (r) =>
-        r.name_bn.toLowerCase().includes(q) ||
-        r.district.toLowerCase().includes(q) ||
-        (r.owner_name_bn ?? "").toLowerCase().includes(q)
-    );
-  }
-  if (f.limit) rows = rows.slice(0, f.limit);
-  return rows.map((r) => {
-    const cams = seedCameras[r.id] ?? [];
-    return {
-      ...r,
-      cameras: cams,
-      camera_count: cams.length,
-      online_cameras: cams.filter((c) => c.status === "online").length,
-    };
-  });
 }
 
 export const farmTypeLabelBn: Record<FarmType, string> = {

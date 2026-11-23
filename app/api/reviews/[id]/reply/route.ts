@@ -44,7 +44,7 @@ export async function POST(req: Request, ctx: Ctx) {
     const client = db();
 
     const { data: review } = await client
-      .from("order_reviews")
+      .from("reviews")
       .select("id, seller_id, user_id, product_id, seller_reply, status")
       .eq("id", id)
       .maybeSingle();
@@ -77,11 +77,10 @@ export async function POST(req: Request, ctx: Ctx) {
     }
 
     const { error } = await client
-      .from("order_reviews")
+      .from("reviews")
       .update({
         seller_reply: text,
         seller_replied_at: new Date().toISOString(),
-        seller_replied_by: user.id,
       })
       .eq("id", id);
 

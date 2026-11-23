@@ -69,18 +69,16 @@ export async function recordAudit(input: {
        could never see a rejected insert: the audit trail was empty and silent.
        `admin_name` is a legacy NOT NULL column the actor fills here. */
     const { error } = await db()
-      .from("audit_logs")
+      .from("audit_log")
       .insert({
         actor_id: input.actor?.id ?? null,
         actor_email: input.actor?.email ?? null,
         actor_role: input.actor?.role ?? null,
-        admin_id: input.actor?.id ?? null,
-        admin_name: input.actor?.name ?? input.actor?.email ?? "সিস্টেম",
         action: input.action,
         entity: input.entity,
         entity_id: input.entityId ?? null,
-        diff: input.diff ? (redact(input.diff) as Record<string, unknown>) : null,
-        meta: (input.meta ?? {}) as Record<string, unknown>,
+        diff: input.diff ? (redact(input.diff) as unknown as import("./database.types").Json) : null,
+        meta: (input.meta ?? {}) as unknown as import("./database.types").Json,
         ip: input.ip ?? null,
         user_agent: input.userAgent ?? null,
       });

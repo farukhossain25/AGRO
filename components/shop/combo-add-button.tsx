@@ -11,7 +11,7 @@ import { useToast } from "@/lib/toast";
  * server remains the source of truth for pricing.
  */
 export function ComboAddButton({
-  comboId,
+  comboId: _comboId,
   comboSlug,
   label,
   className = "btn-primary btn-sm",

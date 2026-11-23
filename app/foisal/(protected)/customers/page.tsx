@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 type Row = {
   id: string;
-  name: string | null;
+  full_name: string | null;
   email: string | null;
   phone: string | null;
   role: string;
@@ -18,8 +18,8 @@ export default async function AdminCustomersPage() {
   if (isDbConfigured()) {
     try {
       const { data } = await db()
-        .from("users")
-        .select("id, name, email, phone, role, phone_verified, created_at")
+        .from("profiles")
+        .select("id, full_name, email, phone, role, phone_verified, created_at")
         .eq("role", "customer")
         .order("created_at", { ascending: false })
         .limit(500);
@@ -57,7 +57,7 @@ export default async function AdminCustomersPage() {
             <tbody className="divide-y divide-white/[0.04]">
               {customers.map((c) => (
                 <tr key={c.id} className="hover:bg-white/[0.02]">
-                  <td className="px-3 py-2.5 font-medium">{c.name ?? "—"}</td>
+                  <td className="px-3 py-2.5 font-medium">{c.full_name ?? "—"}</td>
                   <td className="px-2 py-2.5 font-mono text-[11px]">{c.phone ?? "—"}</td>
                   <td className="px-2 py-2.5 text-[11px] text-sand-100/60">{c.email ?? "—"}</td>
                   <td className="px-2 py-2.5">

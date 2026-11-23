@@ -55,7 +55,7 @@ export async function getProductReviews(
 
   try {
     let query = db()
-      .from("order_reviews")
+      .from("reviews")
       .select(REVIEW_SELECT)
       .eq("product_id", productId)
       .eq("status", "published");
@@ -194,7 +194,7 @@ export async function getReviewableItems(
       .eq("order_id", orderId);
 
     const { data: reviews } = await db()
-      .from("order_reviews")
+      .from("reviews")
       .select("*")
       .eq("order_id", orderId)
       .eq("user_id", userId);

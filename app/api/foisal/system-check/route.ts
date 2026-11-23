@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { db, dbUsable } from "@/lib/db";
 import { handleError, requirePermission } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
@@ -8,17 +8,19 @@ export const runtime = "nodejs";
 /* ==========================================================================
    /api/foisal/system-check — "সব ঠিক আছে?" in one click
    --------------------------------------------------------------------------
-   Every row below is a LIVE test, not a guess:
+   The in-app twin of `supabase/sql/13_verify_setup.sql`. Same sections, same
+   expectations, so the panel and the SQL Editor never disagree.
 
-     • env        — names only. Never a value, never a prefix of a value.
-     • db:read    — a real `select id limit 1` per critical table
-     • db:write   — insert → read back → delete in `audit_logs` (self-cleaning)
-     • auth:admin — is_admin() through the service role (RLS helper exists)
-     • storage    — bucket present + a 1-byte upload/delete round-trip
-     • realtime   — the anon key can open a Realtime socket (config check only)
+     • env      — names only, never a value or a prefix of a value
+     • db       — every table is readable, the RPCs/views exist, write probe
+                  (insert → read back → delete in `audit_log`, self-cleaning)
+     • auth     — an active admin profile exists and is_admin() resolves
+     • storage  — every bucket from 09 is present, payment-proofs is private,
+                  and a 1-byte upload/download/delete round-trip works
+     • realtime — the public key is present so the browser socket can open
 
-   A failure is reported with the raw Postgres/storage message in `detail` so
-   the owner can paste one line to support instead of "something broke".
+   A failure carries the raw Postgres/storage sentence in `detail`, so the
+   owner can paste one line instead of describing "something broke".
    ========================================================================== */
 
 type Check = {
@@ -31,33 +33,97 @@ type Check = {
 };
 
 const TABLES = [
-  "products",
+  "profiles",
+  "addresses",
+  "site_settings",
+  "social_links",
+  "team_members",
+  "static_pages",
+  "audit_log",
+  "login_attempts",
+  "contact_messages",
+  "newsletter_subscribers",
+  "media_assets",
+  "seo_meta",
   "categories",
+  "farms",
+  "cameras",
+  "sellers",
+  "seller_payouts",
+  "seller_warnings",
+  "camera_requests",
+  "camera_view_logs",
+  "products",
+  "product_images",
+  "coupons",
+  "delivery_charges",
+  "combos",
+  "combo_items",
+  "subscription_plans",
+  "subscriptions",
+  "cart_items",
   "orders",
   "order_items",
   "sub_orders",
-  "payments",
   "payment_methods",
-  "delivery_zones",
-  "coupons",
+  "payments",
+  "payment_logs",
+  "parcels",
+  "custom_combos",
+  "plans",
+  "user_subscriptions",
+  "access_codes",
+  "trials",
+  "stream_tokens",
+  "premium_devices",
   "reviews",
-  "banners",
+  "review_photos",
+  "review_tags",
+  "complaints",
+  "complaint_messages",
+  "notifications",
+  "push_subscriptions",
+  "fcm_tokens",
+  "wishlist",
+  "recently_viewed",
   "hero_slides",
   "homepage_sections",
-  "site_settings",
-  "settings",
-  "sellers",
-  "farms",
-  "cameras",
-  "team_directory",
+  "banners",
+  "menus",
+  "menu_items",
   "blog_posts",
-  "notifications",
-  "audit_logs",
-  "complaints",
-  "cart_items",
+  "faq_items",
 ] as const;
 
-const BUCKETS = ["product-images", "payment-proofs", "review-photos", "complaint-photos", "catalog-media"] as const;
+const VIEWS = [
+  "public_sellers",
+  "public_cameras",
+  "v_team_members",
+  "v_product_rating_breakdown",
+  "v_supplier_quality",
+  "v_product_supplier",
+  "v_farm_stats",
+  "v_payment_queue",
+  "v_payment_reconciliation",
+  "v_premium_revenue",
+  "v_seller_leaderboard",
+] as const;
+
+const BUCKETS = [
+  "avatars",
+  "product-images",
+  "category-images",
+  "farm-images",
+  "logos",
+  "slides",
+  "team",
+  "review-photos",
+  "complaint-photos",
+  "blog-images",
+  "payment-proofs",
+] as const;
+
+const PUBLIC_BUCKETS = BUCKETS.filter((b) => b !== "payment-proofs");
 
 const REQUIRED_ENV = [
   "NEXT_PUBLIC_SUPABASE_URL",
@@ -96,15 +162,31 @@ export async function GET() {
     id: "env:public-secret-scan",
     label: "NEXT_PUBLIC_* এ কোনো সিক্রেট নেই",
     group: "env",
-    status: Object.keys(process.env).some((k) => k.startsWith("NEXT_PUBLIC_") && /SERVICE_ROLE|SECRET/i.test(k)) ? "fail" : "pass",
+    status: Object.keys(process.env).some((k) => k.startsWith("NEXT_PUBLIC_") && /SERVICE_ROLE|SECRET/i.test(k))
+      ? "fail"
+      : "pass",
     detail: "পাবলিক ভেরিয়েবলের নামগুলো স্ক্যান করা হয়েছে (মান পড়া হয়নি)",
   });
+
+  if (!dbUsable()) {
+    checks.push({
+      id: "db:configured",
+      label: "ডেটাবেস সংযোগ",
+      group: "db",
+      status: "fail",
+      detail: "SUPABASE env নেই বা সংযোগ ব্যর্থ — বাকি ডেটাবেস চেক বাদ দেওয়া হলো",
+    });
+    return NextResponse.json({
+      ok: false,
+      data: { checks, passed: checks.filter((c) => c.status === "pass").length, failed: checks.filter((c) => c.status === "fail").length, total: checks.length, ranAt: new Date().toISOString() },
+    });
+  }
 
   /* ------------------------------------------------------------- db:read */
   for (const table of TABLES) {
     try {
       const { ms } = await timed(async () => {
-        const { error } = await db().from(table).select("id").limit(1);
+        const { error } = await db().from(table).select("*", { count: "exact", head: true });
         if (error) throw error;
       });
       checks.push({ id: `db:read:${table}`, label: `পড়া যাচ্ছে — ${table}`, group: "db", status: "pass", detail: "SELECT ok", ms });
@@ -114,8 +196,32 @@ export async function GET() {
         label: `পড়া যাচ্ছে — ${table}`,
         group: "db",
         status: "fail",
-        detail: (error as Error).message,
+        detail: `${(error as Error).message} — সংশ্লিষ্ট ফাইলটি চালান`,
       });
+    }
+  }
+
+  /* ------------------------------------------------------------- db:views */
+  for (const view of VIEWS) {
+    try {
+      const { error } = await db().from(view).select("*").limit(1);
+      if (error) throw error;
+      checks.push({ id: `db:view:${view}`, label: `ভিউ আছে — ${view}`, group: "db", status: "pass", detail: "view ok" });
+    } catch (error) {
+      checks.push({ id: `db:view:${view}`, label: `ভিউ আছে — ${view}`, group: "db", status: "fail", detail: (error as Error).message });
+    }
+  }
+
+  /* --------------------------------------------------------- db:functions */
+  for (const fn of ["is_admin", "gen_order_no"] as const) {
+    try {
+      const { error } = await db().rpc(fn);
+      // `place_order` needs arguments and `is_admin()` returns a boolean; any
+      // non-"function does not exist" answer means the function is installed.
+      if (error && /does not exist|Could not find the function/i.test(error.message)) throw error;
+      checks.push({ id: `db:fn:${fn}`, label: `ফাংশন আছে — ${fn}()`, group: "db", status: "pass", detail: "RPC ok" });
+    } catch (error) {
+      checks.push({ id: `db:fn:${fn}`, label: `ফাংশন আছে — ${fn}()`, group: "db", status: "fail", detail: (error as Error).message });
     }
   }
 
@@ -124,69 +230,107 @@ export async function GET() {
     const { ms } = await timed(async () => {
       const marker = `system-check-${Date.now()}`;
       const { data, error } = await db()
-        .from("audit_logs")
-        .insert({ action: "system_check", entity: "system-check", admin_name: marker, details: { probe: marker } })
+        .from("audit_log")
+        .insert({ action: "system_check", entity: "system-check", meta: { probe: marker } })
         .select("id")
-        .single<{ id: string }>();
+        .single();
       if (error) throw error;
-      const readBack = await db().from("audit_logs").select("id").eq("id", data.id).maybeSingle();
+      const readBack = await db().from("audit_log").select("id").eq("id", data.id).maybeSingle();
       if (readBack.error) throw readBack.error;
       if (!readBack.data) throw new Error("insert হলো কিন্তু ফেরত পড়া গেল না");
-      const del = await db().from("audit_logs").delete().eq("id", data.id);
+      const del = await db().from("audit_log").delete().eq("id", data.id);
       if (del.error) throw del.error;
     });
-    checks.push({ id: "db:write:audit_logs", label: "লেখা + মুছে ফেলা — audit_logs", group: "db", status: "pass", detail: "insert → read → delete ok (ডেটা রাখা হয়নি)", ms });
+    checks.push({ id: "db:write:audit_log", label: "লেখা + মুছে ফেলা — audit_log", group: "db", status: "pass", detail: "insert → read → delete ok (ডেটা রাখা হয়নি)", ms });
   } catch (error) {
-    checks.push({ id: "db:write:audit_logs", label: "লেখা + মুছে ফেলা — audit_logs", group: "db", status: "fail", detail: (error as Error).message });
+    checks.push({ id: "db:write:audit_log", label: "লেখা + মুছে ফেলা — audit_log", group: "db", status: "fail", detail: (error as Error).message });
+  }
+
+  /* ---------------------------------------------------------- db:settings */
+  try {
+    const { data, error } = await db().from("site_settings").select("key").limit(20);
+    if (error) throw error;
+    const keys = new Set((data ?? []).map((row) => row.key));
+    checks.push({
+      id: "db:settings",
+      label: "সেটিংস গ্রুপ আছে",
+      group: "db",
+      status: keys.size ? "pass" : "fail",
+      detail: keys.size ? `${keys.size}টি key · ${[...keys].slice(0, 7).join(", ")}` : "কোনো সেটিং নেই — 11_seed_sample_data.sql চালান",
+    });
+  } catch (error) {
+    checks.push({ id: "db:settings", label: "সেটিংস গ্রুপ আছে", group: "db", status: "fail", detail: (error as Error).message });
   }
 
   /* ----------------------------------------------------------- auth:admin */
   try {
-    const { data, error } = await db().rpc("is_admin");
-    if (error) throw error;
+    const [{ count, error: countError }, admin] = await Promise.all([
+      db().from("profiles").select("id", { count: "exact", head: true }).eq("role", "admin").eq("is_active", true),
+      db().rpc("is_admin"),
+    ]);
+    if (countError) throw countError;
+    if (admin.error) throw admin.error;
     checks.push({
-      id: "auth:is_admin",
-      label: "is_admin() ফাংশন",
+      id: "auth:admin-profile",
+      label: "অ্যাক্টিভ অ্যাডমিন আছেন",
       group: "auth",
-      status: "pass",
-      // service role has no auth.uid(); the function must still resolve
-      detail: `RPC ok (service role → ${String(data)}) — RLS এর ভিত্তি ঠিক আছে`,
+      status: (count ?? 0) > 0 ? "pass" : "fail",
+      detail:
+        (count ?? 0) > 0
+          ? `${count} জন অ্যাডমিন — is_admin() → ${String(admin.data)}`
+          : "কেউ নেই — Authentication → Users এ ইউজার বানিয়ে 12_make_admin.sql চালান",
     });
   } catch (error) {
-    checks.push({ id: "auth:is_admin", label: "is_admin() ফাংশন", group: "auth", status: "fail", detail: (error as Error).message });
+    checks.push({ id: "auth:admin-profile", label: "অ্যাক্টিভ অ্যাডমিন আছেন", group: "auth", status: "fail", detail: (error as Error).message });
   }
 
   /* ------------------------------------------------------------- storage */
+  let bucketNames = new Set<string>();
   try {
     const { data, error } = await db().storage.listBuckets();
     if (error) throw error;
-    const names = new Set((data ?? []).map((b) => b.id));
+    const list = data ?? [];
+    bucketNames = new Set(list.map((b) => b.id));
+    const privates = new Set(list.filter((b) => !b.public).map((b) => b.id));
     for (const bucket of BUCKETS) {
+      const present = bucketNames.has(bucket);
+      const wantsPrivate = bucket === "payment-proofs";
+      const isPrivate = privates.has(bucket);
       checks.push({
         id: `storage:bucket:${bucket}`,
-        label: `বাকেট আছে — ${bucket}`,
+        label: `বাকেট — ${bucket}`,
         group: "storage",
-        status: names.has(bucket) ? "pass" : "fail",
-        detail: names.has(bucket) ? "পাওয়া গেছে" : "বাকেট নেই — 0016 মাইগ্রেশন চালান",
+        status: present && (!wantsPrivate || isPrivate) ? "pass" : "fail",
+        detail: !present
+          ? "বাকেট নেই — 09_storage_buckets_and_policies.sql চালান"
+          : wantsPrivate
+            ? isPrivate
+              ? "private ✓"
+              : "PRIVATE হওয়া উচিত!"
+            : isPrivate
+              ? "PUBLIC হওয়া উচিত!"
+              : "public ✓",
       });
     }
   } catch (error) {
     checks.push({ id: "storage:list", label: "বাকেটের তালিকা", group: "storage", status: "fail", detail: (error as Error).message });
   }
 
-  try {
-    const path = `system-check/${Date.now()}-probe.txt`;
-    const { ms } = await timed(async () => {
-      const up = await db().storage.from("catalog-media").upload(path, new Blob(["ok"]), { contentType: "text/plain", upsert: true });
-      if (up.error) throw up.error;
-      const down = await db().storage.from("catalog-media").download(path);
-      if (down.error) throw down.error;
-      const rm = await db().storage.from("catalog-media").remove([path]);
-      if (rm.error) throw rm.error;
-    });
-    checks.push({ id: "storage:upload", label: "আপলোড → ডাউনলোড → মুছে ফেলা", group: "storage", status: "pass", detail: "catalog-media-তে রাউন্ড-ট্রিপ ok", ms });
-  } catch (error) {
-    checks.push({ id: "storage:upload", label: "আপলোড → ডাউনলোড → মুছে ফেলা", group: "storage", status: "fail", detail: (error as Error).message });
+  if (bucketNames.has(PUBLIC_BUCKETS[0])) {
+    try {
+      const path = `system-check/${Date.now()}-probe.txt`;
+      const { ms } = await timed(async () => {
+        const up = await db().storage.from("product-images").upload(path, new Blob(["ok"]), { contentType: "text/plain", upsert: true });
+        if (up.error) throw up.error;
+        const down = await db().storage.from("product-images").download(path);
+        if (down.error) throw down.error;
+        const rm = await db().storage.from("product-images").remove([path]);
+        if (rm.error) throw rm.error;
+      });
+      checks.push({ id: "storage:upload", label: "আপলোড → ডাউনলোড → মুছে ফেলা", group: "storage", status: "pass", detail: "product-images-এ রাউন্ড-ট্রিপ ok", ms });
+    } catch (error) {
+      checks.push({ id: "storage:upload", label: "আপলোড → ডাউনলোড → মুছে ফেলা", group: "storage", status: "fail", detail: (error as Error).message });
+    }
   }
 
   /* ------------------------------------------------------------ realtime */

@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { dbDynamic } from "@/lib/db";
 import { fail, handleError, ok, requirePermission } from "@/lib/api";
 import { recordAudit, diffOf } from "@/lib/audit";
 import { clientIp } from "@/lib/api";
@@ -64,12 +64,14 @@ const schemas: Record<string, LightSchema> = {
   "premium-plans": lightSchema(["price", "compare_price", "duration_days", "max_devices", "sort_order"]),
   "access-codes": lightSchema([], ["expires_at"]),
   sellers: lightSchema(["commission_percent"], ["approved_at"]),
-  payouts: lightSchema(["gross", "commission", "net", "orders_count"], ["paid_at"]),
+  payouts: lightSchema(["amount"], ["paid_at"]),
   "camera-requests": lightSchema(["camera_count"]),
   notifications: lightSchema([]),
   seo: lightSchema([], []),
   "cms-pages": lightSchema([], []),
   faq: lightSchema(["sort_order"]),
+  menus: lightSchema([], []),
+  "static-pages": lightSchema(["sort_order"], []),
 };
 
 const tables: Record<string, string> = {
@@ -77,18 +79,20 @@ const tables: Record<string, string> = {
   coupons: "coupons",
   blog: "blog_posts",
   banners: "banners",
-  delivery: "delivery_zones",
+  delivery: "delivery_charges",
   farms: "farms",
   cameras: "cameras",
-  "premium-plans": "premium_plans",
-  "access-codes": "premium_access_codes",
+  "premium-plans": "plans",
+  "access-codes": "access_codes",
   sellers: "sellers",
   payouts: "seller_payouts",
   "camera-requests": "camera_requests",
   notifications: "notifications",
   seo: "seo_meta",
-  "cms-pages": "cms_pages",
+  "cms-pages": "static_pages",
   faq: "faq_items",
+  menus: "menus",
+  "static-pages": "static_pages",
 };
 
 function tableFor(resource: string): string | null {
@@ -115,6 +119,8 @@ const ACCESS: Record<string, { read: Permission; write: Permission }> = {
   seo: { read: "seo.write", write: "seo.write" },
   "cms-pages": { read: "content.write", write: "content.write" },
   faq: { read: "content.write", write: "content.write" },
+  menus: { read: "content.write", write: "content.write" },
+  "static-pages": { read: "content.write", write: "content.write" },
 };
 
 function accessFor(resource: string) {
@@ -154,9 +160,6 @@ function normalise(resource: string, input: Record<string, unknown>) {
     }
     out.noindex = out.noindex === true;
   }
-  if (resource === "delivery") {
-    delete out.district_en;
-  }
   // JSONB columns arrive as strings from the form.
   for (const key of ["features", "harvest_calendar", "daily_output", "boundary", "meta", "label"]) {
     if (typeof out[key] === "string") {
@@ -189,7 +192,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ resourc
     const table = tableFor(resource);
     if (!table) return fail("অজানা রিসোর্স", 404);
 
-    const { data, error } = await db().from(table).select("*").limit(500);
+    const { data, error } = await dbDynamic().from(table).select("*").limit(500);
     if (error) throw error;
     return ok(data ?? []);
   } catch (error) {
@@ -208,7 +211,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ resourc
     const raw = await req.json();
     const parsed = schema.parse(raw);
 
-    const { data, error } = await db()
+    const { data, error } = await dbDynamic()
       .from(table)
       .insert(normalise(resource, parsed))
       .select()
@@ -247,9 +250,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ resour
     const parsed = schema.parse(raw);
     const patch = normalise(resource, parsed);
 
-    const { data: before } = await db().from(table).select("*").eq("id", id).maybeSingle();
+    const { data: before } = await dbDynamic().from(table).select("*").eq("id", id).maybeSingle();
 
-    const { data, error } = await db()
+    const { data, error } = await dbDynamic()
       .from(table)
       .update(patch)
       .eq("id", id)
@@ -284,8 +287,8 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ resou
     const id = new URL(req.url).searchParams.get("id");
     if (!id) return fail("আইডি দিন", 422);
 
-    const { data: before } = await db().from(table).select("*").eq("id", id).maybeSingle();
-    const { error } = await db().from(table).delete().eq("id", id);
+    const { data: before } = await dbDynamic().from(table).select("*").eq("id", id).maybeSingle();
+    const { error } = await dbDynamic().from(table).delete().eq("id", id);
     if (error) throw error;
 
     await recordAudit({

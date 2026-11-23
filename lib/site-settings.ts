@@ -27,7 +27,7 @@ function bool(value: unknown, fallback: boolean): boolean {
 
 async function readRow(key: string): Promise<Record<string, unknown>> {
   try {
-    const { data } = await db().from("settings").select("value").eq("key", key).maybeSingle();
+    const { data } = await db().from("site_settings").select("value").eq("key", key).maybeSingle();
     return (data?.value ?? {}) as Record<string, unknown>;
   } catch {
     return {};

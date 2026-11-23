@@ -114,7 +114,10 @@ export async function getCombosBySlugs(slugs: string[]): Promise<Combo[]> {
   if (!slugs.length) return [];
   const { data, error } = await db().from("combos").select("*").in("slug", slugs);
   if (error) throw error;
-  return (data ?? []) as Combo[];
+  return (data ?? []).map((row) => ({
+    ...row,
+    contents: Array.isArray(row.contents) ? (row.contents as unknown as Combo["contents"]) : [],
+  })) as Combo[];
 }
 
 export async function getRelatedProducts(product: Product, limit = 4): Promise<Product[]> {
@@ -130,26 +133,34 @@ export async function getRelatedProducts(product: Product, limit = 4): Promise<P
 
 /* ------------------------------------------------------- combos & packages */
 export async function getCombos(kind?: "daily" | "weekly" | "monthly"): Promise<Combo[]> {
-  let q = db().from("combos").select("*").eq("is_active", true).order("sort_order");
-  if (kind) q = q.eq("kind", kind);
-  const { data, error } = await q;
+  let query = db().from("combos").select("*").eq("is_active", true).order("sort_order");
+  if (kind) query = query.eq("kind", kind);
+  const { data, error } = await query;
   if (error) throw error;
-  return (data ?? []) as Combo[];
+  return (data ?? []).map((row) => ({
+    ...row,
+    contents: Array.isArray(row.contents) ? (row.contents as unknown as Combo["contents"]) : [],
+  })) as Combo[];
 }
 
 export async function getComboBySlug(slug: string): Promise<Combo | null> {
   const { data } = await db().from("combos").select("*").eq("slug", slug).maybeSingle();
-  return (data as Combo) ?? null;
+  if (!data) return null;
+  return {
+    ...data,
+    contents: Array.isArray(data.contents) ? (data.contents as unknown as Combo["contents"]) : [],
+  } as Combo;
 }
 
+/** Monthly family plans live in `subscription_plans` (was `packages`). */
 export async function getPackages(): Promise<Package[]> {
   const { data, error } = await db()
-    .from("packages")
+    .from("subscription_plans")
     .select("*")
     .eq("is_active", true)
     .order("sort_order");
   if (error) throw error;
-  return (data ?? []) as Package[];
+  return (data ?? []) as unknown as Package[];
 }
 
 /* ------------------------------------------------------------------ content */
@@ -169,14 +180,28 @@ export async function getBlogPost(slug: string): Promise<BlogPost | null> {
   return (data as BlogPost) ?? null;
 }
 
+/**
+ * The "our farmers" strip on /farm is built from the farms table now — a farm
+ * IS the farmer profile, so there is no second table to keep in sync.
+ */
 export async function getFarmers(): Promise<Farmer[]> {
   const { data, error } = await db()
-    .from("farmers")
-    .select("*")
+    .from("farms")
+    .select("id, name_bn, district, division, description_bn, owner_bio_bn, story_bn, established_year, cover, images, is_active, sort_order")
     .eq("is_active", true)
     .order("sort_order");
   if (error) throw error;
-  return (data ?? []) as Farmer[];
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    name_bn: row.name_bn,
+    location_bn: [row.district, row.division].filter(Boolean).join(", ") || null,
+    specialty_bn: row.description_bn,
+    story_bn: row.story_bn ?? row.owner_bio_bn,
+    years: row.established_year ? Math.max(1, new Date().getFullYear() - row.established_year) : 0,
+    image: row.cover ?? row.images?.[0] ?? null,
+    is_active: row.is_active,
+    sort_order: row.sort_order,
+  })) as Farmer[];
 }
 
 export async function getBanners(placement = "home_hero"): Promise<Banner[]> {
@@ -189,22 +214,38 @@ export async function getBanners(placement = "home_hero"): Promise<Banner[]> {
   return (data ?? []) as Banner[];
 }
 
+/**
+ * Published reviews rendered as testimonials. A review row carries its own
+ * display name for guests; for signed-in customers we fall back to the profile.
+ */
 export async function getApprovedReviews(productId?: string, limit = 8): Promise<Review[]> {
-  let q = db()
+  let query = db()
     .from("reviews")
-    .select("*")
-    .eq("is_approved", true)
+    .select("id, product_id, user_id, rating, comment, author_name, author_location, status, created_at")
+    .eq("status", "published")
+    .not("comment", "is", null)
     .order("created_at", { ascending: false })
     .limit(limit);
-  if (productId) q = q.eq("product_id", productId);
-  const { data } = await q;
-  return (data ?? []) as Review[];
+  if (productId) query = query.eq("product_id", productId);
+
+  const { data } = await query;
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    product_id: row.product_id,
+    user_id: row.user_id,
+    name_bn: row.author_name ?? "একজন ক্রেতা",
+    location_bn: row.author_location,
+    rating: Number(row.rating),
+    comment: row.comment ?? "",
+    is_approved: row.status === "published",
+    created_at: row.created_at ?? "",
+  })) as Review[];
 }
 
 /* --------------------------------------------------------------- logistics */
 export async function getDeliveryZones(): Promise<DeliveryZone[]> {
   const { data, error } = await db()
-    .from("delivery_zones")
+    .from("delivery_charges")
     .select("*")
     .eq("is_active", true)
     .order("division");
@@ -222,75 +263,38 @@ export async function getCouponByCode(code: string): Promise<Coupon | null> {
 }
 
 /* ------------------------------------------------------------------ orders */
-/** Normalise an order row so both dialects (order_no/tracking_id, phone/customer_phone, `items` jsonb + `order_items`) work. */
-function normaliseOrder(row: Record<string, unknown>): Order & { order_items: OrderItem[] } {
-  // dialect shims: expose lyih names from izem columns
-  if (!row.order_no && row.tracking_id) row.order_no = row.tracking_id;
-  if (!row.tracking_id && row.order_no) row.tracking_id = row.order_no;
-  if (!row.phone && row.customer_phone) row.phone = row.customer_phone;
-  if (!row.customer_phone && row.phone) row.customer_phone = row.phone;
-  if (!row.email && row.customer_email) row.email = row.customer_email;
-  if (!row.customer_email && row.email) row.customer_email = row.email;
-  if (!row.delivery_note && row.note) row.delivery_note = row.note;
-  if (!row.note && row.delivery_note) row.note = row.delivery_note;
-  if (!row.payment_ref && row.transaction_id) row.payment_ref = row.transaction_id;
-
-  // when order_items relation is missing/empty, synthesize from `items` jsonb (izem legacy)
-  const items = row.order_items as OrderItem[] | undefined;
-  if ((!items || items.length === 0) && Array.isArray(row.items)) {
-    row.order_items = (row.items as unknown[]).map((raw: unknown, idx: number) => {
-      const it = (raw as Record<string, unknown>) ?? {};
-      return {
-        id: (it.id as string) ?? `${row.id as string}-${idx}`,
-        order_id: row.id as string,
-        product_id: (it.product_id as string) ?? (it.id as string) ?? null,
-        name_bn: (it.name_bn as string) ?? (it.name as string) ?? "পণ্য",
-        unit: (it.unit as string) ?? "পিস",
-        price: Number(it.price ?? 0),
-        quantity: Number(it.quantity ?? 1),
-        image: (it.image as string) ?? null,
-        sub_order_id: null,
-        seller_id: null,
-        weight_grams: null,
-      } as OrderItem;
-    });
-  }
-  if (!row.order_items) row.order_items = [];
-  return row as unknown as Order & { order_items: OrderItem[] };
+/**
+ * One canonical shape reaches the UI: `phone`/`email`/`delivery_note` are kept
+ * as friendly aliases of customer_phone/customer_email/delivery_note so the
+ * storefront and the invoice keep reading the same fields.
+ */
+function shapeOrder(row: Record<string, unknown>): Order & { order_items: OrderItem[] } {
+  const items = (row.order_items as OrderItem[] | undefined) ?? [];
+  return {
+    ...(row as unknown as Order),
+    phone: (row.customer_phone as string) ?? (row.phone as string) ?? "",
+    email: (row.customer_email as string | null) ?? (row.email as string | null) ?? null,
+    order_items: items,
+  };
 }
 
 export async function getOrderByNo(orderNo: string): Promise<(Order & { order_items: OrderItem[] }) | null> {
   const token = orderNo.toUpperCase().trim();
-  // try lyih `order_no` first, then izem `tracking_id` for backwards compat
-  try {
-    const { data, error } = await db().from("orders").select("*, order_items(*)").eq("order_no", token).maybeSingle();
-    if (!error && data) return normaliseOrder(data as Record<string, unknown>);
-    if (error && !String(error.message ?? "").toLowerCase().includes("order_no") && (error as { code?: string }).code !== "42703") throw error;
-  } catch {}
-  try {
-    const { data } = await db().from("orders").select("*, order_items(*)").eq("tracking_id", token).maybeSingle();
-    if (data) return normaliseOrder(data as Record<string, unknown>);
-  } catch {}
-  // final fallback: try raw select without relation (covers when order_items missing)
-  try {
-    const { data } = await db().from("orders").select("*").eq("order_no", token).maybeSingle();
-    if (data) return normaliseOrder(data as Record<string, unknown>);
-    const { data: d2 } = await db().from("orders").select("*").eq("tracking_id", token).maybeSingle();
-    if (d2) return normaliseOrder(d2 as Record<string, unknown>);
-  } catch {}
-  return null;
+  const { data } = await db()
+    .from("orders")
+    .select("*, order_items(*)")
+    .eq("order_no", token)
+    .maybeSingle();
+  return data ? shapeOrder(data as Record<string, unknown>) : null;
 }
 
 export async function getOrdersForUser(userId: string) {
-  try {
-    const { data, error } = await db().from("orders").select("*, order_items(*)").eq("user_id", userId).order("created_at", { ascending: false }).limit(50);
-    if (!error && data) return (data as Record<string, unknown>[]).map(normaliseOrder);
-    if (error) throw error;
-  } catch {}
-  try {
-    const { data } = await db().from("orders").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(50);
-    return ((data ?? []) as Record<string, unknown>[]).map(normaliseOrder);
-  } catch {
-    return [];
-  }
+  const { data, error } = await db()
+    .from("orders")
+    .select("*, order_items(*)")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) throw error;
+  return ((data ?? []) as Record<string, unknown>[]).map(shapeOrder);
 }

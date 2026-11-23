@@ -1,5 +1,4 @@
 import { db, dbUsable, markDbUnreachable } from "./db";
-import { seedPremiumPlans } from "./seed-premium";
 import type {
   PremiumPlan,
   PremiumState,
@@ -34,7 +33,7 @@ export const defaultPremiumSettings: PremiumSettings = {
 export async function getPremiumSettings(): Promise<PremiumSettings> {
   try {
     const { data } = await db()
-      .from("settings")
+      .from("site_settings")
       .select("value")
       .eq("key", PREMIUM_SETTINGS_KEY)
       .maybeSingle();
@@ -49,7 +48,7 @@ export async function updatePremiumSettings(patch: Partial<PremiumSettings>): Pr
   const current = await getPremiumSettings();
   const next = { ...current, ...patch };
   await db()
-    .from("settings")
+    .from("site_settings")
     .upsert({ key: PREMIUM_SETTINGS_KEY, value: next }, { onConflict: "key" });
   return next;
 }
@@ -59,7 +58,7 @@ export async function getActiveSubscription(userId: string): Promise<PremiumSubs
   const rank: Record<string, number> = { active: 0, grace: 1, pending: 2, expired: 3, cancelled: 4 };
 
   const { data, error } = await db()
-    .from("premium_subscriptions")
+    .from("user_subscriptions")
     .select("*")
     .eq("user_id", userId)
     .in("status", ["active", "grace", "pending"])
@@ -132,7 +131,7 @@ export async function resolvePremiumState(
   // -------- free trial (anonymous or logged-in without a plan) --------
   if (fingerprint) {
     const { data: trial } = await db()
-      .from("trial_grants")
+      .from("trials")
       .select("*")
       .eq("fingerprint", fingerprint)
       .maybeSingle();
@@ -190,7 +189,7 @@ export async function startTrial(opts: {
   const now = new Date();
 
   const { data: existing } = await db()
-    .from("trial_grants")
+    .from("trials")
     .select("*")
     .eq("fingerprint", opts.fingerprint)
     .maybeSingle();
@@ -200,7 +199,7 @@ export async function startTrial(opts: {
 
   const expires = new Date(now.getTime() + settings.trial_minutes * 60_000);
   const { data, error } = await db()
-    .from("trial_grants")
+    .from("trials")
     .insert({
       fingerprint: opts.fingerprint,
       user_id: opts.userId ?? null,
@@ -224,7 +223,7 @@ export async function sweepExpired(): Promise<{ subs: number; trials: number }> 
 
   // active → grace (just expired)
   const { data: lapsing } = await client
-    .from("premium_subscriptions")
+    .from("user_subscriptions")
     .select("id, expires_at")
     .eq("status", "active")
     .lt("expires_at", now);
@@ -232,10 +231,10 @@ export async function sweepExpired(): Promise<{ subs: number; trials: number }> 
   let subs = 0;
   for (const row of lapsing ?? []) {
     const graceUntil = new Date(
-      new Date(row.expires_at).getTime() + settings.grace_days * 86_400_000
+      new Date(row.expires_at ?? now).getTime() + settings.grace_days * 86_400_000
     ).toISOString();
     await client
-      .from("premium_subscriptions")
+      .from("user_subscriptions")
       .update({ status: "grace", grace_until: graceUntil })
       .eq("id", row.id);
     subs += 1;
@@ -243,55 +242,53 @@ export async function sweepExpired(): Promise<{ subs: number; trials: number }> 
 
   // grace → expired
   const { data: dead } = await client
-    .from("premium_subscriptions")
+    .from("user_subscriptions")
     .select("id")
     .eq("status", "grace")
     .lt("grace_until", now);
 
   for (const row of dead ?? []) {
-    await client.from("premium_subscriptions").update({ status: "expired" }).eq("id", row.id);
+    await client.from("user_subscriptions").update({ status: "expired" }).eq("id", row.id);
     subs += 1;
   }
 
   // users.premium_until hint
   await client
-    .from("users")
+    .from("profiles")
     .update({ role: "customer", premium_until: null })
     .eq("role", "premium")
     .lt("premium_until", now);
 
   // expired access codes
   const { data: codes } = await client
-    .from("premium_access_codes")
+    .from("access_codes")
     .select("id")
     .eq("status", "unused")
     .lt("expires_at", now);
   for (const row of codes ?? []) {
-    await client.from("premium_access_codes").update({ status: "expired" }).eq("id", row.id);
+    await client.from("access_codes").update({ status: "expired" }).eq("id", row.id);
   }
 
-  const { data: trials } = await client.from("trial_grants").select("id").lt("expires_at", now);
+  const { data: trials } = await client.from("trials").select("id").lt("expires_at", now);
 
   return { subs, trials: trials?.length ?? 0 };
 }
 
 export async function listPlans(activeOnly = true): Promise<PremiumPlan[]> {
-  const fallback = activeOnly ? seedPremiumPlans.filter((p) => p.is_active) : seedPremiumPlans;
-
-  if (!dbUsable()) return fallback;
+  if (!dbUsable()) return [];
 
   try {
-    let q = db().from("premium_plans").select("*").order("sort_order");
+    let q = db().from("plans").select("*").order("sort_order");
     if (activeOnly) q = q.eq("is_active", true);
     const { data, error } = await q;
     if (error) throw error;
-    if (!data?.length) return fallback;
-    return data as PremiumPlan[];
+    if (!data?.length) return [];
+    return data as unknown as PremiumPlan[];
   } catch (error) {
     // Build-time / offline prerender must not fail on a pricing page.
     markDbUnreachable();
-    console.warn("[premium] plans fallback:", (error as Error).message);
-    return fallback;
+    console.warn("[premium] plans read failed:", (error as Error).message);
+    return [];
   }
 }
 

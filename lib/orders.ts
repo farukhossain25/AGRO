@@ -1,9 +1,24 @@
 import { db } from "./db";
-import { getCombos, getDeliveryZones, getCouponByCode } from "./data";
-import { getProductsByIds, getProductsBySlugs, getCombosBySlugs } from "./queries";
-import { orderNumber } from "./format";
-import { dhakaMetroThanas } from "./bd-locations";
-import { getDeliverySettings } from "./site-settings";
+import type { Database } from "./database.types";
+import type { Order, OrderItem, PaymentMethod } from "./types";
+
+/* ==========================================================================
+   Checkout — one call, one transaction
+   --------------------------------------------------------------------------
+   Everything money-related happens inside `place_order()` in SQL, so a failed
+   line can never leave a half-written order behind:
+
+     • prices are re-read from the catalogue (client prices are ignored)
+     • stock is reserved with a guarded UPDATE (`stock >= quantity`)
+     • the coupon is validated and its `used_count` bumped
+     • the delivery charge comes from `delivery_charges` / site settings
+     • the order header, order_items, per-seller sub_orders, the payment row,
+       the parcel (with its QR token) and the in-app notifications are written
+       in the same transaction
+
+   This module only translates the RPC's Bangla error codes into messages the
+   cart can show, and reads the finished order back for the confirmation page.
+   ========================================================================== */
 
 export type IncomingItem = {
   id: string;
@@ -15,17 +30,6 @@ export type IncomingItem = {
   name?: string;
 };
 
-export type PricedLine = {
-  product_id: string | null;
-  name_bn: string;
-  unit: string;
-  price: number;
-  quantity: number;
-  image: string | null;
-  seller_id?: string | null;
-};
-
-/** A cart line the server could not sell any more, with a reason in Bangla. */
 export type UnavailableLine = {
   id: string;
   slug?: string;
@@ -33,187 +37,45 @@ export type UnavailableLine = {
   reason: string;
 };
 
-export type PricedCart = {
-  lines: PricedLine[];
+type RpcResult = {
+  order_id: string;
+  order_no: string;
   subtotal: number;
-  hasCombo: boolean;
-  unavailable: UnavailableLine[];
-  /** Quantities the server lowered because stock was short. */
-  adjusted: Array<{ id: string; name: string; requested: number; available: number }>;
+  delivery_charge: number;
+  discount: number;
+  total: number;
+  payment_no: string | null;
+  payment_id: string | null;
+  method_code: string;
+  eta_days: string;
+  item_count: number;
 };
 
-/**
- * Re-prices the cart on the server. Never trusts client prices.
- *
- * Resolution order per line: product id → product slug → combo id → combo slug.
- * The slug fallback matters: the catalogue was re-seeded in 2026-11 with fresh
- * row ids, and every cart saved before that pointed at ids that no longer
- * existed — checkout then cried "কার্টে থাকা কোনো পণ্য এখন পাওয়া যাচ্ছে না"
- * while the cart page happily showed the items.
- */
-export async function priceCart(items: IncomingItem[]): Promise<PricedCart> {
-  const productIds = items.filter((i) => i.kind === "product").map((i) => i.id);
-  const productSlugs = items
-    .filter((i) => i.kind === "product" && i.slug)
-    .map((i) => i.slug as string);
-  const combosNeeded = items.some((i) => i.kind === "combo");
-
-  const [productsById, productsBySlug, allCombos, combosBySlug] = await Promise.all([
-    productIds.length ? getProductsByIds(productIds) : Promise.resolve([]),
-    productSlugs.length ? getProductsBySlugs(productSlugs) : Promise.resolve([]),
-    combosNeeded ? getCombos() : Promise.resolve([]),
-    combosNeeded
-      ? getCombosBySlugs(items.filter((i) => i.kind === "combo" && i.slug).map((i) => i.slug as string))
-      : Promise.resolve([]),
-  ]);
-
-  const products = [...productsById, ...productsBySlug];
-  const combos = [...allCombos, ...combosBySlug];
-
-  const lines: PricedLine[] = [];
-  const unavailable: UnavailableLine[] = [];
-  const adjusted: PricedCart["adjusted"] = [];
-
-  for (const item of items) {
-    const quantity = Math.max(1, Math.min(99, Math.round(Number(item.quantity) || 1)));
-
-    if (item.kind === "product") {
-      const product =
-        products.find((p) => p.id === item.id) ??
-        (item.slug ? products.find((p) => p.slug === item.slug) : undefined);
-
-      if (!product) {
-        unavailable.push({
-          id: item.id,
-          slug: item.slug,
-          name: item.name ?? "একটি পণ্য",
-          reason: "পণ্যটি এখন আর বিক্রিতে নেই",
-        });
-        continue;
-      }
-      if (product.is_active === false) {
-        unavailable.push({ id: product.id, slug: product.slug, name: product.name_bn, reason: "পণ্যটি বন্ধ আছে" });
-        continue;
-      }
-      if (product.stock <= 0) {
-        unavailable.push({ id: product.id, slug: product.slug, name: product.name_bn, reason: "স্টক শেষ" });
-        continue;
-      }
-
-      let qty = quantity;
-      if (product.stock < qty) {
-        qty = product.stock;
-        adjusted.push({ id: product.id, name: product.name_bn, requested: quantity, available: product.stock });
-      }
-
-      lines.push({
-        product_id: product.id,
-        name_bn: product.name_bn,
-        unit: product.unit,
-        price: Number(product.price),
-        quantity: qty,
-        image: product.image,
-        seller_id: (product as { seller_id?: string | null }).seller_id ?? null,
-      });
-    } else {
-      const combo =
-        combos.find((c) => c.id === item.id) ??
-        (item.slug ? combos.find((c) => c.slug === item.slug) : undefined);
-
-      if (!combo) {
-        unavailable.push({
-          id: item.id,
-          slug: item.slug,
-          name: item.name ?? "একটি কম্বো",
-          reason: "কম্বোটি এখন আর পাওয়া যাচ্ছে না",
-        });
-        continue;
-      }
-      lines.push({
-        product_id: null,
-        name_bn: combo.name_bn,
-        unit: "বক্স",
-        price: Number(combo.price),
-        quantity,
-        image: combo.image,
-        seller_id: null,
-      });
-    }
+/** RPC code → customer-facing Bangla. Anything unknown falls back to a retry
+ *  message; the real sentence is always logged server-side. */
+function translate(code: string, detail: string): { message: string; status: number } {
+  switch (code) {
+    case "CART_EMPTY":
+      return { message: "আপনার কার্টে কোনো পণ্য নেই — প্রথমে পণ্য যোগ করুন।", status: 422 };
+    case "CUSTOMER_INCOMPLETE":
+      return { message: "নাম, মোবাইল নম্বর ও সম্পূর্ণ ঠিকানা পূরণ করুন।", status: 422 };
+    case "PAYMENT_METHOD_UNAVAILABLE":
+      return { message: "এই পেমেন্ট মাধ্যমটি এখন বন্ধ আছে — অন্য একটি বেছে নিন।", status: 422 };
+    case "COUPON_INVALID":
+      return { message: "কুপন কোডটি সঠিক নয় বা মেয়াদ শেষ হয়েছে।", status: 422 };
+    case "COUPON_MIN_ORDER":
+      return { message: `এই কুপনের জন্য কমপক্ষে ৳${detail} টাকার অর্ডার লাগবে।`, status: 422 };
+    case "COMBO_UNAVAILABLE":
+      return { message: "কার্টে থাকা একটি কম্বো এখন পাওয়া যাচ্ছে না — কার্ট থেকে সরিয়ে আবার চেষ্টা করুন।", status: 409 };
+    case "PRODUCT_UNAVAILABLE":
+      return { message: `"${detail}" এখন পাওয়া যাচ্ছে না — কার্ট থেকে সরিয়ে আবার চেষ্টা করুন।`, status: 409 };
+    case "OUT_OF_STOCK":
+      return { message: `"${detail}" এর স্টক শেষ — পরিমাণ কমিয়ে বা সরিয়ে আবার চেষ্টা করুন।`, status: 409 };
+    default:
+      return { message: "অর্ডারটি সম্পন্ন করা যায়নি — একটু পরে আবার চেষ্টা করুন।", status: 500 };
   }
-
-  const subtotal = Math.round(lines.reduce((s, l) => s + l.price * l.quantity, 0) * 100) / 100;
-  return { lines, subtotal, hasCombo: items.some((i) => i.kind === "combo"), unavailable, adjusted };
 }
 
-/**
- * Server-side delivery charge.
- *
- * Precedence, most specific first:
- *   1. a combo box  → always free, next-day
- *   2. subtotal     → free above `settings.delivery.free_over`
- *   3. named row    → a `delivery_zones` row for this district or division
- *   4. defaults     → `settings.delivery.inside_dhaka` / `.outside_dhaka`
- *
- * Steps 3 and 4 used to be one hard-coded 60 / 120 / 1200. Those numbers are
- * now the `settings.delivery` defaults, so /foisal/settings can change what a
- * customer is actually charged without a deploy.
- */
-export async function computeDelivery(
-  division: string,
-  district: string,
-  upazila: string,
-  subtotal: number,
-  hasCombo: boolean
-): Promise<{ charge: number; eta: string }> {
-  if (hasCombo) return { charge: 0, eta: "১ দিন" };
-
-  const rules = await getDeliverySettings();
-  if (subtotal >= rules.free_over) {
-    return { charge: 0, eta: division === "ঢাকা" ? "আজ" : "২–৩ দিন" };
-  }
-
-  const zones = await getDeliveryZones();
-  const isDhakaMetro = division === "ঢাকা" && dhakaMetroThanas.has(upazila);
-
-  if (isDhakaMetro) {
-    const zone = zones.find((z) => z.scope === "inside_dhaka" && z.is_active !== false);
-    return { charge: Number(zone?.charge ?? rules.inside_dhaka), eta: zone?.eta_days ?? "আজ" };
-  }
-
-  const zone =
-    zones.find((z) => z.district === district) ??
-    zones.find((z) => z.division === division) ??
-    zones.find((z) => z.scope === "outside_dhaka");
-
-  return { charge: Number(zone?.charge ?? rules.outside_dhaka), eta: zone?.eta_days ?? "২–৩ দিন" };
-}
-
-/** Validates a coupon server-side and returns the discount amount. */
-export async function computeDiscount(code: string | undefined, subtotal: number) {
-  if (!code) return { discount: 0, couponCode: null as string | null, couponId: null as string | null };
-
-  const coupon = await getCouponByCode(code);
-  if (!coupon || !coupon.is_active) return { discount: 0, couponCode: null, couponId: null };
-  if (coupon.expires_at && new Date(coupon.expires_at).getTime() < Date.now()) {
-    return { discount: 0, couponCode: null, couponId: null };
-  }
-  if (coupon.usage_limit != null && coupon.used_count >= coupon.usage_limit) {
-    return { discount: 0, couponCode: null, couponId: null };
-  }
-  if (subtotal < Number(coupon.min_order)) {
-    return { discount: 0, couponCode: null, couponId: null };
-  }
-
-  let discount =
-    coupon.type === "percent" ? (subtotal * Number(coupon.value)) / 100 : Number(coupon.value);
-  if (coupon.max_discount != null) discount = Math.min(discount, Number(coupon.max_discount));
-  discount = Math.min(discount, subtotal);
-  discount = Math.round(discount * 100) / 100;
-
-  return { discount, couponCode: coupon.code, couponId: coupon.id };
-}
-
-/** Creates the order + items atomically-ish and returns the order row. */
 export async function createOrder(params: {
   userId: string | null;
   customer: {
@@ -226,116 +88,121 @@ export async function createOrder(params: {
     address: string;
     delivery_note?: string;
   };
-  paymentMethod: "cod" | "bkash" | "nagad" | "sslcommerz";
+  paymentMethod: PaymentMethod;
   items: IncomingItem[];
   couponCode?: string;
-}) {
-  const priced = await priceCart(params.items);
-
-  if (priced.unavailable.length) {
-    const names = priced.unavailable.map((u) => `${u.name} (${u.reason})`).join(", ");
-    const err = new Error(
-      `কার্টে থাকা কিছু পণ্য এখন পাওয়া যাচ্ছে না — ${names}। কার্ট থেকে সরিয়ে আবার চেষ্টা করুন।`
-    ) as Error & { status?: number; unavailable?: UnavailableLine[] };
-    err.status = 409;
-    err.unavailable = priced.unavailable;
-    throw err;
-  }
-
-  if (!priced.lines.length) {
-    const err = new Error("আপনার কার্টে কোনো পণ্য নেই — প্রথমে পণ্য যোগ করুন।") as Error & {
-      status?: number;
-    };
-    err.status = 422;
-    throw err;
-  }
-
-  const { charge } = await computeDelivery(
-    params.customer.division,
-    params.customer.district,
-    params.customer.upazila,
-    priced.subtotal,
-    priced.hasCombo
-  );
-
-  const { discount, couponCode, couponId } = await computeDiscount(params.couponCode, priced.subtotal);
-  const total = Math.max(0, Math.round((priced.subtotal + charge - discount) * 100) / 100);
-
-  const orderNo = orderNumber();
+}): Promise<{ order: Order & { order_items: OrderItem[] }; lines: OrderItem[] }> {
   const client = db();
 
-  // Insert header with BOTH dialects so either schema reads it. `items` mirrors `order_items` for izem.
-  const { data: order, error } = await client
-    .from("orders")
-    .insert({
-      order_no: orderNo,
-      tracking_id: orderNo,
-      user_id: params.userId,
+  const items = params.items
+    .filter((item) => item && item.id)
+    .map((item) => ({
+      id: item.id,
+      kind: item.kind === "combo" ? "combo" : "product",
+      quantity: Math.max(1, Math.min(99, Math.trunc(Number(item.quantity) || 1))),
+      ...(item.slug ? { slug: item.slug } : {}),
+    }));
+
+  const { data, error } = await client.rpc("place_order", {
+    p_user: params.userId,
+    p_customer: {
       customer_name: params.customer.customer_name,
       phone: params.customer.phone,
       customer_phone: params.customer.phone,
-      email: params.customer.email || null,
-      customer_email: params.customer.email || null,
+      email: params.customer.email ?? "",
       division: params.customer.division,
       district: params.customer.district,
       upazila: params.customer.upazila,
       address: params.customer.address,
-      delivery_note: params.customer.delivery_note || null,
-      note: params.customer.delivery_note || null,
-      subtotal: priced.subtotal,
-      delivery_charge: charge,
-      discount,
-      total,
-      coupon_code: couponCode,
-      payment_method: params.paymentMethod,
-      payment_status: "pending",
-      status: "received",
-      items: priced.lines as unknown as never,
-    } as never)
-    .select()
-    .single();
+      delivery_note: params.customer.delivery_note ?? "",
+    },
+    p_items: items,
+    p_payment_method: params.paymentMethod,
+    p_coupon: params.couponCode ?? null,
+  } as unknown as Database["public"]["Functions"]["place_order"]["Args"]);
 
   if (error) {
-    console.error("[orders] order insert failed:", error.message, error.details ?? "", error.hint ?? "");
-    throw error;
-  }
+    const raw = error.message ?? "";
+    const [code, ...rest] = raw.split(":");
+    const detail = rest.join(":").trim();
+    const { message, status } = translate(code.trim(), detail);
 
-  // keep `items` jsonb in sync for legacy readers (best-effort, never block checkout)
-  try {
-    await client.from("orders").update({ items: priced.lines as unknown as never } as never).eq("id", order.id);
-  } catch {}
+    console.error("[orders] place_order failed:", raw, error.details ?? "", error.hint ?? "");
 
-  const { error: itemsError } = await client
-    .from("order_items")
-    .insert(priced.lines.map((l) => ({ ...l, order_id: order.id })));
+    const wrapped = new Error(message) as Error & {
+      status?: number;
+      unavailable?: UnavailableLine[];
+      code?: string;
+    };
+    wrapped.status = status;
+    wrapped.code = code.trim();
 
-  if (itemsError) {
-    console.error("[orders] order_items insert failed:", itemsError.message, itemsError.details ?? "");
-    // roll back the header so we never leave a half-written order
-    await client.from("orders").delete().eq("id", order.id);
-    throw itemsError;
-  }
-
-  // decrement stock + bump coupon usage (best effort)
-  for (const line of priced.lines) {
-    if (!line.product_id) continue;
-    const { data: current } = await client
-      .from("products")
-      .select("stock")
-      .eq("id", line.product_id)
-      .single();
-    if (current) {
-      await client
-        .from("products")
-        .update({ stock: Math.max(0, current.stock - line.quantity) })
-        .eq("id", line.product_id);
+    if (status === 409) {
+      const extras = params.items
+        .filter((item) => item.name)
+        .map((item) => ({
+          id: item.id,
+          slug: item.slug,
+          name: item.name ?? item.id,
+          reason: "স্টক শেষ বা বন্ধ",
+        }));
+      if (code.trim() === "PRODUCT_UNAVAILABLE" || code.trim() === "OUT_OF_STOCK") {
+        const named = extras.filter((item) => item.name === detail);
+        wrapped.unavailable = named.length ? named : extras;
+      } else {
+        wrapped.unavailable = extras;
+      }
     }
+
+    throw wrapped;
   }
 
-  if (couponId) {
-    const { data: c } = await client.from("coupons").select("used_count").eq("id", couponId).single();
-    if (c) await client.from("coupons").update({ used_count: (c.used_count ?? 0) + 1 }).eq("id", couponId);
+  const result = data as unknown as RpcResult;
+
+  const { data: row, error: readError } = await client
+    .from("orders")
+    .select("*, order_items(*)")
+    .eq("id", result.order_id)
+    .single();
+
+  if (readError || !row) {
+    console.error("[orders] order placed but read-back failed:", readError?.message, result.order_no);
+    // The order exists; the customer only needs its number to reach tracking.
+    const minimal = {
+      id: result.order_id,
+      order_no: result.order_no,
+      user_id: params.userId,
+      customer_name: params.customer.customer_name,
+      phone: params.customer.phone,
+      email: params.customer.email ?? null,
+      division: params.customer.division,
+      district: params.customer.district,
+      upazila: params.customer.upazila,
+      address: params.customer.address,
+      delivery_note: params.customer.delivery_note ?? null,
+      subtotal: result.subtotal,
+      delivery_charge: result.delivery_charge,
+      discount: result.discount,
+      total: result.total,
+      coupon_code: params.couponCode ?? null,
+      payment_method: (result.method_code as PaymentMethod) ?? params.paymentMethod,
+      payment_status: "pending" as const,
+      payment_ref: null,
+      status: "received" as const,
+      created_at: new Date().toISOString(),
+      updated_at: null,
+      order_items: [],
+    } satisfies Order & { order_items: OrderItem[] };
+    return { order: minimal, lines: [] };
   }
 
-  return { order, lines: priced.lines, deliveryCharge: charge, discount, total };
+  const orderItems = (row.order_items ?? []) as unknown as OrderItem[];
+  const order = {
+    ...(row as unknown as Order),
+    phone: row.customer_phone,
+    email: row.customer_email,
+    order_items: orderItems,
+  };
+
+  return { order, lines: orderItems };
 }

@@ -51,6 +51,8 @@ for (const file of source.filter((f) => f.startsWith("app/api") && f.endsWith("r
     "app/api/contact/route.ts": "public contact form, rate-limited",
     "app/api/newsletter/route.ts": "public signup, rate-limited",
     "app/api/coupons/validate/route.ts": "read-only coupon check, rate-limited",
+    "app/api/cart/validate/route.ts": "re-prices the cart; reads the catalogue only, never writes",
+    "app/api/auth/login-help/route.ts": "post-failure help, throttled 12/5min per IP, leaks no ids",
   };
   const key = file.replace(/^\.\//, "");
   if (guarded || PUBLIC_BY_DESIGN[key]) continue;
@@ -113,10 +115,21 @@ for (const file of source.filter((f) => f.startsWith("./.env"))) {
   if (file !== "./.env.example") add("error", file, "real environment file is in the repository");
 }
 
-/* 8 ── cookies must stay httpOnly + sameSite ---------------------------------- */
-const auth = readFileSync("lib/auth.ts", "utf8");
-if (!/httpOnly:\s*true/.test(auth)) add("error", "lib/auth.ts", "session cookie is not httpOnly");
-if (!/sameSite/.test(auth)) add("warn", "lib/auth.ts", "session cookie has no SameSite attribute");
+/* 8 ── sessions must come from @supabase/ssr, never a hand-rolled cookie ----- */
+/* The old `lib/auth.ts` (own signed cookie) is gone: sessions live in the
+   Supabase auth cookies, which @supabase/ssr writes httpOnly + SameSite=Lax.
+   What must never come back is a bespoke cookie carrying a user id or role. */
+for (const file of ["lib/supabase/server.ts", "lib/supabase/client.ts", "middleware.ts"]) {
+  if (!source.includes(`./${file}`)) continue;
+  const body = readFileSync(file, "utf8");
+  if (/cookies\(\)\.set\(["'](?:uid|user|role|session_id)["']/.test(body)) {
+    add("error", file, "hand-rolled session cookie — use @supabase/ssr cookies");
+  }
+}
+const serverAuth = readFileSync("lib/supabase/server.ts", "utf8");
+if (!/createServerClient/.test(serverAuth)) {
+  add("error", "lib/supabase/server.ts", "createServerClient() missing — sessions would not refresh");
+}
 
 /* 9 ── manual payments: the verdict must stay server-side -------------------- */
 /* A payment is only allowed to become `verified` through decidePayment(), which

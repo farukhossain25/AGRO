@@ -85,7 +85,7 @@ export async function POST(req: Request) {
         .insert({
           user_id: user.id,
           name_bn: data.name_bn,
-          items: lines,
+          items: lines as unknown as import("@/lib/database.types").Json,
           item_count: totalQty,
           price_cached: total,
           repeat_interval: data.repeat_interval,

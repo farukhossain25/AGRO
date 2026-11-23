@@ -4,7 +4,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, BadgeCheck, Play, Sprout, Star, Truck } from "lucide-react";
 import { useLocale } from "@/lib/locale";
-import { site } from "@/lib/site";
 
 /** Tiny inline blur-up placeholder (a 4×3 gradient JPEG, ~120 bytes). */
 const BLUR_PLACEHOLDER =

@@ -1,10 +1,11 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "./database.types";
 
 /**
  * Server-only Supabase client using the service role key.
  * Bypasses RLS — every call site MUST authorise the caller first.
  */
-let adminClient: SupabaseClient | null = null;
+let adminClient: SupabaseClient<Database> | null = null;
 
 /**
  * Every server-side query gets a hard deadline.
@@ -37,7 +38,7 @@ const timeoutFetch: typeof fetch = (input, init) => {
     .finally(() => clearTimeout(timer));
 };
 
-export function db(): SupabaseClient {
+export function db(): SupabaseClient<Database> {
   if (adminClient) return adminClient;
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -49,7 +50,7 @@ export function db(): SupabaseClient {
     );
   }
 
-  adminClient = createClient(url, key, {
+  adminClient = createClient<Database>(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
     global: { headers: { "X-Client-Info": "biswas-agro-server" }, fetch: timeoutFetch },
   });
@@ -85,6 +86,18 @@ export function dbUsable(): boolean {
 /** True when Supabase credentials are present (used for graceful demo mode). */
 export function isDbConfigured(): boolean {
   return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+}
+
+/**
+ * Dynamic-table escape hatch for the generic admin CRUD route.
+ *
+ * That route resolves its table name from the URL (`/api/foisal/[resource]`),
+ * so TypeScript cannot know which row shape is coming back. Everything else in
+ * the app uses the typed `db()` client; this alias exists so ONE file can opt
+ * out instead of every file losing its types.
+ */
+export function dbDynamic() {
+  return db() as unknown as SupabaseClient;
 }
 
 /** Unique violation from Postgres — used to return friendly "already exists" errors. */

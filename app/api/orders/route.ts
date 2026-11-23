@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import { clientKey, created, currentUser, fail, handleError, rateLimit, tooMany } from "@/lib/api";
 import { checkoutSchema } from "@/lib/validation";
 import { createOrder } from "@/lib/orders";
-import { ensureParcel } from "@/lib/parcels";
-import { createSubOrders } from "@/lib/sellers";
 import { notify, notifyAdmins } from "@/lib/notify";
 import { ADMIN_BASE } from "@/lib/paths";
 
@@ -19,7 +17,7 @@ export async function POST(req: Request) {
 
     const user = await currentUser().catch(() => null);
 
-    const { order, lines } = await createOrder({
+    const { order } = await createOrder({
       userId: user?.id ?? null,
       customer: {
         customer_name: data.customer_name,
@@ -36,26 +34,17 @@ export async function POST(req: Request) {
       couponCode: data.coupon_code || undefined,
     });
 
-    // Per-seller split. Products without a seller (our own catalogue) produce
-    // no sub-order, so this is a no-op until sellers exist.
-    await createSubOrders(
-      order.id,
-      lines.map((l) => ({ seller_id: l.seller_id ?? null, lineTotal: l.price * l.quantity }))
-    ).catch((error) => console.error("[orders] sub-order split failed:", (error as Error).message));
-
-    // A parcel row (with its QR token) is created up-front so the shipping
-    // label can be printed the moment the order lands. Failure is non-fatal.
-    await ensureParcel(order.id, order.order_no).catch((error) =>
-      console.warn("[orders] parcel create failed:", (error as Error).message)
-    );
-
-    // Notify in the background — never hold the checkout response for this.
+    /* Sub-orders, the payment row, the parcel/QR token and the in-app
+       notifications are all written inside place_order()'s transaction. Here
+       we only fan out the extra channels (push/email/SMS) — `storeInApp:false`
+       keeps the notification centre free of duplicates. */
     const notifyTasks = [
       notifyAdmins({
         kind: "order",
         title: `নতুন অর্ডার #${order.order_no}`,
         body: `${order.customer_name} · ৳${order.total} · ${order.district}`,
         link: `${ADMIN_BASE}/orders`,
+        storeInApp: false,
       }),
     ];
     if (user?.id) {
@@ -66,6 +55,9 @@ export async function POST(req: Request) {
           title: `অর্ডার #${order.order_no} গ্রহণ করা হয়েছে`,
           body: `মোট ৳${order.total}। আমরা শীঘ্রই প্যাকিং শুরু করব।`,
           link: `/track?order=${order.order_no}`,
+          phone: data.phone,
+          email: data.email || undefined,
+          storeInApp: false,
         })
       );
     } else {
@@ -76,7 +68,9 @@ export async function POST(req: Request) {
           title: `অর্ডার #${order.order_no}`,
           body: `${data.phone} — অর্ডার ট্র্যাক করতে অর্ডার নম্বর ও ফোন ব্যবহার করুন।`,
           phone: data.phone,
+          email: data.email || undefined,
           push: false,
+          storeInApp: false,
         })
       );
     }

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { Award, Leaf, MapPin, ShieldCheck, Sprout, Truck, Users } from "lucide-react";
+import { Award, Leaf, MapPin, ShieldCheck, Sprout, Truck } from "lucide-react";
 import { getFarmers } from "@/lib/data";
 import { SectionHeader } from "@/components/ui";
 import { site } from "@/lib/site";

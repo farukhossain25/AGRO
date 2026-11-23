@@ -35,11 +35,11 @@ export async function GET(req: Request) {
     if (error) throw error;
     if (!data) return fail("এই অর্ডার নম্বরে কোনো অর্ডার পাওয়া যায়নি", 404);
 
-    if (normalisePhone(data.phone) !== normalisePhone(phone)) {
+    if (normalisePhone(data.customer_phone) !== normalisePhone(phone)) {
       return fail("অর্ডার নম্বর ও মোবাইল নম্বর মিলছে না", 403);
     }
 
-    return ok(data);
+    return ok({ ...data, phone: data.customer_phone, email: data.customer_email });
   } catch (error) {
     return handleError(error);
   }

@@ -24,7 +24,7 @@ export async function GET() {
     if (!isDbConfigured()) return ok({ items: [], ids: [] });
 
     const { data, error } = await db()
-      .from("wishlists")
+      .from("wishlist")
       .select("product_id, created_at, products(id, slug, name_bn, name_en, price, compare_price, image, unit, stock, rating, review_count, is_active)")
       .eq("user_id", session.id)
       .order("created_at", { ascending: false });
@@ -54,19 +54,19 @@ export async function POST(req: Request) {
     const { productId } = toggleSchema.parse(await req.json());
 
     const { data: existing } = await db()
-      .from("wishlists")
+      .from("wishlist")
       .select("id")
       .eq("user_id", session.id)
       .eq("product_id", productId)
       .maybeSingle();
 
     if (existing) {
-      await db().from("wishlists").delete().eq("id", existing.id);
+      await db().from("wishlist").delete().eq("id", existing.id);
       return ok({ saved: false });
     }
 
     const { error } = await db()
-      .from("wishlists")
+      .from("wishlist")
       .insert({ user_id: session.id, product_id: productId });
 
     if (error) return fail("উইশলিস্টে সংরক্ষণ করা যায়নি — আবার চেষ্টা করুন", 503);
@@ -90,7 +90,7 @@ export async function DELETE(req: Request) {
     if (!productId) return fail("পণ্য আইডি দিন", 400);
 
     await db()
-      .from("wishlists")
+      .from("wishlist")
       .delete()
       .eq("user_id", session.id)
       .eq("product_id", productId);

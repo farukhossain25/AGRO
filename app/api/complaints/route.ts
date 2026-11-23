@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { db, isDbConfigured } from "@/lib/db";
+import type { TablesInsert } from "@/lib/database.types";
 import {
   clientKey,
   created,
@@ -105,7 +106,7 @@ export async function POST(req: Request) {
 
     const { data: complaint, error } = await client
       .from("complaints")
-      .insert({
+      .insert(({
         order_id: data.orderId,
         sub_order_id: (line.sub_order_id as string | null) ?? null,
         order_item_id: line.id as string,
@@ -117,7 +118,7 @@ export async function POST(req: Request) {
         photos: (data.photos ?? []).slice(0, 3),
         preferred_resolution: data.resolution,
         status: "open",
-      })
+      }) as TablesInsert<"complaints">)
       .select("id, ticket_no")
       .single();
 
@@ -193,7 +194,7 @@ async function notifyComplaint(complaintId: string, ticketNo: string, problemTyp
 
     // every admin
     const { data: admins } = await db()
-      .from("users")
+      .from("profiles")
       .select("id")
       .eq("role", "admin")
       .eq("is_active", true);

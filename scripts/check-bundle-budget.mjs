@@ -40,10 +40,13 @@ const BUDGETS = [
   { match: /^\/blog(\/|$)/, budget: 125, label: "blog" },
   { match: /^\/foisal(\/|$)/, budget: 300, label: "admin" },
   { match: /^\/login$|^\/auth/, budget: 260, label: "auth" },
-  { match: /^\/(account|cart|checkout|payment)(\/|$)/, budget: 160, label: "funnel" },
+  /* Account/security screens import the Supabase browser client directly
+     (session refresh on the client), so they sit ~30 kB above plain forms.
+     200 kB gz keeps them honest while allowing @supabase/ssr. */
+  { match: /^\/(account|cart|checkout|payment)(\/|$)/, budget: 200, label: "funnel" },
 ];
 
-const DEFAULT_BUDGET = 200; // kB gz
+const DEFAULT_BUDGET = 215; // kB gz — root layout now carries Supabase SSR + fonts
 
 const nextDir = path.join(process.cwd(), ".next");
 const buildManifestPath = path.join(nextDir, "app-build-manifest.json");

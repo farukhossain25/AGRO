@@ -14,7 +14,6 @@ import {
   Clock,
   Download,
   ExternalLink,
-  Filter,
   ImageIcon,
   Loader2,
   MessageSquareWarning,
@@ -275,6 +274,7 @@ export function PaymentConsole({
           >
             {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
           </button>
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- CSV download, not a page */}
           <a
             href="/api/foisal/payments?format=csv&days=30"
             className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 px-2.5 py-2 text-[11.5px] text-sand-100/60 transition hover:bg-white/[0.05]"

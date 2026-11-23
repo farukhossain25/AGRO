@@ -23,7 +23,7 @@ async function loadVerified(): Promise<ModReviewRow[]> {
   if (!isDbConfigured()) return [];
   try {
     const { data, error } = await db()
-      .from("order_reviews")
+      .from("reviews")
       .select(
         "id, user_id, rating, seller_rating, comment, photos, tags, status, seller_reply, created_at, products(name_bn, slug), sellers(name_bn, slug)"
       )

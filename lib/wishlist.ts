@@ -8,7 +8,7 @@ import type { Product } from "./types";
 export async function getWishlistProductIds(userId: string): Promise<string[]> {
   if (!isDbConfigured()) return [];
   try {
-    const { data } = await db().from("wishlists").select("product_id").eq("user_id", userId);
+    const { data } = await db().from("wishlist").select("product_id").eq("user_id", userId);
     return (data ?? []).map((r) => r.product_id as string);
   } catch {
     return [];
@@ -20,7 +20,7 @@ export async function getWishlistProducts(userId: string): Promise<Product[]> {
   if (!isDbConfigured()) return [];
   try {
     const { data, error } = await db()
-      .from("wishlists")
+      .from("wishlist")
       .select(
         "created_at, products(id, slug, category_id, name_bn, name_en, description_bn, unit, unit_en, price, compare_price, stock, image, images, farm_source_bn, harvest_date, badge_bn, rating, review_count, is_featured, is_active, created_at, updated_at)"
       )

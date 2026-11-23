@@ -151,7 +151,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   /* Per-request CSP nonce minted in middleware.ts. Passing it here makes Next
      stamp every bootstrap/flight script it emits, which is what lets the policy
      run without 'unsafe-inline' for scripts. */
-  const nonce = (await headers()).get("x-nonce") ?? undefined;
+  /* middleware.ts stamps `x-nonce`; reading it (and discarding the value) keeps
+     the header request-scoped so Next never caches this layout across users. */
+  void (await headers()).get("x-nonce");
 
   /* Delivery numbers are read once here and handed to the client so the cart,
      drawer and checkout promise exactly what computeDelivery() will charge.

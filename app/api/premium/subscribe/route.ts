@@ -39,18 +39,18 @@ export async function POST(req: Request) {
     // One open subscription at a time — a pending row from an abandoned
     // checkout would otherwise stack up.
     const { data: pending } = await client
-      .from("premium_subscriptions")
+      .from("user_subscriptions")
       .select("id")
       .eq("user_id", user.id)
       .eq("status", "pending");
 
     for (const row of pending ?? []) {
-      await client.from("premium_subscriptions").update({ status: "cancelled" }).eq("id", row.id);
+      await client.from("user_subscriptions").update({ status: "cancelled" }).eq("id", row.id);
     }
 
     // Lifetime already-active plan? Extend from the current expiry instead of today.
     const { data: current } = await client
-      .from("premium_subscriptions")
+      .from("user_subscriptions")
       .select("expires_at, status, tier")
       .eq("user_id", user.id)
       .in("status", ["active", "grace"])
@@ -66,7 +66,7 @@ export async function POST(req: Request) {
     const subNo = `PS-${Date.now().toString(36).toUpperCase()}`;
 
     const { data: sub, error } = await client
-      .from("premium_subscriptions")
+      .from("user_subscriptions")
       .insert({
         sub_no: subNo,
         user_id: user.id,
@@ -112,7 +112,7 @@ export async function POST(req: Request) {
 /** Flip the user's role + premium_until so middleware and headers agree. */
 async function activateUser(userId: string, until: Date) {
   await db()
-    .from("users")
+    .from("profiles")
     .update({ role: "premium", premium_until: until.toISOString() })
     .eq("id", userId)
     .neq("role", "admin");
@@ -122,7 +122,7 @@ export async function GET() {
   try {
     const user = await requireUser();
     const { data, error } = await db()
-      .from("premium_subscriptions")
+      .from("user_subscriptions")
       .select("*")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });

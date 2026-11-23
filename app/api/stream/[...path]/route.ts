@@ -28,7 +28,7 @@ async function handle(req: Request, segments: string[]) {
 
   // Revocable sessions: the row must still exist and be unexpired.
   const { data: session } = await db()
-    .from("stream_sessions")
+    .from("stream_tokens")
     .select("jti, camera_id, expires_at")
     .eq("jti", payload.jti)
     .maybeSingle();

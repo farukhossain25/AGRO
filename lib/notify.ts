@@ -28,6 +28,8 @@ export type NotifyInput = {
   email?: string | null;
   phone?: string | null;
   push?: boolean;
+  /** false = skip the in-app row (already written by a DB function/RPC). */
+  storeInApp?: boolean;
 };
 
 export async function notify(input: NotifyInput): Promise<void> {
@@ -42,26 +44,23 @@ export async function notify(input: NotifyInput): Promise<void> {
     email,
     phone,
     push = true,
+    storeInApp = true,
   } = input;
 
-  // 1) always store the in-app notification
-  if (userId) {
-    /* Both dialects: the live table still carries the legacy NOT NULL
-       `type`/`title`/`message` trio next to `kind`/`title_bn`/`body_bn`. Only
-       the modern half was written before, so the insert was rejected and —
-       because supabase-js returns `{ error }` instead of throwing — nothing
-       was ever stored and nobody was notified about a new order. */
+  // 1) store the in-app notification (unless the caller already did)
+  if (userId && storeInApp) {
+    /* `notifications` carries `kind`/`title_bn`/`body_bn`/`link`/`meta`. These
+       match 05_premium_reviews_tables.sql exactly; a stale insert shape is
+       logged here instead of being swallowed (supabase-js returns `error`
+       rather than throwing). */
     const { error } = await db().from("notifications").insert({
       user_id: userId,
       audience,
       kind,
-      type: kind,
-      title,
-      message: body ?? title,
       title_bn: title,
       body_bn: body ?? null,
       link: link ?? null,
-      meta,
+      meta: meta as unknown as import("./database.types").Json,
     });
     if (error) console.error("[notify] in-app insert failed:", error.message, error.details ?? "");
   }

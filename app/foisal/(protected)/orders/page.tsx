@@ -14,7 +14,7 @@ export default async function AdminOrdersPage() {
         .select("*")
         .order("created_at", { ascending: false })
         .limit(200);
-      orders = (data ?? []) as (Order & { order_items: [] })[];
+      orders = (data ?? []) as unknown as (Order & { order_items: [] })[];
     } catch {
       orders = [];
     }

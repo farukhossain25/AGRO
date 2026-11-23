@@ -18,7 +18,6 @@ import { ReviewList } from "@/components/shop/review-list";
 import { getProductReviews } from "@/lib/reviews";
 import { SectionHeader, StarRating } from "@/components/ui";
 import { site } from "@/lib/site";
-import { formatDateBn } from "@/lib/format";
 import { dynamicAlternates } from "@/lib/seo";
 
 export const revalidate = 120;

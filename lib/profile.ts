@@ -1,4 +1,5 @@
 import { db, isDbConfigured } from "./db";
+import type { TablesUpdate } from "./database.types";
 import { normalizeRole } from "./session";
 import type { UserRole } from "./types";
 
@@ -87,18 +88,18 @@ export async function updateProfile(
 ): Promise<Profile | null> {
   if (!isDbConfigured()) return null;
 
-  const clean: Record<string, unknown> = {};
+  const clean: TablesUpdate<"profiles"> = {};
   if (patch.full_name !== undefined) clean.full_name = patch.full_name?.trim().slice(0, 80) || null;
   if (patch.phone !== undefined) clean.phone = patch.phone?.trim().slice(0, 20) || null;
   if (patch.bio !== undefined) clean.bio = patch.bio?.trim().slice(0, 400) || null;
   if (patch.avatar_url !== undefined) clean.avatar_url = patch.avatar_url || null;
   if (patch.language !== undefined) clean.language = patch.language === "en" ? "en" : "bn";
   if (patch.theme !== undefined) clean.theme = patch.theme === "light" ? "light" : "dark";
-  if (patch.notifications !== undefined) clean.notification_preferences = patch.notifications;
+  if (patch.notifications !== undefined) clean.notification_preferences = patch.notifications as never;
 
   if (!Object.keys(clean).length) return getProfile(authId);
 
-  const attempt = async (payload: Record<string, unknown>): Promise<Profile | null> => {
+  const attempt = async (payload: TablesUpdate<"profiles">): Promise<Profile | null> => {
     const { data, error } = await db()
       .from("profiles")
       .update(payload)
@@ -107,26 +108,6 @@ export async function updateProfile(
       .maybeSingle();
 
     if (error) {
-      const msg = (error.message ?? "").toLowerCase();
-      // Older rows may use the other dialect name for the notification column.
-      if (msg.includes("notification_preferences") && payload.notification_preferences !== undefined) {
-        const values = payload.notification_preferences;
-        const alt: Record<string, unknown> = { ...payload, notifications: values };
-        delete alt.notification_preferences;
-        const retry = await db().from("profiles").update(alt).eq("id", authId).select("*").maybeSingle();
-        if (!retry.error && retry.data) return shapeProfile(retry.data as Record<string, unknown>);
-      }
-      if (msg.includes("does not exist") || msg.includes("could not find")) {
-        // Drop columns this project does not have and retry once.
-        const alt = { ...payload };
-        for (const column of ["bio", "theme", "language", "avatar_url", "full_name", "phone"]) {
-          if (msg.includes(column)) delete alt[column];
-        }
-        if (Object.keys(alt).length) {
-          const retry = await db().from("profiles").update(alt).eq("id", authId).select("*").maybeSingle();
-          if (!retry.error && retry.data) return shapeProfile(retry.data as Record<string, unknown>);
-        }
-      }
       console.warn("[profile] updateProfile failed:", error.message);
       return null;
     }

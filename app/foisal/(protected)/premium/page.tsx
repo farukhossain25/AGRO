@@ -42,11 +42,11 @@ export default async function AdminPremiumPage() {
       const client = db();
       const [{ data }, { count: trialCount }, { count: deviceCount }, { count: sessionCount }] =
         await Promise.all([
-          client.from("premium_subscriptions").select("*").order("created_at", { ascending: false }).limit(200),
-          client.from("trial_grants").select("id", { count: "exact", head: true }),
+          client.from("user_subscriptions").select("*").order("created_at", { ascending: false }).limit(200),
+          client.from("trials").select("id", { count: "exact", head: true }),
           client.from("premium_devices").select("id", { count: "exact", head: true }),
           client
-            .from("stream_sessions")
+            .from("stream_tokens")
             .select("jti", { count: "exact", head: true })
             .gt("expires_at", new Date().toISOString()),
         ]);
@@ -59,11 +59,11 @@ export default async function AdminPremiumPage() {
       // hydrate customer names for the table
       const ids = Array.from(new Set(raw.map((r) => r.user_id).filter(Boolean))) as string[];
       if (ids.length) {
-        const { data: users } = await client.from("users").select("id, name, phone").in("id", ids);
+        const { data: users } = await client.from("profiles").select("id, full_name, phone").in("id", ids);
         const map = new Map((users ?? []).map((u) => [u.id, u]));
         subs = raw.map((r) => ({
           ...r,
-          customer_name: r.user_id ? map.get(r.user_id)?.name ?? null : null,
+          customer_name: r.user_id ? map.get(r.user_id)?.full_name ?? null : null,
           customer_phone: r.user_id ? map.get(r.user_id)?.phone ?? null : null,
         }));
       } else {

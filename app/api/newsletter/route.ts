@@ -1,5 +1,5 @@
 import { db, isUniqueViolation } from "@/lib/db";
-import { clientKey, created, fail, handleError, rateLimit, tooMany } from "@/lib/api";
+import { clientKey, created, handleError, rateLimit, tooMany } from "@/lib/api";
 import { newsletterSchema } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";

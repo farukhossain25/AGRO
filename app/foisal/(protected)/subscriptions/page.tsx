@@ -10,7 +10,7 @@ export default async function AdminSubscriptionsPage() {
   if (isDbConfigured()) {
     try {
       const { data } = await db().from("subscriptions").select("*").order("created_at", { ascending: false });
-      rows = (data ?? []) as Subscription[];
+      rows = (data ?? []) as unknown as Subscription[];
     } catch {
       rows = [];
     }

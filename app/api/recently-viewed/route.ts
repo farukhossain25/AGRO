@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { db, isDbConfigured } from "@/lib/db";
-import { currentUser, fail, handleError, limitGuard, ok } from "@/lib/api";
+import { currentUser, fail, limitGuard, ok } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";

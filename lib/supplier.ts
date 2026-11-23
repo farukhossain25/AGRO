@@ -1,5 +1,4 @@
 import { db, isDbConfigured } from "./db";
-import { farmIds, seedCameras, seedFarms } from "./seed-premium";
 import { getSupplierQuality } from "./reviews";
 import type { SupplierQuality } from "./types";
 
@@ -123,43 +122,7 @@ export async function getProductSupplier(product: {
     }
   }
 
-  // ---- seed fallback: match on the free-text farm source, else by category
-  const source = product.farm_source_bn ?? "";
-  const bySlugFarm = seedFarmIdForSlug(product.slug);
-  const farm =
-    seedFarms.find((f) => f.name_bn === source) ??
-    (bySlugFarm ? seedFarms.find((f) => f.id === bySlugFarm) : undefined) ??
-    seedFarms[0];
-  if (!farm) return null;
-
-  return {
-    sellerId: null,
-    sellerSlug: null,
-    sellerNameBn: farm.name_bn,
-    farmId: farm.id,
-    farmSlug: farm.slug,
-    farmNameBn: farm.name_bn,
-    photo: farm.owner_photo ?? null,
-    cover: farm.cover ?? null,
-    bioBn: farm.owner_bio_bn ?? null,
-    descriptionBn: farm.description_bn ?? null,
-    division: farm.division,
-    district: farm.district,
-    upazila: farm.upazila ?? null,
-    addressBn: farm.address_bn ?? null,
-    lat: farm.lat ?? null,
-    lng: farm.lng ?? null,
-    establishedYear: farm.established_year ?? null,
-    certifications: farm.certifications ?? [],
-    productCount: 1,
-    cameraCount: 2,
-    harvestDate: product.harvest_date ?? null,
-    farmSourceBn: product.farm_source_bn ?? null,
-    rating: product.rating ?? 5,
-    reviewCount: product.review_count ?? 0,
-    storeHref: `/live/farms/${farm.slug}`,
-    quality: null,
-  };
+  return null;
 }
 
 /** Product ids belonging to the same supplier — powers "সব পণ্য দেখুন". */
@@ -182,9 +145,7 @@ export async function getSupplierProductIds(supplier: SupplierInfo): Promise<str
 export async function getSupplierCameras(farmId: string | null): Promise<
   { id: string; nameBn: string; zoneBn: string | null; status: string; poster: string | null; lastHeartbeat: string | null }[]
 > {
-  // Offline / demo mode: use the seeded cameras so the five live-footage
-  // states (premium, trial, locked, no-camera, offline) are all reachable.
-  if (!farmId || !isDbConfigured()) return seedCameraFallback(farmId);
+  if (!farmId || !isDbConfigured()) return [];
   try {
     const { data, error } = await db()
       .from("cameras")
@@ -193,9 +154,9 @@ export async function getSupplierCameras(farmId: string | null): Promise<
       .eq("is_active", true)
       .order("sort_order", { ascending: true });
 
-    if (error) return seedCameraFallback(farmId);
+    if (error) return [];
 
-    if (!data?.length) return seedCameraFallback(farmId);
+    if (!data?.length) return [];
 
     return (data ?? []).map((c) => ({
       id: c.id as string,
@@ -210,37 +171,4 @@ export async function getSupplierCameras(farmId: string | null): Promise<
   }
 }
 
-/** Seeded cameras for a farm — used offline and as a last-resort fallback. */
-function seedCameraFallback(farmId: string | null) {
-  if (!farmId) return [];
-  return (seedCameras[farmId] ?? []).map((c) => ({
-    id: c.id,
-    nameBn: c.name_bn,
-    zoneBn: c.zone_bn ?? null,
-    status: c.status,
-    poster: c.poster ?? null,
-    lastHeartbeat: c.last_heartbeat ?? null,
-  }));
-}
 
-/**
- * Deterministic product → seed-farm mapping for offline/demo mode.
- * Mirrors the SQL backfill applied to the live database, so the demo shows the
- * same farms the production data does.
- */
-// category-level defaults
-const CATEGORY_FARM: [RegExp, string][] = [
-  [/^(palong|kacha|kumra|bashor|korola|begun|fulkopi|mula|dhone|shosha|potol|dherosh|lau|shim)/i, farmIds.savarGreens],
-  [/^(dudh|doi|chana|makhon|ghee|ponir)/i, farmIds.tangailDairy],
-  [/^(dim|murgi|broiler|koli|hasher)/i, farmIds.gazipurPoultry],
-  [/^(rupchanda|tilapia|koi|pangash|shing|bagda|chingri|prawn|mach)/i, farmIds.khulnaShrimp],
-  [/^(aam|mango|jam|kola|peyara|lebu)/i, farmIds.rajshahiMango],
-];
-
-/** Resolve a product slug to its seed farm id (offline mode only). */
-export function seedFarmIdForSlug(slug: string): string | null {
-  for (const [pattern, farmId] of CATEGORY_FARM) {
-    if (pattern.test(slug)) return farmId;
-  }
-  return null;
-}

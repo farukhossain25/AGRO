@@ -8,7 +8,7 @@ export default async function AdminDeliveryPage() {
 
   if (isDbConfigured()) {
     try {
-      const { data } = await db().from("delivery_zones").select("*").order("district");
+      const { data } = await db().from("delivery_charges").select("*").order("district");
       rows = data ?? [];
     } catch {
       rows = [];

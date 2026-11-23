@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Copy, Sparkles, Tag, Truck } from "lucide-react";
 import { db } from "@/lib/db";
-import { seedCoupons } from "@/lib/seed-data";
 import { money } from "@/lib/format";
 import type { Coupon } from "@/lib/types";
 import { alternatesFor } from "@/lib/seo";
@@ -22,10 +21,9 @@ async function loadCoupons(): Promise<Coupon[]> {
       .select("*")
       .eq("is_active", true)
       .order("value", { ascending: false });
-    if (data?.length) return data as Coupon[];
-    return seedCoupons;
+    return (data ?? []) as Coupon[];
   } catch {
-    return seedCoupons;
+    return [];
   }
 }
 

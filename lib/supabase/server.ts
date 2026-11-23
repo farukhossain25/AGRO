@@ -10,6 +10,7 @@ import {
   isSupabasePublicConfigured,
 } from "@/lib/env";
 import { normalizeRole, type SessionUser } from "@/lib/session";
+import type { Database } from "@/lib/database.types";
 
 /* ==========================================================================
    Server Supabase clients
@@ -26,7 +27,7 @@ import { normalizeRole, type SessionUser } from "@/lib/session";
    ========================================================================== */
 
 /** Cookie-bound client. Sets/removes auth cookies through Next's cookie store. */
-export async function createServerSupabaseClient(): Promise<SupabaseClient> {
+export async function createServerSupabaseClient(): Promise<SupabaseClient<Database>> {
   if (!isSupabasePublicConfigured) {
     throw new Error(
       "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY."
@@ -35,7 +36,7 @@ export async function createServerSupabaseClient(): Promise<SupabaseClient> {
 
   const cookieStore = await cookies();
 
-  return createServerClient(SUPABASE_URL, SUPABASE_PUBLIC_KEY, {
+  return createServerClient<Database>(SUPABASE_URL, SUPABASE_PUBLIC_KEY, {
     cookies: {
       getAll() {
         return cookieStore.getAll().map(({ name, value }) => ({ name, value }));
@@ -56,10 +57,10 @@ export async function createServerSupabaseClient(): Promise<SupabaseClient> {
   });
 }
 
-let adminClient: SupabaseClient | null = null;
+let adminClient: SupabaseClient<Database> | null = null;
 
 /** Secret-key client. Bypasses RLS — every call site must authorise first. */
-export function supabaseAdmin(): SupabaseClient {
+export function supabaseAdmin(): SupabaseClient<Database> {
   if (adminClient) return adminClient;
 
   if (!isSupabaseAdminConfigured) {
@@ -68,7 +69,7 @@ export function supabaseAdmin(): SupabaseClient {
     );
   }
 
-  adminClient = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY, {
+  adminClient = createClient<Database>(SUPABASE_URL, SUPABASE_SECRET_KEY, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     global: { headers: { "X-Client-Info": "biswas-agro-server" } },
   });

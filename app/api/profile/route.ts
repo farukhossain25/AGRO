@@ -94,7 +94,7 @@ export async function PATCH(req: Request) {
 
     if (isDbConfigured()) {
       await db()
-        .from("audit_logs")
+        .from("audit_log")
         .insert({
           actor_id: session.id,
           action: "profile.updated",

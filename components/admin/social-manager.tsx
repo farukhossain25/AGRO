@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { useToast } from "@/lib/toast";

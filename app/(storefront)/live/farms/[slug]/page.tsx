@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CalendarDays, MapPin, Phone, ShieldCheck, Sprout, Users, Video } from "lucide-react";
-import { getFarmBySlug, listFarms, farmTypeLabelBn } from "@/lib/farms";
+import { getFarmBySlug, farmTypeLabelBn } from "@/lib/farms";
 import { FarmCameras } from "@/components/live/farm-cameras";
 import { FarmDetailMap } from "@/components/live/farm-detail-map";
 import { breadcrumbLd, dynamicAlternates, jsonLdScript } from "@/lib/seo";
