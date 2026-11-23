@@ -843,3 +843,86 @@
     display: none;
   }
 }
+
+/* ==========================================================================
+   Mobile menu drawer
+   ========================================================================== */
+
+@keyframes mob-drawer-in {
+  from {
+    transform: translate3d(-102%, 0, 0);
+  }
+  to {
+    transform: none;
+  }
+}
+
+.mob-drawer {
+  animation: mob-drawer-in 0.44s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes mob-item-in {
+  from {
+    opacity: 0;
+    transform: translate3d(-12px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.mob-item {
+  animation: mob-item-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--d, 0ms);
+}
+
+@keyframes mob-scrim-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.mob-scrim {
+  animation: mob-scrim-in 0.28s ease both;
+}
+
+/* accordion that animates its own height (0fr → 1fr), no JS measuring */
+.mob-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.mob-collapse[data-open="true"] {
+  grid-template-rows: 1fr;
+}
+
+.mob-collapse > * {
+  overflow: hidden;
+}
+
+/* no visible scrollbar in the drawer — the fade at the footer hints at more */
+.mob-scroll {
+  scrollbar-width: none;
+}
+
+.mob-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mob-drawer,
+  .mob-item,
+  .mob-scrim {
+    animation: none !important;
+  }
+
+  .mob-collapse {
+    transition: none;
+  }
+}
