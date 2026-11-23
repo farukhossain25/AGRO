@@ -148,6 +148,7 @@ async function sendFcm(userId: string, title: string, body: string, data: Record
 async function sendEmail(to: string, subject: string, text: string, link?: string) {
   const key = process.env.RESEND_API_KEY;
   if (!key) {
+    // eslint-disable-next-line no-console
     if (process.env.NODE_ENV !== "production") console.info("[email:dev]", { to, subject, text, link });
     return;
   }

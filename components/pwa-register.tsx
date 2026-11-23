@@ -32,6 +32,7 @@ export function PWARegister() {
             const worker = registration.installing;
             worker?.addEventListener("statechange", () => {
               if (worker.state === "installed" && navigator.serviceWorker.controller) {
+                // eslint-disable-next-line no-console
                 console.info("[pwa] new version ready — reload to apply");
               }
             });

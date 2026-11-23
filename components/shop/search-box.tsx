@@ -165,7 +165,6 @@ export function SearchBox({
             className="input !rounded-full !py-2.5 !pl-10 !pr-9 text-[16px] sm:text-[13px]"
             aria-label={t("পণ্য খুঁজুন", "Search products")}
             aria-controls={listId}
-            aria-expanded={showMenu}
             autoComplete="off"
             enterKeyHint="search"
             inputMode="search"
