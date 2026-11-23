@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
+  AlertTriangle,
   ArrowRight,
-  CheckCircle2,
   Eye,
   EyeOff,
   Loader2,
@@ -131,6 +131,7 @@ function FloatField({
   hint,
 }: FloatFieldProps) {
   const id = useId();
+  const [capsOn, setCapsOn] = useState(false);
   return (
     <div>
       <div className="group relative">
@@ -145,6 +146,9 @@ function FloatField({
           minLength={minLength}
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          onKeyUp={(e) => setCapsOn(type === "password" && e.getModifierState("CapsLock"))}
+          onKeyDown={(e) => setCapsOn(type === "password" && e.getModifierState("CapsLock"))}
+          onBlur={() => setCapsOn(false)}
           placeholder=" "
           aria-label={label}
           /* 16px text stops iOS from zooming the page on focus */
@@ -158,6 +162,11 @@ function FloatField({
         </label>
         {trailing ? <span className="absolute right-1.5 top-1/2 -translate-y-1/2">{trailing}</span> : null}
       </div>
+      {capsOn ? (
+        <p className="mt-1.5 flex items-center gap-1 text-[11px] font-medium text-amber-300/90" role="status">
+          <AlertTriangle className="h-3 w-3" /> Caps Lock চালু আছে
+        </p>
+      ) : null}
       {hint}
     </div>
   );
@@ -180,6 +189,7 @@ function strengthOf(password: string) {
 
 export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
   const router = useRouter();
+  const surface = useRef<HTMLDivElement | null>(null);
   const toast = useToast();
   const params = useSearchParams();
 
@@ -456,21 +466,22 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
     }
   }
 
+  const tabs: Mode[] = admin ? ["login", "forgot"] : ["login", "signup", "forgot"];
+  const tabIndex = Math.max(0, tabs.indexOf(mode));
+
   const tabClass = (active: boolean) =>
-    `relative flex-1 rounded-xl px-2 py-2.5 text-[13px] font-semibold transition min-h-[44px] sm:text-[13.5px] ${
-      active
-        ? "bg-leaf-600 text-white shadow-[0_10px_24px_-12px_rgba(31,122,77,0.95)]"
-        : "text-sand-100/60 hover:bg-white/[0.04] hover:text-sand-100"
+    `relative z-10 flex-1 rounded-xl px-2 py-2.5 text-[13px] font-semibold transition-colors duration-300 min-h-[44px] sm:text-[13.5px] ${
+      active ? "text-white" : "text-sand-100/55 hover:text-sand-100"
     }`;
 
   const actionButton =
     "mt-2 inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-red-300/30 px-3 py-1 text-[11.5px] font-semibold text-red-100 transition hover:bg-red-500/10 disabled:opacity-60";
 
   return (
-    <div className="auth-card w-full max-w-[484px]">
+    <div className="auth-card auth-rise w-full max-w-[484px]" style={{ ["--d" as string]: "120ms" }}>
       {/* mobile brand header (the desktop split panel carries this on ≥lg) */}
       <div className="mb-5 flex items-center gap-2.5 lg:hidden">
-        <span className="grid h-10 w-10 place-items-center rounded-2xl bg-leaf-600/20 text-leaf-200 ring-1 ring-leaf-500/30">
+        <span className="auth-pulse grid h-10 w-10 place-items-center rounded-2xl bg-leaf-600/20 text-leaf-200 ring-1 ring-leaf-500/30">
           <ShieldCheck className="h-5 w-5" />
         </span>
         <div>
@@ -479,16 +490,28 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
         </div>
       </div>
 
-      <div className="auth-inner">
+      <div
+        ref={surface}
+        onPointerMove={(e) => {
+          const el = surface.current;
+          if (!el || e.pointerType !== "mouse") return;
+          const rect = el.getBoundingClientRect();
+          el.style.setProperty("--auth-mx", `${e.clientX - rect.left}px`);
+          el.style.setProperty("--auth-my", `${e.clientY - rect.top}px`);
+        }}
+        className="auth-spot-host auth-inner relative overflow-hidden rounded-[24px] border border-white/[0.07] bg-ink-900/60 p-4 shadow-[0_30px_80px_-50px_rgba(0,0,0,0.9)] backdrop-blur-md sm:p-6 lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none lg:backdrop-blur-none">
         {admin ? (
           <span className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-leaf-400/30 bg-leaf-600/15 px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wider text-leaf-200">
             <ShieldCheck className="h-3.5 w-3.5" /> Secure admin access
           </span>
         ) : null}
-        <h2 className="text-[21px] font-bold tracking-tight text-white sm:text-[23px]">
+        <h2
+          className="auth-rise text-[21px] font-bold tracking-tight text-white sm:text-[23px]"
+          style={{ ["--d" as string]: "60ms" }}
+        >
           {mode === "signup" ? "নতুন অ্যাকাউন্ট" : mode === "forgot" ? "পাসওয়ার্ড রিসেট" : admin ? "অ্যাডমিন প্যানেল" : "আবার স্বাগতম"}
         </h2>
-        <p className="mt-1 text-[12.5px] leading-relaxed text-sand-100/50">
+        <p className="auth-rise mt-1 text-[12.5px] leading-relaxed text-sand-100/50" style={{ ["--d" as string]: "90ms" }}>
           {mode === "signup"
             ? "মাত্র ৩টি তথ্য দিয়ে অ্যাকাউন্ট খুলুন — অর্ডার, ঠিকানা আর স্ট্যাটাস এক জায়গায়।"
             : mode === "forgot"
@@ -502,8 +525,20 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
         <div
           role="tablist"
           aria-label="লগইন, সাইন আপ বা পাসওয়ার্ড রিসেট"
-          className="mt-5 flex gap-1 rounded-2xl border border-white/[0.07] bg-white/[0.03] p-1"
+          className="auth-rise relative mt-5 flex gap-1 overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.03] p-1"
+          style={{ ["--d" as string]: "120ms" }}
         >
+          {/* the pill slides between tabs instead of blinking on/off */}
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-y-1 left-1 rounded-xl bg-gradient-to-b from-leaf-500 to-leaf-600 shadow-[0_10px_26px_-12px_rgba(31,122,77,1)] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
+            style={{
+              /* p-1 on both sides + gap-1 between tabs, so the pill lands
+                 exactly on top of its button for any tab count */
+              width: `calc((100% - 0.5rem - ${(tabs.length - 1) * 0.25}rem) / ${tabs.length})`,
+              transform: `translateX(calc(${tabIndex} * (100% + 0.25rem)))`,
+            }}
+          />
           <button type="button" role="tab" aria-selected={mode === "login"} className={tabClass(mode === "login")} onClick={() => setMode("login")}>
             লগইন
           </button>
@@ -519,7 +554,13 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
 
         {/* error / notice */}
         {error ? (
-          <div role="alert" className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-3.5 py-3 text-[12.5px] leading-relaxed text-red-200">
+          <div
+            role="alert"
+            key={error.bn}
+            className="auth-shake mt-4 flex gap-2 rounded-2xl border border-red-500/30 bg-red-500/10 px-3.5 py-3 text-[12.5px] leading-relaxed text-red-200"
+          >
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-300" aria-hidden />
+            <div className="min-w-0 flex-1">
             <p>{error.bn}</p>
             {error.resend ? (
               <button type="button" onClick={resendVerification} disabled={busy} className={actionButton}>
@@ -544,13 +585,26 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
                 সাইন আপ করুন
               </button>
             ) : null}
+            </div>
           </div>
         ) : null}
 
         {notice ? (
-          <div role="status" className="mt-4 rounded-2xl border border-leaf-500/30 bg-leaf-600/10 px-3.5 py-3 text-[12.5px] leading-relaxed text-leaf-100">
+          <div role="status" className="auth-enter mt-4 rounded-2xl border border-leaf-500/30 bg-leaf-600/10 px-3.5 py-3 text-[12.5px] leading-relaxed text-leaf-100">
             <p className="flex items-center gap-1.5 font-semibold">
-              <CheckCircle2 className="h-4 w-4" /> {notice.title}
+              <span className="grid h-5 w-5 place-items-center rounded-full bg-leaf-500/25">
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" aria-hidden>
+                  <path
+                    d="M4.5 12.5l5 5 10-11"
+                    stroke="currentColor"
+                    strokeWidth="2.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="auth-draw"
+                  />
+                </svg>
+              </span>
+              {notice.title}
             </p>
             <p className="mt-1 text-leaf-100/80">{notice.body}</p>
           </div>
@@ -563,7 +617,8 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
               type="button"
               onClick={continueWithGoogle}
               disabled={busy}
-              className="mt-5 flex min-h-[50px] w-full items-center justify-center gap-2.5 rounded-2xl bg-white px-4 text-[14.5px] font-semibold text-gray-800 shadow-[0_10px_26px_-16px_rgba(0,0,0,0.9)] transition hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/30 disabled:opacity-60"
+              className="btn-sheen auth-rise mt-5 flex min-h-[50px] w-full items-center justify-center gap-2.5 rounded-2xl bg-white px-4 text-[14.5px] font-semibold text-gray-800 shadow-[0_14px_34px_-18px_rgba(0,0,0,0.95)] transition duration-300 hover:-translate-y-0.5 hover:bg-gray-50 hover:shadow-[0_20px_40px_-20px_rgba(0,0,0,1)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/30 active:translate-y-0 disabled:opacity-60"
+              style={{ ["--d" as string]: "150ms" }}
             >
               {busy ? (
                 <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
@@ -578,8 +633,8 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
               Google দিয়ে চালিয়ে যান
             </button>
 
-            <div className="my-4 flex items-center gap-3">
-              <span className="h-px flex-1 bg-white/10" />
+            <div className="auth-rise my-4 flex items-center gap-3" style={{ ["--d" as string]: "200ms" }}>
+              <span className="h-px flex-1 bg-gradient-to-r from-transparent to-white/15" />
               <span className="text-[11px] font-medium tracking-wider text-sand-100/35">অথবা ইমেইল দিয়ে</span>
               <span className="h-px flex-1 bg-white/10" />
             </div>
@@ -588,7 +643,7 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
 
         {/* ── LOGIN */}
         {mode === "login" ? (
-          <form onSubmit={handleLogin} className="space-y-3.5" noValidate>
+          <form onSubmit={handleLogin} className="auth-enter space-y-3.5" noValidate>
             <FloatField
               label="ইমেইল"
               icon={<Mail className="h-4 w-4" />}
@@ -633,7 +688,7 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
               </button>
             </div>
 
-            <button type="submit" disabled={busy} className="btn-primary min-h-[50px] w-full !text-[15px]">
+            <button type="submit" disabled={busy} className="btn-primary btn-sheen min-h-[50px] w-full !text-[15px] transition-transform duration-300 hover:-translate-y-0.5 active:translate-y-0">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
               {busy ? "লগইন হচ্ছে…" : "লগইন করুন"}
             </button>
@@ -642,7 +697,7 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
 
         {/* ── SIGNUP */}
         {mode === "signup" ? (
-          <form onSubmit={handleSignup} className="space-y-3.5" noValidate>
+          <form onSubmit={handleSignup} className="auth-enter space-y-3.5" noValidate>
             <FloatField
               label="পুরো নাম"
               icon={<UserIcon className="h-4 w-4" />}
@@ -685,8 +740,8 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
                     {[0, 1, 2].map((i) => (
                       <span
                         key={i}
-                        className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${
-                          password && strength.score > i ? strength.tone : "bg-white/10"
+                        className={`h-1.5 flex-1 origin-left rounded-full transition-colors duration-500 ${
+                          password && strength.score > i ? `${strength.tone} auth-bar` : "bg-white/10"
                         }`}
                       />
                     ))}
@@ -719,7 +774,7 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
               </span>
             </label>
 
-            <button type="submit" disabled={busy} className="btn-primary min-h-[50px] w-full !text-[15px]">
+            <button type="submit" disabled={busy} className="btn-primary btn-sheen min-h-[50px] w-full !text-[15px] transition-transform duration-300 hover:-translate-y-0.5 active:translate-y-0">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserIcon className="h-4 w-4" />}
               {busy ? "অ্যাকাউন্ট তৈরি হচ্ছে…" : "অ্যাকাউন্ট তৈরি করুন"}
             </button>
@@ -750,7 +805,7 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
               </button>
             </div>
           ) : (
-            <form onSubmit={handleForgot} className="mt-1 space-y-3.5" noValidate>
+            <form onSubmit={handleForgot} className="auth-enter mt-1 space-y-3.5" noValidate>
               <FloatField
                 label="অ্যাকাউন্টের ইমেইল"
                 icon={<Mail className="h-4 w-4" />}
@@ -760,7 +815,7 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
                 value={email}
                 onChange={setEmail}
               />
-              <button type="submit" disabled={busy} className="btn-primary min-h-[50px] w-full !text-[15px]">
+              <button type="submit" disabled={busy} className="btn-primary btn-sheen min-h-[50px] w-full !text-[15px] transition-transform duration-300 hover:-translate-y-0.5 active:translate-y-0">
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
                 {busy ? "পাঠানো হচ্ছে…" : "রিসেট লিঙ্ক পাঠান"}
               </button>

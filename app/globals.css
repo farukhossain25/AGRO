@@ -511,3 +511,335 @@
     transform: translate3d(-1%, 1%, 0) scale(1.03);
   }
 }
+
+/* ==========================================================================
+   /login · premium motion system
+   --------------------------------------------------------------------------
+   Hand-written CSS rather than an animation library: the whole login page adds
+   ~2 KB and nothing is JS-blocking. Every effect is decorative, driven by
+   transform/opacity only (compositor-friendly) and switched off under
+   prefers-reduced-motion at the bottom of this block.
+   ========================================================================== */
+
+@property --auth-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+/* staggered entrance — set --d on the element to delay it */
+@keyframes auth-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 16px, 0) scale(0.985);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+
+.auth-rise {
+  animation: auth-rise 0.72s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--d, 0ms);
+}
+
+/* panel swap when the tab changes */
+@keyframes auth-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.auth-enter {
+  animation: auth-enter 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* invalid credentials — a short, physical shake */
+@keyframes auth-shake {
+  10%,
+  90% {
+    transform: translate3d(-1px, 0, 0) rotate(-0.2deg);
+  }
+  20%,
+  80% {
+    transform: translate3d(2px, 0, 0) rotate(0.2deg);
+  }
+  30%,
+  50%,
+  70% {
+    transform: translate3d(-4px, 0, 0);
+  }
+  40%,
+  60% {
+    transform: translate3d(4px, 0, 0);
+  }
+}
+
+.auth-shake {
+  animation: auth-shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+/* light sweep across a button on hover */
+@keyframes auth-sheen {
+  from {
+    transform: translateX(-130%) skewX(-14deg);
+  }
+  to {
+    transform: translateX(240%) skewX(-14deg);
+  }
+}
+
+.btn-sheen {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.btn-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(100deg, transparent 18%, rgba(255, 255, 255, 0.3) 45%, transparent 72%);
+  transform: translateX(-130%) skewX(-14deg);
+  pointer-events: none;
+}
+
+.btn-sheen:hover::after,
+.btn-sheen:focus-visible::after {
+  animation: auth-sheen 0.95s ease;
+}
+
+/* the farm photo breathes instead of sitting still */
+@keyframes auth-kenburns {
+  0% {
+    transform: scale(1.04) translate3d(0, 0, 0);
+  }
+  50% {
+    transform: scale(1.13) translate3d(-1.6%, -1.4%, 0);
+  }
+  100% {
+    transform: scale(1.07) translate3d(1.2%, 0.8%, 0);
+  }
+}
+
+.auth-kenburns {
+  animation: auth-kenburns 28s ease-in-out infinite alternate;
+}
+
+/* slow travelling highlight over the hero */
+@keyframes auth-sweep {
+  0% {
+    transform: translateX(-70%) skewX(-12deg);
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.45;
+  }
+  100% {
+    transform: translateX(180%) skewX(-12deg);
+    opacity: 0;
+  }
+}
+
+.auth-sweep {
+  animation: auth-sweep 9s ease-in-out infinite;
+}
+
+/* drifting background orbs */
+@keyframes auth-orb {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  33% {
+    transform: translate3d(3%, -4%, 0) scale(1.08);
+  }
+  66% {
+    transform: translate3d(-3%, 3%, 0) scale(0.96);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.auth-orb {
+  animation: auth-orb var(--dur, 26s) ease-in-out infinite;
+  animation-delay: var(--d, 0s);
+  will-change: transform;
+}
+
+/* floating leaves */
+@keyframes auth-leaf {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+    opacity: 0;
+  }
+  12% {
+    opacity: var(--o, 0.5);
+  }
+  100% {
+    transform: translate3d(var(--dx, 20px), -140px, 0) rotate(var(--rot, 120deg));
+    opacity: 0;
+  }
+}
+
+.auth-leaf {
+  animation: auth-leaf var(--dur, 16s) linear infinite;
+  animation-delay: var(--d, 0s);
+}
+
+/* soft halo that repeats around a status dot */
+@keyframes auth-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(95, 206, 150, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(95, 206, 150, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(95, 206, 150, 0);
+  }
+}
+
+.auth-pulse {
+  animation: auth-pulse 2.4s ease-out infinite;
+}
+
+/* success tick draws itself */
+@keyframes auth-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.auth-draw {
+  stroke-dasharray: 48;
+  stroke-dashoffset: 48;
+  animation: auth-draw 0.55s 0.12s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+
+/* password-strength bars grow from the left */
+@keyframes auth-bar {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.auth-bar {
+  transform-origin: left center;
+  animation: auth-bar 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* rotating conic edge on the form card */
+@keyframes auth-border {
+  to {
+    --auth-angle: 360deg;
+  }
+}
+
+.auth-frame {
+  position: relative;
+}
+
+.auth-frame::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--auth-angle),
+    rgba(95, 206, 150, 0.55),
+    rgba(31, 122, 77, 0) 26%,
+    rgba(95, 206, 150, 0.22) 52%,
+    rgba(31, 122, 77, 0) 78%,
+    rgba(95, 206, 150, 0.55)
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: auth-border 11s linear infinite;
+  pointer-events: none;
+}
+
+/* capability grid shimmer used behind the stats strip */
+@keyframes auth-shine {
+  from {
+    background-position: -120% 0;
+  }
+  to {
+    background-position: 220% 0;
+  }
+}
+
+.auth-shine {
+  background-image: linear-gradient(
+    100deg,
+    transparent 35%,
+    rgba(95, 206, 150, 0.18) 50%,
+    transparent 65%
+  );
+  background-size: 220% 100%;
+  animation: auth-shine 6.5s ease-in-out infinite;
+}
+
+/* pointer spotlight on the form card — fine pointers only */
+.auth-spot {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.45s ease;
+  background: radial-gradient(
+    240px circle at var(--auth-mx, 50%) var(--auth-my, 0%),
+    rgba(95, 206, 150, 0.13),
+    transparent 72%
+  );
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .auth-spot-host:hover .auth-spot {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-rise,
+  .auth-enter,
+  .auth-shake,
+  .auth-kenburns,
+  .auth-sweep,
+  .auth-orb,
+  .auth-leaf,
+  .auth-pulse,
+  .auth-shine,
+  .auth-bar,
+  .auth-pulse-ring,
+  .btn-sheen::after,
+  .auth-frame::before {
+    animation: none !important;
+  }
+
+  .auth-draw {
+    animation: none !important;
+    stroke-dashoffset: 0;
+  }
+
+  .auth-leaf {
+    display: none;
+  }
+}
