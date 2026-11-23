@@ -34,6 +34,11 @@ export function IdleGuard() {
 
   const signOut = useCallback(async () => {
     try {
+      localStorage.removeItem(ACTIVITY_KEY);
+    } catch {
+      /* ignore storage errors */
+    }
+    try {
       await fetch("/auth/signout", { method: "POST" });
     } catch {
       /* the cookie may already be gone */
@@ -65,11 +70,12 @@ export function IdleGuard() {
   }, [signOut]);
 
   useEffect(() => {
-    // A reload must not reset the clock — the timestamp lives in localStorage.
-    const stored = Number(localStorage.getItem(ACTIVITY_KEY) ?? 0);
-    if (stored && Date.now() - stored > IDLE_MS) {
-      void signOut();
-      return;
+    // Entering /foisal is itself an active navigation; reset any stale timestamp
+    // from a previous session so a fresh login is never immediately signed out.
+    try {
+      localStorage.setItem(ACTIVITY_KEY, String(Date.now()));
+    } catch {
+      /* ignore storage errors */
     }
 
     const onActivity = () => {
