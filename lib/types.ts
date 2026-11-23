@@ -96,7 +96,10 @@ export type Coupon = {
 };
 
 export type OrderStatus = "received" | "packing" | "shipped" | "delivered" | "cancelled";
-export type PaymentMethod = "cod" | "bkash" | "nagad" | "sslcommerz";
+/** Any admin-managed method code from the payment_methods table. The owner can
+ *  add bKash, Nagad, Rocket, Upay, a bank account or any custom code, so the
+ *  type is an open string, not a fixed union. */
+export type PaymentMethod = string;
 export type PaymentStatus = "pending" | "paid" | "failed" | "refunded";
 
 export type OrderItem = {
@@ -137,12 +140,12 @@ export type Order = {
 };
 
 /* ==========================================================================
-   Manual payments (section A) — added by migration 0009
+   Payment methods — admin-managed receiving methods
    --------------------------------------------------------------------------
-   `PaymentMethod` above is the legacy union used by `orders.payment_method`;
-   `PaymentMethodRow` is the admin-managed table. The column keeps the legacy
-   union for backwards compatibility and gains a free-text fallback so a custom
-   method (e.g. "upay") can be stored without a migration.
+   `PaymentMethod` above is the open string stored in `orders.payment_method`;
+   `PaymentMethodRow` is the admin-managed table behind it. The owner adds,
+   edits and deletes methods from the admin panel, and every code they define
+   is valid in the orders table.
    ========================================================================== */
 
 export type PaymentMethodKind = "mfs" | "bank" | "cod" | "gateway" | "other";
@@ -194,70 +197,9 @@ export type PublicPaymentMethod = Pick<
   | "requires_sender"
 >;
 
-export type PaymentStatusManual = "pending" | "verified" | "rejected" | "needs_info";
-export type PaymentPurpose = "order" | "premium";
-
-export type PaymentRow = {
-  id: string;
-  payment_no: string;
-  user_id: string | null;
-  purpose: PaymentPurpose;
-  order_id: string | null;
-  subscription_id: string | null;
-  method_id: string | null;
-  method_code: string;
-  method_name_bn: string | null;
-  expected_amount: number;
-  amount: number;
-  sender_number: string | null;
-  trx_id: string | null;
-  trx_norm: string | null;
-  paid_at: string | null;
-  screenshot_url: string | null;
-  status: PaymentStatusManual;
-  reject_reason: string | null;
-  admin_note: string | null;
-  reviewed_by: string | null;
-  reviewed_at: string | null;
-  submitted_ip: string | null;
-  submitted_agent: string | null;
-  attempt_no: number;
-  created_at: string;
-  updated_at: string | null;
-};
-
-/** One row of the admin queue — the view adds these computed fields. */
-export type PaymentQueueRow = PaymentRow & {
-  amount_delta: number;
-  amount_matches: boolean;
-  trx_collision: boolean;
-  order_no: string | null;
-  customer_name: string | null;
-  customer_phone: string | null;
-  sub_no: string | null;
-  plan_name_bn: string | null;
-};
-
-export type PaymentLog = {
-  id: string;
-  payment_id: string;
-  actor_id: string | null;
-  actor_role: string | null;
-  action:
-    | "submitted"
-    | "resubmitted"
-    | "approved"
-    | "rejected"
-    | "needs_info"
-    | "reopened"
-    | "bulk_approved"
-    | "note";
-  from_status: string | null;
-  to_status: string | null;
-  note: string | null;
-  ip: string | null;
-  created_at: string;
-};
+/* The manual-payment tables (payments, payment_logs) were removed in the
+   payment-system rebuild: orders now record only `payment_method` +
+   `payment_status`, and the owner marks orders paid from the admin panel. */
 
 /* ------------------------------------------------------------ site content */
 

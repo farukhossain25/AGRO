@@ -78,41 +78,6 @@ export const orderStatusSteps = [
   { key: "delivered", bn: "ডেলিভারি সম্পন্ন", en: "Delivered", icon: "✅" },
 ] as const;
 
-export const paymentMethods = [
-  {
-    id: "bkash",
-    bn: "বিকাশ",
-    en: "bKash",
-    hintBn: "টেস্ট মোডে কাজ করে — লাইভ গেটওয়ে সংযুক্ত করুন",
-    color: "#e2136e",
-    emoji: "📱",
-  },
-  {
-    id: "nagad",
-    bn: "নগদ",
-    en: "Nagad",
-    hintBn: "টেস্ট মোডে কাজ করে — লাইভ গেটওয়ে সংযুক্ত করুন",
-    color: "#f6921e",
-    emoji: "💳",
-  },
-  {
-    id: "sslcommerz",
-    bn: "কার্ড / SSLCommerz",
-    en: "SSLCommerz",
-    hintBn: "ভিসা, মাস্টারকার্ড, ব্যাংক ও মোবাইল ব্যাংকিং",
-    color: "#0a7d5a",
-    emoji: "🏦",
-  },
-  {
-    id: "cod",
-    bn: "ক্যাশ অন ডেলিভারি",
-    en: "Cash on delivery",
-    hintBn: "পণ্য হাতে পেয়ে পেমেন্ট করুন",
-    color: "#b7ead2",
-    emoji: "💵",
-  },
-] as const;
-
 export const trustBadges = [
   { bn: "১০০% তাজা", en: "100% fresh", icon: "🌱" },
   { bn: "সার্টিফায়েড অর্গানিক", en: "Certified organic", icon: "🏅" },

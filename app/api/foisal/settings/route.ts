@@ -11,9 +11,9 @@ export const dynamic = "force-dynamic";
    /api/foisal/settings — the site-wide key/value store
    --------------------------------------------------------------------------
    `settings` is a table of small JSON objects keyed by an area name:
-   `store`, `payments`, `premium`, `delivery`, `auth`, `seller`, `reviews`,
+   `store`, `premium`, `delivery`, `auth`, `seller`, `reviews`,
    `profile`. Code already reads several of them at runtime
-   (lib/manual-payments.ts reads `payments`, lib/premium.ts reads `premium`),
+   (lib/premium.ts reads `premium`),
    but until now there was no way to change them without psql — which made
    "everything editable, no code" untrue for the anti-fraud limits, the trial
    length and the commission rate.
@@ -30,7 +30,6 @@ export const dynamic = "force-dynamic";
 
 const ALLOWED_KEYS = [
   "store",
-  "payments",
   "premium",
   "delivery",
   "auth",
@@ -79,7 +78,7 @@ export async function GET() {
 
 /**
  * PATCH — merge a patch into one setting area.
- * Body: { key: "payments", value: { max_rejected_before_block: 5 } }
+ * Body: { key: "premium", value: { trial_minutes: 15 } }
  */
 export async function PATCH(req: Request) {
   try {
@@ -132,7 +131,7 @@ export async function PATCH(req: Request) {
   }
 }
 
-/** PUT — the bulk form: { settings: { payments: {...}, premium: {...} } } */
+/** PUT — the bulk form: { settings: { premium: {...}, delivery: {...} } } */
 export async function PUT(req: Request) {
   try {
     const user = await requirePermission("settings.write");

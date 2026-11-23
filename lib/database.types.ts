@@ -1441,45 +1441,6 @@ export type Database = {
       }
       Relationships: []
     }
-      payment_logs: {
-      Row: {
-        id: string
-        payment_id: string
-        actor_id: string | null
-        actor_role: string | null
-        action: Database["public"]["Enums"]["payment_log_action"]
-        from_status: string | null
-        to_status: string | null
-        note: string | null
-        ip: string | null
-        created_at: string
-      }
-      Insert: {
-        id?: string
-        payment_id: string
-        actor_id?: string | null
-        actor_role?: string | null
-        action?: Database["public"]["Enums"]["payment_log_action"]
-        from_status?: string | null
-        to_status?: string | null
-        note?: string | null
-        ip?: string | null
-        created_at?: string
-      }
-      Update: {
-        id?: string
-        payment_id?: string
-        actor_id?: string | null
-        actor_role?: string | null
-        action?: Database["public"]["Enums"]["payment_log_action"]
-        from_status?: string | null
-        to_status?: string | null
-        note?: string | null
-        ip?: string | null
-        created_at?: string
-      }
-      Relationships: []
-    }
       payment_methods: {
       Row: {
         id: string
@@ -1550,96 +1511,6 @@ export type Database = {
         requires_sender?: boolean
         is_active?: boolean
         sort_order?: number
-        created_at?: string
-        updated_at?: string
-      }
-      Relationships: []
-    }
-      payments: {
-      Row: {
-        id: string
-        payment_no: string
-        user_id: string | null
-        purpose: Database["public"]["Enums"]["payment_purpose"]
-        order_id: string | null
-        subscription_id: string | null
-        method_id: string | null
-        method_code: string
-        method_name_bn: string | null
-        expected_amount: number
-        amount: number
-        sender_number: string | null
-        trx_id: string | null
-        trx_norm: string | null
-        paid_at: string | null
-        screenshot_url: string | null
-        status: Database["public"]["Enums"]["payment_review_status"]
-        reject_reason: string | null
-        admin_note: string | null
-        reviewed_by: string | null
-        reviewed_at: string | null
-        submitted_ip: string | null
-        submitted_agent: string | null
-        attempt_no: number
-        meta: Json
-        created_at: string
-        updated_at: string
-      }
-      Insert: {
-        id?: string
-        payment_no: string
-        user_id?: string | null
-        purpose?: Database["public"]["Enums"]["payment_purpose"]
-        order_id?: string | null
-        subscription_id?: string | null
-        method_id?: string | null
-        method_code: string
-        method_name_bn?: string | null
-        expected_amount?: number
-        amount?: number
-        sender_number?: string | null
-        trx_id?: string | null
-        trx_norm?: string | null
-        paid_at?: string | null
-        screenshot_url?: string | null
-        status?: Database["public"]["Enums"]["payment_review_status"]
-        reject_reason?: string | null
-        admin_note?: string | null
-        reviewed_by?: string | null
-        reviewed_at?: string | null
-        submitted_ip?: string | null
-        submitted_agent?: string | null
-        attempt_no?: number
-        meta?: Json
-        created_at?: string
-        updated_at?: string
-      }
-      Update: {
-        id?: string
-        payment_no?: string
-        user_id?: string | null
-        purpose?: Database["public"]["Enums"]["payment_purpose"]
-        order_id?: string | null
-        subscription_id?: string | null
-        method_id?: string | null
-        method_code?: string
-        method_name_bn?: string | null
-        expected_amount?: number
-        amount?: number
-        sender_number?: string | null
-        trx_id?: string | null
-        trx_norm?: string | null
-        paid_at?: string | null
-        screenshot_url?: string | null
-        status?: Database["public"]["Enums"]["payment_review_status"]
-        reject_reason?: string | null
-        admin_note?: string | null
-        reviewed_by?: string | null
-        reviewed_at?: string | null
-        submitted_ip?: string | null
-        submitted_agent?: string | null
-        attempt_no?: number
-        meta?: Json
         created_at?: string
         updated_at?: string
       }
@@ -2832,57 +2703,6 @@ export type Database = {
       }
       Relationships: []
     }
-      v_payment_queue: {
-      Row: {
-        id: string | null
-        payment_no: string | null
-        user_id: string | null
-        purpose: Database["public"]["Enums"]["payment_purpose"] | null
-        order_id: string | null
-        subscription_id: string | null
-        method_id: string | null
-        method_code: string | null
-        method_name_bn: string | null
-        expected_amount: number | null
-        amount: number | null
-        sender_number: string | null
-        trx_id: string | null
-        trx_norm: string | null
-        paid_at: string | null
-        screenshot_url: string | null
-        status: Database["public"]["Enums"]["payment_review_status"] | null
-        reject_reason: string | null
-        admin_note: string | null
-        reviewed_by: string | null
-        reviewed_at: string | null
-        submitted_ip: string | null
-        submitted_agent: string | null
-        attempt_no: number | null
-        meta: Json | null
-        created_at: string | null
-        updated_at: string | null
-        amount_delta: number | null
-        amount_matches: boolean | null
-        trx_collision: boolean | null
-        order_no: string | null
-        customer_name: string | null
-        customer_phone: string | null
-        sub_no: string | null
-        plan_name_bn: string | null
-      }
-      Relationships: []
-    }
-      v_payment_reconciliation: {
-      Row: {
-        day: string | null
-        method_code: string | null
-        verified_count: number | null
-        verified_amount: number | null
-        rejected_count: number | null
-        pending_count: number | null
-      }
-      Relationships: []
-    }
       v_premium_revenue: {
       Row: {
         month: string | null
@@ -2982,15 +2802,7 @@ export type Database = {
     }
     }
     Functions: {
-      approve_payment: {
-      Args: { p_payment: string; p_actor: string; p_note: string }
-      Returns: Json
-    }
       gen_order_no: {
-      Args: {  }
-      Returns: string
-    }
-      gen_payment_no: {
       Args: {  }
       Returns: string
     }
@@ -3076,10 +2888,7 @@ export type Database = {
       notification_kind: "order" | "status" | "premium" | "seller" | "product" | "camera" | "payment" | "system"
       order_status: "received" | "packing" | "shipped" | "delivered" | "cancelled"
       payment_account_type: "personal" | "agent" | "merchant" | "account"
-      payment_log_action: "submitted" | "resubmitted" | "approved" | "rejected" | "needs_info" | "reopened" | "bulk_approved" | "note"
       payment_method_kind: "mfs" | "bank" | "cod" | "gateway" | "other"
-      payment_purpose: "order" | "premium"
-      payment_review_status: "pending" | "verified" | "rejected" | "needs_info"
       payment_status: "pending" | "paid" | "failed" | "refunded"
       premium_interval: "monthly" | "half_yearly" | "yearly"
       premium_status: "pending" | "active" | "grace" | "expired" | "cancelled"

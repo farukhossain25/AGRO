@@ -1,35 +1,28 @@
 import { db } from "@/lib/db";
-import type { TablesInsert, TablesUpdate } from "@/lib/database.types";
-import { fail, handleError, ok, requirePermission } from "@/lib/api";
-import { clientIp } from "@/lib/api";
-import { recordAudit, diffOf } from "@/lib/audit";
-import { revalidateContent } from "@/lib/content";
+import { created, fail, handleError, ok, requirePermission, clientIp } from "@/lib/api";
 import { paymentMethodSchema } from "@/lib/validation";
+import { listAllMethods, createMethod, updateMethod, deleteMethod } from "@/lib/payment-methods";
+import { recordAudit, diffOf } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
 
 /* ==========================================================================
-   /api/foisal/payment-methods — CRUD for the receiving accounts
+   /api/foisal/payment-methods — admin CRUD for payment receiving methods
    --------------------------------------------------------------------------
-   The owner changes bKash numbers here, not in code. Two things this route is
-   careful about:
+   GET    /            — list every method (active + inactive), display order
+   POST   /            — add a method
+   PATCH  /            — edit a method (partial)
+   DELETE /?id=…       — delete a method
 
-     • A method that has payments attached may not be DELETED (the history must
-       stay readable) — it is deactivated instead. Deleting would orphan
-       `payments.method_id` (set null) and lose which wallet a TrxID used.
-     • Every write is audited, because this is where money is sent.
+   Every mutation is audited. The owner manages the receiving numbers here;
+   the checkout page reads only the active ones.
    ========================================================================== */
 
 export async function GET() {
   try {
     await requirePermission("payments.manage");
-    const { data, error } = await db()
-      .from("payment_methods")
-      .select("*")
-      .order("sort_order", { ascending: true });
-    if (error) throw error;
-    return ok(data ?? []);
+    const methods = await listAllMethods();
+    return ok({ methods });
   } catch (error) {
     return handleError(error);
   }
@@ -38,31 +31,47 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const actor = await requirePermission("payments.manage");
-    const parsed = paymentMethodSchema.parse(await req.json());
+    const input = paymentMethodSchema.parse(await req.json());
 
-    const payload = clean(parsed);
+    const payload = {
+      code: input.code,
+      name_bn: input.name_bn,
+      name_en: input.name_en || null,
+      kind: input.kind,
+      logo_url: input.logo_url || null,
+      account_type: input.account_type ?? null,
+      account_number: input.account_number || null,
+      account_name: input.account_name || null,
+      bank_name: input.bank_name || null,
+      branch_name: input.branch_name || null,
+      routing_number: input.routing_number || null,
+      instruction_bn: input.instruction_bn || null,
+      min_amount: input.min_amount,
+      max_amount: input.max_amount ?? null,
+      trx_pattern: input.trx_pattern || null,
+      requires_trx: input.requires_trx,
+      requires_sender: input.requires_sender,
+      is_active: input.is_active,
+      sort_order: input.sort_order,
+    };
 
-    const { data, error } = await db().from("payment_methods").insert(payload as TablesInsert<"payment_methods">).select().single();
-    if (error) {
-      if ((error as { code?: string }).code === "23505") {
-        return fail("এই কোডে আরেকটি মাধ্যম আছেই — অন্য কোড দিন", 409, { code: "কোড আগেই ব্যবহৃত" });
-      }
-      throw error;
-    }
-
+    const method = await createMethod(payload);
     await recordAudit({
       actor,
       action: "create",
       entity: "payment_methods",
-      entityId: (data as { id: string }).id,
+      entityId: method.id,
       diff: diffOf(null, payload),
       ip: clientIp(req),
       userAgent: req.headers.get("user-agent"),
     });
-
-    revalidateContent("social");
-    return ok(data);
+    return created({ method });
   } catch (error) {
+    const status = (error as { status?: number }).status;
+    if (status === 403) return fail("এই কাজ করার অধিকার নেই", 403);
+    if ((error as { code?: string }).code === "23505") {
+      return fail("এই কোড ইতিমধ্যে ব্যবহার করা হয়েছে", 409);
+    }
     return handleError(error);
   }
 }
@@ -70,40 +79,61 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   try {
     const actor = await requirePermission("payments.manage");
-    const raw = (await req.json()) as Record<string, unknown>;
-    if (typeof raw.id !== "string") return fail("আইডি দিন", 422);
+    const body = paymentMethodSchema.partial().parse(await req.json());
+    const id = body.id;
+    if (!id) return fail("মেথড id দিন", 422);
 
-    const parsed = paymentMethodSchema.parse(raw);
-    const payload = clean(parsed);
+    const payload: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    for (const key of [
+      "code",
+      "name_bn",
+      "name_en",
+      "kind",
+      "logo_url",
+      "account_type",
+      "account_number",
+      "account_name",
+      "bank_name",
+      "branch_name",
+      "routing_number",
+      "instruction_bn",
+      "min_amount",
+      "max_amount",
+      "trx_pattern",
+      "requires_trx",
+      "requires_sender",
+      "is_active",
+      "sort_order",
+    ] as const) {
+      if (key in body && body[key] !== undefined) {
+        const value = body[key];
+        payload[key] = typeof value === "string" && value === "" ? null : value;
+      }
+    }
 
-    const client = db();
-    const { data: before } = await client
+    const { data: before } = await db()
       .from("payment_methods")
       .select("*")
-      .eq("id", raw.id)
+      .eq("id", id)
       .maybeSingle();
 
-    const { data, error } = await client
-      .from("payment_methods")
-      .update(payload as TablesUpdate<"payment_methods">)
-      .eq("id", raw.id)
-      .select()
-      .single();
-
-    if (error) throw error;
-
+    const method = await updateMethod(id, payload);
     await recordAudit({
       actor,
       action: "update",
       entity: "payment_methods",
-      entityId: raw.id,
+      entityId: id,
       diff: diffOf(before as Record<string, unknown> | null, payload),
       ip: clientIp(req),
       userAgent: req.headers.get("user-agent"),
     });
-
-    return ok(data);
+    return ok({ method });
   } catch (error) {
+    const status = (error as { status?: number }).status;
+    if (status === 403) return fail("এই কাজ করার অধিকার নেই", 403);
+    if ((error as { code?: string }).code === "23505") {
+      return fail("এই কোড ইতিমধ্যে ব্যবহার করা হয়েছে", 409);
+    }
     return handleError(error);
   }
 }
@@ -111,54 +141,52 @@ export async function PATCH(req: Request) {
 export async function DELETE(req: Request) {
   try {
     const actor = await requirePermission("payments.manage");
-    const id = new URL(req.url).searchParams.get("id");
-    if (!id) return fail("আইডি দিন", 422);
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+    if (!id) return fail("মেথড id দিন", 422);
 
-    const client = db();
+    const { data: before } = await db()
+      .from("payment_methods")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    const code = before?.code ?? "";
 
-    // Refuse to orphan payment history.
-    const { count } = await client
-      .from("payments")
-      .select("id", { count: "exact", head: true })
-      .eq("method_id", id);
+    // Never delete a method that orders still reference — deactivate instead
+    // so historical orders keep a readable method name.
+    const { data: refs } = await db()
+      .from("orders")
+      .select("id")
+      .eq("payment_method", code)
+      .limit(1);
 
-    if ((count ?? 0) > 0) {
-      await client.from("payment_methods").update({ is_active: false }).eq("id", id);
+    if (refs && refs.length > 0) {
+      await updateMethod(id, { is_active: false });
       await recordAudit({
         actor,
         action: "deactivate",
         entity: "payment_methods",
         entityId: id,
-        diff: { reason: `${count} payments reference this method` },
+        diff: diffOf(before as Record<string, unknown> | null, { is_active: false }),
         ip: clientIp(req),
+        userAgent: req.headers.get("user-agent"),
       });
-      return ok({ deactivated: true, payments: count });
+      return ok({ deleted: false, deactivated: true, message: "অর্ডারে ব্যবহৃত হওয়ায় মেথডটি বন্ধ করা হয়েছে" });
     }
 
-    const { error } = await client.from("payment_methods").delete().eq("id", id);
-    if (error) throw error;
-
+    await deleteMethod(id);
     await recordAudit({
       actor,
       action: "delete",
       entity: "payment_methods",
       entityId: id,
       ip: clientIp(req),
+      userAgent: req.headers.get("user-agent"),
     });
-
     return ok({ deleted: true });
   } catch (error) {
+    const status = (error as { status?: number }).status;
+    if (status === 403) return fail("এই কাজ করার অধিকার নেই", 403);
     return handleError(error);
   }
-}
-
-/** Empty strings become null so the CHECK constraints and UI stay consistent. */
-function clean(input: Record<string, unknown>): Record<string, unknown> {
-  const out: Record<string, unknown> = { ...input };
-  delete out.id;
-  for (const key of Object.keys(out)) {
-    if (out[key] === "") out[key] = null;
-  }
-  if (out.max_amount === null) out.max_amount = null;
-  return out;
 }

@@ -39,12 +39,9 @@ export const PERMISSIONS = [
   "coupons.write",
   "payouts.read",
   "payouts.write",
-  /** Manual payment verification — approve/reject a customer's TrxID claim.
-   *  Deliberately admin-only: approving a payment marks an order paid and
-   *  activates premium plans, so it is the single highest-value action in the
-   *  admin panel. A manager can READ the queue but cannot approve. */
-  "payments.verify",
-  "payments.read",
+  /** Managing the payment receiving methods (numbers, names, instructions).
+   *  Deliberately admin-only: these are the numbers customers send money to. */
+  "payments.manage",
 
   /* ---- people ---- */
   "customers.read",
@@ -63,8 +60,6 @@ export const PERMISSIONS = [
   "content.layout",
   /** social links in the header/footer/contact */
   "content.social",
-  /** payment method receiving numbers */
-  "payments.manage",
 
   /* ---- moderation & premium ---- */
   "reviews.moderate",
@@ -104,7 +99,6 @@ const STAFF: Permission[] = [
 const MANAGER: Permission[] = [
   ...STAFF,
   "reports.view",
-  "payments.read",
   "orders.write",
   "orders.refund",
   "coupons.write",
@@ -121,10 +115,8 @@ const MANAGER: Permission[] = [
 
 const ADMIN: Permission[] = [
   ...MANAGER,
-  // Approving a TrxID marks an order paid and activates premium plans — the
-  // single highest-value action in the panel. Managers may read the queue
-  // (`payments.read`) but only an admin holds this.
-  "payments.verify",
+  // Managing the payment receiving numbers is the single highest-value action
+  // in the panel — only an admin holds it.
   "payments.manage",
   "team.invite",
   "team.role",

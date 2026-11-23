@@ -19,12 +19,12 @@ const schema = z.object({
  *
  * SECURITY — this route activates a plan WITHOUT taking money, so it must
  * never be callable by a customer. Previously any signed-in user could POST
- * their own pending sub_no here and get a free year of premium. With manual
- * payments there is exactly one legitimate path to `active`:
- *     admin approves the TrxID -> decidePayment() -> activatePremium()
- * so this handler is now closed to everyone except an admin (the sandbox
- * "simulate success" button, when the owner deliberately tests). The brief is
- * explicit that only an admin may approve a payment.
+ * their own pending sub_no here and get a free year of premium. There is
+ * exactly one legitimate path to `active`:
+ *     owner marks the payment received -> activatePremium()
+ * so this handler is closed to everyone except an admin (the sandbox
+ * "simulate success" button, when the owner deliberately tests). The brief
+ * is explicit that only an admin may approve a payment.
  *
  * The cancel path (DELETE) stays customer-accessible — cancelling your own
  * subscription is always allowed.

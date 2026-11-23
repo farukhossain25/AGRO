@@ -17,9 +17,10 @@ const schema = z.object({
  * POST /api/premium/subscribe
  * --------------------------------------------------------------------------
  * Creates a `pending` premium_subscriptions row and hands the customer to the
- * manual verification screen (/payment/manual?sub=…). Nothing here calls a
- * gateway, and nothing here can activate a plan: the row stays `pending` until
- * an admin approves the TrxID, which is what runs activatePremium().
+ * payment instructions page (/payment/[method]?sub=…) where the receiving
+ * number and amount are shown. Nothing here calls a gateway, and nothing here
+ * can activate a plan: the row stays `pending` until an admin marks the
+ * payment received, which is what runs activatePremium().
  */
 export async function POST(req: Request) {
   try {
@@ -99,7 +100,7 @@ export async function POST(req: Request) {
        happens here, so nothing can self-activate. */
     return created({
       subscription: sub,
-      redirect: `/payment/manual?sub=${encodeURIComponent(subNo)}&method=${encodeURIComponent(method)}`,
+      redirect: `/payment/${encodeURIComponent(method)}?sub=${encodeURIComponent(subNo)}`,
       simulated: false,
       reference: subNo,
       expiresAt: expires.toISOString(),

@@ -3,20 +3,48 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Check, Lock, Tag, Truck } from "lucide-react";
+import {
+  BadgeCheck,
+  Check,
+  CreditCard,
+  Lock,
+  ShieldCheck,
+  Tag,
+  Truck,
+  X,
+} from "lucide-react";
 import { useCart } from "@/lib/cart";
 import { useDeliveryConfig } from "@/lib/delivery-settings";
 import { useLocale } from "@/lib/locale";
 import { useToast } from "@/lib/toast";
 import { money } from "@/lib/format";
-import { divisions, districtsOf, upazilasOf, dhakaMetroThanas } from "@/lib/bd-locations";
-import { orderStatusSteps } from "@/lib/site";
+import { divisionNames, districtsOf, upazilasOf, dhakaMetroThanas } from "@/lib/bd-locations";
 import type { PublicPaymentMethod } from "@/lib/types";
 import { EmptyState, Spinner } from "@/components/ui";
 
+/* ==========================================================================
+   CheckoutFlow — professional 3-step checkout
+   --------------------------------------------------------------------------
+   Step 1  delivery address + coupon
+   Step 2  payment method (cards built from the admin-managed methods)
+   Step 3  confirmation + place order
 
+   The customer picks a method from the admin panel's active list. COD goes
+   straight to order-success; every other method goes to the payment page
+   where the receiving number and instructions are shown.
+   ========================================================================== */
 
 type Step = 1 | 2 | 3;
+
+const METHOD_EMOJI: Record<string, string> = {
+  bkash: "🟢",
+  nagad: "🟡",
+  rocket: "🚀",
+  upay: "💳",
+  bank: "🏦",
+  cod: "💵",
+  sslcommerz: "🏦",
+};
 
 export function CheckoutFlow({ methods: initialMethods }: { methods: PublicPaymentMethod[] }) {
   /* If the database returned nothing (outage, or a brand-new project), fall
@@ -44,6 +72,7 @@ export function CheckoutFlow({ methods: initialMethods }: { methods: PublicPayme
           requires_sender: false,
         },
       ];
+
   const cart = useCart();
   const rules = useDeliveryConfig();
   const { t, isBn } = useLocale();
@@ -60,8 +89,6 @@ export function CheckoutFlow({ methods: initialMethods }: { methods: PublicPayme
     address: "",
     delivery_note: "",
   });
-  // Default to cash on delivery when it exists, otherwise the first enabled
-  // method — never a hard-coded id, because the owner can disable any of them.
   const [payment, setPayment] = useState<string>(
     methods.find((m) => m.code === "cod")?.code ?? methods[0]?.code ?? ""
   );
@@ -71,9 +98,6 @@ export function CheckoutFlow({ methods: initialMethods }: { methods: PublicPayme
   const [couponLoading, setCouponLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
-  /* Lines the server refused at placement time (removed from sale, stock out).
-     They are shown as a named list with a one-tap "remove" so the customer is
-     never stuck on an order that can never succeed. */
   const [unavailable, setUnavailable] = useState<
     Array<{ id: string; name: string; reason: string; slug?: string }>
   >([]);
@@ -93,6 +117,8 @@ export function CheckoutFlow({ methods: initialMethods }: { methods: PublicPayme
   const freeDelivery = cart.subtotal >= rules.free_over;
   const delivery = cart.items.some((l) => l.kind === "combo") ? 0 : freeDelivery ? 0 : baseDelivery;
   const total = Math.max(0, cart.subtotal + delivery - discount);
+
+  const selectedMethod = methods.find((m) => m.code === payment) ?? methods[0];
 
   function update<K extends keyof typeof form>(key: K, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -169,15 +195,14 @@ export function CheckoutFlow({ methods: initialMethods }: { methods: PublicPayme
       setUnavailable([]);
 
       const { order_no } = json.data;
-
       cart.clear();
 
-      // COD needs no proof of payment; every other method goes to the manual
-      // flow where the customer submits the TrxID for admin verification.
+      // COD needs no payment step; every other method shows the receiving
+      // number + instructions on the payment page.
       if (payment === "cod") {
         window.location.href = `/order-success?order=${order_no}`;
       } else {
-        window.location.href = `/payment/manual?order=${order_no}&method=${encodeURIComponent(payment)}`;
+        window.location.href = `/payment/${encodeURIComponent(payment)}?order=${order_no}`;
       }
     } catch (err) {
       toast.error(t("অর্ডার ব্যর্থ হয়েছে", "Order failed"), (err as Error).message);
@@ -200,17 +225,23 @@ export function CheckoutFlow({ methods: initialMethods }: { methods: PublicPayme
     );
   }
 
+  const steps = [
+    { n: 1, label: t("ঠিকানা", "Address") },
+    { n: 2, label: t("পেমেন্ট", "Payment") },
+    { n: 3, label: t("নিশ্চিতকরণ", "Confirm") },
+  ];
+
   return (
     <div className="container-x py-7 sm:py-10">
+      {/* ── header ───────────────────────────────────────────────────────── */}
       <div className="mb-6">
         <h1 className="text-[24px] font-bold sm:text-3xl">{t("চেকআউট", "Checkout")}</h1>
         <p className="mt-1 flex items-center gap-1.5 text-[12px] text-sand-100/45">
-          <Lock className="h-3.5 w-3.5 text-leaf-400" />
-          {t("আপনার তথ্য নিরাপদে সংরক্ষিত", "Your information is securely stored")}
+          <ShieldCheck className="h-3.5 w-3.5 text-leaf-400" />
+          {t("নিরাপদ চেকআউট · তথ্য এন্ক্রিপ্ট করা হয়েছে", "Secure checkout · your data is encrypted")}
         </p>
       </div>
 
-      {/* step indicator */}
       {unavailable.length ? (
         <div className="mb-5 rounded-2xl border border-red-400/30 bg-red-500/10 p-4">
           <p className="text-[13px] font-semibold text-red-200">
@@ -221,9 +252,7 @@ export function CheckoutFlow({ methods: initialMethods }: { methods: PublicPayme
           </p>
           <ul className="mt-2 space-y-1 text-[12px] text-red-100/80">
             {unavailable.map((u) => (
-              <li key={u.id}>
-                • {u.name} — {u.reason}
-              </li>
+              <li key={u.id}>• {u.name} — {u.reason}</li>
             ))}
           </ul>
           <button
@@ -240,12 +269,9 @@ export function CheckoutFlow({ methods: initialMethods }: { methods: PublicPayme
         </div>
       ) : null}
 
+      {/* ── step indicator ──────────────────────────────────────────────── */}
       <ol className="mb-6 flex items-center gap-2 text-[11.5px]">
-        {[
-          { n: 1, label: t("ঠিকানা", "Address") },
-          { n: 2, label: t("পেমেন্ট", "Payment") },
-          { n: 3, label: t("নিশ্চিতকরণ", "Confirm") },
-        ].map((s, i) => (
+        {steps.map((s, i) => (
           <li key={s.n} className="flex flex-1 items-center gap-2">
             <button
               onClick={() => setStep(s.n as Step)}
@@ -255,25 +281,28 @@ export function CheckoutFlow({ methods: initialMethods }: { methods: PublicPayme
             >
               <span
                 className={`grid h-5 w-5 place-items-center rounded-full text-[10px] ${
-                  step > s.n ? "bg-leaf-500 text-ink-900" : step === s.n ? "bg-leaf-500 text-ink-900" : "bg-white/10"
+                  step >= s.n ? "bg-leaf-500 text-ink-900" : "bg-white/10"
                 }`}
               >
                 {step > s.n ? <Check className="h-3 w-3" /> : s.n}
               </span>
               {s.label}
             </button>
-            {i < 2 ? <span className={`h-px flex-1 ${step > s.n ? "bg-leaf-500/50" : "bg-white/10"}`} /> : null}
+            {i < steps.length - 1 ? (
+              <span className={`h-px flex-1 ${step > s.n ? "bg-leaf-500/50" : "bg-white/10"}`} />
+            ) : null}
           </li>
         ))}
       </ol>
 
       <div className="grid gap-6 lg:grid-cols-[1.55fr_1fr]">
+        {/* ── LEFT: step content ─────────────────────────────────────────── */}
         <div className="space-y-4">
-          {/* ── STEP 1: address */}
-          <section className={`card p-5 ${step !== 1 ? "opacity-60" : ""}`}>
-            <div className="flex items-center justify-between">
+          {/* STEP 1: address */}
+          <section className={`card overflow-hidden ${step !== 1 ? "opacity-60" : ""}`}>
+            <div className="flex items-center justify-between border-b border-white/[0.06] bg-white/[0.02] px-5 py-3.5">
               <h2 className="flex items-center gap-2 text-[15px] font-bold">
-                <span className="grid h-6 w-6 place-items-center rounded-full bg-leaf-600/20 text-[11px] text-leaf-200">১</span>
+                <span className="grid h-6 w-6 place-items-center rounded-full bg-leaf-600/20 text-[11px] text-leaf-200">1</span>
                 {t("ডেলিভারি ঠিকানা", "Delivery address")}
               </h2>
               {step !== 1 ? (
@@ -284,346 +313,417 @@ export function CheckoutFlow({ methods: initialMethods }: { methods: PublicPayme
             </div>
 
             {step === 1 ? (
-              <div className="mt-4 grid gap-3.5 sm:grid-cols-2">
-                <label>
-                  <span className="label">{t("পুরো নাম", "Full name")} *</span>
-                  <input
-                    value={form.customer_name}
-                    onChange={(e) => update("customer_name", e.target.value)}
-                    className="input"
-                    placeholder={t("যেমন: রফিকুল ইসলাম", "e.g. Rafiqul Islam")}
-                    autoComplete="name"
-                  />
-                  {errors.customer_name ? <p className="mt-1 text-[11px] text-red-300">{errors.customer_name}</p> : null}
-                </label>
+              <div className="space-y-3.5 p-5">
+                <div className="grid gap-3.5 sm:grid-cols-2">
+                  <label>
+                    <span className="label">{t("পুরো নাম", "Full name")} *</span>
+                    <input
+                      value={form.customer_name}
+                      onChange={(e) => update("customer_name", e.target.value)}
+                      className="input"
+                      placeholder={t("যেমন: রফিকুল ইসলাম", "e.g. Rafiqul Islam")}
+                      autoComplete="name"
+                    />
+                    {errors.customer_name ? <p className="mt-1 text-[11px] text-red-300">{errors.customer_name}</p> : null}
+                  </label>
+
+                  <label>
+                    <span className="label">{t("মোবাইল নম্বর", "Mobile number")} *</span>
+                    <input
+                      value={form.phone}
+                      onChange={(e) => update("phone", e.target.value)}
+                      className="input"
+                      inputMode="tel"
+                      placeholder="01712345678"
+                      autoComplete="tel"
+                    />
+                    {errors.phone ? <p className="mt-1 text-[11px] text-red-300">{errors.phone}</p> : null}
+                  </label>
+
+                  <label>
+                    <span className="label">{t("ইমেইল (ঐচ্ছিক)", "Email (optional)")}</span>
+                    <input
+                      type="email"
+                      value={form.email}
+                      onChange={(e) => update("email", e.target.value)}
+                      className="input"
+                      placeholder="you@example.com"
+                      autoComplete="email"
+                    />
+                    {errors.email ? <p className="mt-1 text-[11px] text-red-300">{errors.email}</p> : null}
+                  </label>
+
+                  <label>
+                    <span className="label">{t("বিভাগ", "Division")} *</span>
+                    <select
+                      value={form.division}
+                      onChange={(e) => {
+                        update("division", e.target.value);
+                        update("district", "");
+                        update("upazila", "");
+                      }}
+                      className="input"
+                    >
+                      <option value="">{t("নির্বাচন করুন", "Select")}</option>
+                      {divisionNames.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.division ? <p className="mt-1 text-[11px] text-red-300">{errors.division}</p> : null}
+                  </label>
+
+                  <label>
+                    <span className="label">{t("জেলা", "District")} *</span>
+                    <select
+                      value={form.district}
+                      onChange={(e) => {
+                        update("district", e.target.value);
+                        update("upazila", "");
+                      }}
+                      className="input"
+                      disabled={!form.division}
+                    >
+                      <option value="">{t("নির্বাচন করুন", "Select")}</option>
+                      {districtList.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.district ? <p className="mt-1 text-[11px] text-red-300">{errors.district}</p> : null}
+                  </label>
+
+                  <label>
+                    <span className="label">{t("উপজেলা", "Upazila")} *</span>
+                    <select
+                      value={form.upazila}
+                      onChange={(e) => update("upazila", e.target.value)}
+                      className="input"
+                      disabled={!form.district}
+                    >
+                      <option value="">{t("নির্বাচন করুন", "Select")}</option>
+                      {upazilaList.map((u) => (
+                        <option key={u} value={u}>
+                          {u}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.upazila ? <p className="mt-1 text-[11px] text-red-300">{errors.upazila}</p> : null}
+                  </label>
+                </div>
 
                 <label>
-                  <span className="label">{t("মোবাইল নম্বর", "Mobile number")} *</span>
-                  <input
-                    value={form.phone}
-                    onChange={(e) => update("phone", e.target.value)}
-                    className="input"
-                    inputMode="tel"
-                    placeholder="01712345678"
-                    autoComplete="tel"
-                  />
-                  {errors.phone ? <p className="mt-1 text-[11px] text-red-300">{errors.phone}</p> : null}
-                </label>
-
-                <label>
-                  <span className="label">{t("ইমেইল (ঐচ্ছিক)", "Email (optional)")}</span>
-                  <input
-                    type="email"
-                    value={form.email}
-                    onChange={(e) => update("email", e.target.value)}
-                    className="input"
-                    placeholder="you@example.com"
-                    autoComplete="email"
-                  />
-                  {errors.email ? <p className="mt-1 text-[11px] text-red-300">{errors.email}</p> : null}
-                </label>
-
-                <label>
-                  <span className="label">{t("বিভাগ", "Division")} *</span>
-                  <select
-                    value={form.division}
-                    onChange={(e) => {
-                      update("division", e.target.value);
-                      update("district", "");
-                      update("upazila", "");
-                    }}
-                    className="input"
-                  >
-                    <option value="">{t("নির্বাচন করুন", "Select")}</option>
-                    {Object.keys(divisions).map((d) => (
-                      <option key={d} value={d} className="bg-ink-800">{d}</option>
-                    ))}
-                  </select>
-                  {errors.division ? <p className="mt-1 text-[11px] text-red-300">{errors.division}</p> : null}
-                </label>
-
-                <label>
-                  <span className="label">{t("জেলা", "District")} *</span>
-                  <select
-                    value={form.district}
-                    disabled={!form.division}
-                    onChange={(e) => {
-                      update("district", e.target.value);
-                      update("upazila", "");
-                    }}
-                    className="input disabled:opacity-40"
-                  >
-                    <option value="">{t("নির্বাচন করুন", "Select")}</option>
-                    {districtList.map((d) => (
-                      <option key={d} value={d} className="bg-ink-800">{d}</option>
-                    ))}
-                  </select>
-                  {errors.district ? <p className="mt-1 text-[11px] text-red-300">{errors.district}</p> : null}
-                </label>
-
-                <label>
-                  <span className="label">{t("উপজেলা / থানা", "Upazila / Thana")} *</span>
-                  <select
-                    value={form.upazila}
-                    disabled={!form.district}
-                    onChange={(e) => update("upazila", e.target.value)}
-                    className="input disabled:opacity-40"
-                  >
-                    <option value="">{t("নির্বাচন করুন", "Select")}</option>
-                    {upazilaList.map((u) => (
-                      <option key={u} value={u} className="bg-ink-800">{u}</option>
-                    ))}
-                  </select>
-                  {errors.upazila ? <p className="mt-1 text-[11px] text-red-300">{errors.upazila}</p> : null}
-                </label>
-
-                <label className="sm:col-span-2">
                   <span className="label">{t("সম্পূর্ণ ঠিকানা", "Full address")} *</span>
                   <textarea
-                    rows={2}
                     value={form.address}
                     onChange={(e) => update("address", e.target.value)}
-                    className="input resize-none"
-                    placeholder={t("বাসা / রোড / এলাকা / ল্যান্ডমার্ক", "House / Road / Area / Landmark")}
-                    autoComplete="street-address"
+                    className="input min-h-[84px] resize-y"
+                    placeholder={t("ঘর/ফ্লাট, রাস্তা, এলাকা — ডেলিভারির জন্য প্রস্তুত", "House/flat, street, area — delivery-ready")}
                   />
                   {errors.address ? <p className="mt-1 text-[11px] text-red-300">{errors.address}</p> : null}
                 </label>
 
-                <label className="sm:col-span-2">
+                <label>
                   <span className="label">{t("ডেলিভারি নোট (ঐচ্ছিক)", "Delivery note (optional)")}</span>
-                  <input
+                  <textarea
                     value={form.delivery_note}
                     onChange={(e) => update("delivery_note", e.target.value)}
-                    className="input"
-                    placeholder={t("যেমন: বিকেল ৫টার পরে ডেলিভারি দিন", "e.g. deliver after 5 PM")}
-                    maxLength={300}
+                    className="input min-h-[64px] resize-y"
+                    placeholder={t("যেমন: দুপুর 2–4 টার মধ্যে পাঠান", "e.g. deliver between 2–4 pm")}
                   />
                 </label>
 
-                {form.upazila ? (
-                  <p className="sm:col-span-2 flex items-center gap-2 rounded-xl bg-leaf-600/10 px-3 py-2 text-[11.5px] text-leaf-200">
-                    <Truck className="h-3.5 w-3.5" />
-                    {isInsideDhaka
-                      ? t("ঢাকা সিটির ভেতরে — আজই ডেলিভারি সম্ভব (সকাল ১০টার আগে অর্ডারে)", "Inside Dhaka city — same-day delivery available")
-                      : t("ঢাকার বাইরে — ২–৩ কর্মদিবসে ডেলিভারি", "Outside Dhaka — 2–3 working days")}
+                {/* coupon */}
+                <div className="flex gap-2">
+                  <input
+                    value={coupon}
+                    onChange={(e) => setCoupon(e.target.value)}
+                    className="input flex-1"
+                    placeholder={t("কুপন কোড (ঐচ্ছিক)", "Coupon code (optional)")}
+                  />
+                  <button
+                    type="button"
+                    onClick={applyCoupon}
+                    disabled={couponLoading || !coupon.trim()}
+                    className="btn-secondary shrink-0"
+                  >
+                    {couponLoading ? <Spinner className="h-4 w-4" /> : <Tag className="h-4 w-4" />}
+                    {t("প্রয়োগ", "Apply")}
+                  </button>
+                </div>
+                {appliedCoupon ? (
+                  <p className="flex items-center gap-1.5 text-[12px] text-leaf-300">
+                    <BadgeCheck className="h-3.5 w-3.5" />
+                    {t("কুপন প্রয়োগ হয়েছে", "Coupon applied")}: <strong>{appliedCoupon}</strong> — −{money(discount, isBn)}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCoupon("");
+                        setAppliedCoupon(null);
+                        setDiscount(0);
+                      }}
+                      className="ml-1 text-sand-100/50 hover:text-red-300"
+                    >
+                      <X className="inline h-3.5 w-3.5" />
+                    </button>
                   </p>
                 ) : null}
 
-                <div className="sm:col-span-2">
-                  <button
-                    onClick={() => {
-                      if (validateStep1()) setStep(2);
-                    }}
-                    className="btn-primary w-full"
-                  >
-                    {t("পেমেন্টে এগিয়ে যান", "Continue to payment")}
+                <div className="flex justify-end pt-1">
+                  <button type="button" onClick={() => (validateStep1() ? setStep(2) : null)} className="btn-primary">
+                    {t("পেমেন্ট স্টেপে যান", "Continue to payment")}
+                    <span aria-hidden>→</span>
                   </button>
                 </div>
               </div>
             ) : (
-              <p className="mt-3 text-[12.5px] leading-relaxed text-sand-100/60">
-                {form.customer_name} · {form.phone}
-                <br />
-                {form.address}, {form.upazila}, {form.district}, {form.division}
-              </p>
+              <div className="p-5 text-[13px] text-sand-100/70">
+                <p className="font-medium text-sand-100/90">{form.customer_name}</p>
+                <p className="mt-0.5">{form.phone}</p>
+                {form.email ? <p className="mt-0.5 text-sand-100/50">{form.email}</p> : null}
+                <p className="mt-1.5">
+                  {form.division} · {form.district} · {form.upazila}
+                </p>
+                <p className="mt-0.5">{form.address}</p>
+                {form.delivery_note ? <p className="mt-1 text-sand-100/50">📝 {form.delivery_note}</p> : null}
+                {appliedCoupon ? (
+                  <p className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-leaf-600/15 px-2.5 py-1 text-[11px] font-semibold text-leaf-200">
+                    <Tag className="h-3 w-3" /> {appliedCoupon} — −{money(discount, isBn)}
+                  </p>
+                ) : null}
+              </div>
             )}
           </section>
 
-          {/* ── STEP 2: payment */}
-          <section className={`card p-5 ${step < 2 ? "hidden" : ""}`}>
-            <h2 className="flex items-center gap-2 text-[15px] font-bold">
-              <span className="grid h-6 w-6 place-items-center rounded-full bg-leaf-600/20 text-[11px] text-leaf-200">২</span>
-              {t("পেমেন্ট পদ্ধতি", "Payment method")}
-            </h2>
-
-            <div className="mt-4 grid gap-2 sm:grid-cols-2">
-              {methods.map((m) => (
-                <button
-                  key={m.id}
-                  onClick={() => setPayment(m.code)}
-                  aria-pressed={payment === m.code}
-                  className={`flex items-start gap-3 rounded-2xl border p-3.5 text-left transition ${
-                    payment === m.code
-                      ? "border-leaf-500/70 bg-leaf-600/10"
-                      : "border-white/10 bg-white/[0.02] hover:border-white/20"
-                  }`}
-                >
-                  {m.logo_url ? (
-                    <span className="relative mt-0.5 h-7 w-7 shrink-0 overflow-hidden rounded-lg bg-white/[0.06]">
-                      <Image src={m.logo_url} alt="" fill sizes="28px" className="object-contain p-0.5" />
-                    </span>
-                  ) : (
-                    <span className="text-lg" aria-hidden>
-                      {m.kind === "cod" ? "💵" : m.kind === "bank" ? "🏦" : "📱"}
-                    </span>
-                  )}
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[13px] font-semibold">{m.name_bn}</span>
-                    <span className="block text-[10.5px] leading-relaxed text-sand-100/45">
-                      {m.kind === "cod"
-                        ? t("পণ্য হাতে পেয়ে টাকা দিন", "Pay when the order arrives")
-                        : t(
-                            `Send Money · ${m.account_number ?? ""}`,
-                            `Send Money · ${m.account_number ?? ""}`
-                          )}
-                    </span>
-                  </span>
-                  <span
-                    className={`mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full border ${
-                      payment === m.code ? "border-leaf-400 bg-leaf-500" : "border-white/25"
-                    }`}
-                  >
-                    {payment === m.code ? <Check className="h-2.5 w-2.5 text-ink-900" /> : null}
-                  </span>
+          {/* STEP 2: payment method */}
+          <section className={`card overflow-hidden ${step !== 2 ? "opacity-60" : ""}`}>
+            <div className="flex items-center justify-between border-b border-white/[0.06] bg-white/[0.02] px-5 py-3.5">
+              <h2 className="flex items-center gap-2 text-[15px] font-bold">
+                <span className="grid h-6 w-6 place-items-center rounded-full bg-leaf-600/20 text-[11px] text-leaf-200">2</span>
+                {t("পেমেন্ট মাধ্যম", "Payment method")}
+              </h2>
+              {step !== 2 ? (
+                <button onClick={() => setStep(2)} className="text-[12px] font-semibold text-leaf-300">
+                  {t("পরিবর্তন", "Edit")}
                 </button>
-              ))}
+              ) : null}
             </div>
 
-            {payment !== "cod" ? (
-              <p className="mt-3 rounded-xl bg-sky-500/10 px-3 py-2 text-[11.5px] leading-relaxed text-sky-200/90">
-                ℹ️ {t(
-                  "অর্ডার করার পর আপনি যে নম্বরে Send Money করবেন, খোলা পেজে সেই নম্বর ও TrxID দেওয়ার ফর্ম পাবেন। আমাদের টিম যাচাই করে অনুমোদন দিলে অর্ডার নিশ্চিত হবে।",
-                  "After placing the order you'll see the receiving number, send the money, and submit the TrxID. We verify it before the order is confirmed."
-                )}
-              </p>
-            ) : null}
+            {step === 2 ? (
+              <div className="space-y-3 p-5">
+                {methods.map((m) => {
+                  const selected = m.code === payment;
+                  return (
+                    <button
+                      key={m.code}
+                      type="button"
+                      onClick={() => setPayment(m.code)}
+                      className={`group w-full rounded-2xl border p-4 text-left transition ${
+                        selected
+                          ? "border-leaf-500 bg-leaf-600/[0.07] ring-1 ring-leaf-500/40"
+                          : "border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04]"
+                      }`}
+                    >
+                      <div className="flex items-start gap-3.5">
+                        <span
+                          className={`grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl text-xl ${
+                            selected ? "bg-leaf-600/20" : "bg-white/5"
+                          }`}
+                        >
+                          {m.logo_url ? (
+                            <Image src={m.logo_url} alt={m.name_bn} fill className="object-contain" unoptimized />
+                          ) : (
+                            <span aria-hidden>{METHOD_EMOJI[m.code] ?? "💳"}</span>
+                          )}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="text-[14px] font-bold">{m.name_bn}</p>
+                            {m.name_en ? <p className="text-[11px] text-sand-100/40">{m.name_en}</p> : null}
+                          </div>
+                          {m.kind === "cod" ? (
+                            <p className="mt-0.5 text-[12px] text-sand-100/55">
+                              {m.instruction_bn ?? t("পণ্য হাতে পেয়ে টাকা দিন।", "Pay when you receive your order.")}
+                            </p>
+                          ) : (
+                            <p className="mt-0.5 truncate font-mono text-[12.5px] text-leaf-200/90">
+                              {m.account_number ?? m.bank_name ?? "—"}
+                            </p>
+                          )}
+                        </div>
+                        <span
+                          className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border transition ${
+                            selected ? "border-leaf-500 bg-leaf-500 text-ink-900" : "border-white/15 text-transparent"
+                          }`}
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
 
-            <button onClick={() => setStep(3)} className="btn-primary mt-4 w-full">
-              {t("সারাংশ দেখুন", "Review order")}
-            </button>
+                <p className="flex items-center gap-1.5 pt-1 text-[11.5px] text-sand-100/40">
+                  <Lock className="h-3 w-3 text-leaf-400" />
+                  {t("টাকা পাঠানোর পর অর্ডার আপডেট করতে অ্যাডমিন যাচাই করবেন", "The admin verifies payment before your order is confirmed.")}
+                </p>
+
+                <div className="flex justify-end pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!payment) {
+                        toast.error(t("পেমেন্ট মাধ্যম বেছে নিন", "Pick a payment method"));
+                        return;
+                      }
+                      setStep(3);
+                    }}
+                    className="btn-primary"
+                  >
+                    {t("নিশ্চিতকরণে যান", "Review order")}
+                    <span aria-hidden>→</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="p-5">
+                <div className="flex items-center gap-3 rounded-xl border border-leaf-500/30 bg-leaf-600/[0.06] p-4">
+                  <span className="grid h-11 w-11 place-items-center overflow-hidden rounded-xl text-xl bg-leaf-600/15">
+                    {selectedMethod?.logo_url ? (
+                      <Image src={selectedMethod.logo_url} alt={selectedMethod.name_bn} fill className="object-contain" unoptimized />
+                    ) : (
+                      <span aria-hidden>{METHOD_EMOJI[selectedMethod?.code ?? ""] ?? "💳"}</span>
+                    )}
+                  </span>
+                  <div>
+                    <p className="text-[14px] font-bold">{selectedMethod?.name_bn}</p>
+                    {selectedMethod?.kind !== "cod" && selectedMethod?.account_number ? (
+                      <p className="mt-0.5 font-mono text-[12px] text-leaf-200/80">{selectedMethod.account_number}</p>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            )}
           </section>
 
-          {/* ── STEP 3: confirm */}
-          {step >= 3 ? (
-            <section className="card p-5">
-              <h2 className="flex items-center gap-2 text-[15px] font-bold">
-                <span className="grid h-6 w-6 place-items-center rounded-full bg-leaf-600/20 text-[11px] text-leaf-200">৩</span>
-                {t("অর্ডার নিশ্চিত করুন", "Confirm your order")}
-              </h2>
-
-              <div className="mt-4 space-y-2">
-                {cart.items.map((l) => (
-                  <div key={l.id} className="flex items-center gap-3 rounded-xl bg-white/[0.02] p-2">
-                    <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-ink-800">
-                      {l.image ? <Image src={l.image} alt="" fill sizes="48px" className="object-cover" /> : null}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[12.5px] font-medium">{t(l.nameBn, l.nameEn)}</p>
-                      <p className="text-[11px] text-sand-100/45">
-                        {l.quantity} × {money(l.price, isBn)}
-                      </p>
-                    </div>
-                    <p className="text-[12.5px] font-semibold text-leaf-200">{money(l.price * l.quantity, isBn)}</p>
-                  </div>
-                ))}
+          {/* STEP 3: confirmation */}
+          {step === 3 ? (
+            <section className="card overflow-hidden">
+              <div className="flex items-center justify-between border-b border-white/[0.06] bg-white/[0.02] px-5 py-3.5">
+                <h2 className="flex items-center gap-2 text-[15px] font-bold">
+                  <span className="grid h-6 w-6 place-items-center rounded-full bg-leaf-600/20 text-[11px] text-leaf-200">3</span>
+                  {t("অর্ডার নিশ্চিত করুন", "Confirm your order")}
+                </h2>
               </div>
+              <div className="space-y-4 p-5">
+                {/* address recap */}
+                <div className="rounded-xl border border-white/10 p-3.5">
+                  <p className="text-[10.5px] uppercase tracking-wider text-sand-100/40">{t("ডেলিভারি", "Delivery")}</p>
+                  <p className="mt-1 text-[13px] font-medium">{form.customer_name} · {form.phone}</p>
+                  <p className="mt-0.5 text-[12.5px] text-sand-100/60">
+                    {form.division} · {form.district} · {form.upazila}
+                  </p>
+                  <p className="mt-0.5 text-[12.5px] text-sand-100/60">{form.address}</p>
+                </div>
 
-              <div className="mt-4 rounded-xl border border-white/[0.07] p-3 text-[12px] text-sand-100/60">
-                <p className="font-semibold text-sand-100">{t("পেমেন্ট", "Payment")}</p>
-                <p className="mt-0.5">
-                  {methods.find((m) => m.code === payment)?.name_bn ?? ""}
+                {/* payment recap */}
+                <div className="rounded-xl border border-white/10 p-3.5">
+                  <p className="text-[10.5px] uppercase tracking-wider text-sand-100/40">{t("পেমেন্ট", "Payment")}</p>
+                  <div className="mt-1 flex items-center gap-2.5">
+                    <CreditCard className="h-4 w-4 text-leaf-300" />
+                    <p className="text-[13px] font-medium">{selectedMethod?.name_bn}</p>
+                  </div>
+                </div>
+
+                {/* items */}
+                <div className="rounded-xl border border-white/10 p-3.5">
+                  <p className="mb-2 text-[10.5px] uppercase tracking-wider text-sand-100/40">
+                    {t("পণ্য", "Items")} ({cart.items.length})
+                  </p>
+                  <ul className="space-y-1.5">
+                    {cart.items.map((l) => (
+                      <li key={l.id} className="flex items-center justify-between gap-3 text-[12.5px]">
+                        <span className="min-w-0 truncate text-sand-100/75">
+                          {isBn ? l.nameBn : l.nameEn} <span className="text-sand-100/40">× {l.quantity}</span>
+                        </span>
+                        <span className="shrink-0 font-medium">{money(l.price * l.quantity, isBn)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={placeOrder}
+                  disabled={submitting}
+                  className="btn-primary w-full !py-3.5 text-[15px]"
+                >
+                  {submitting ? (
+                    <>
+                      <Spinner className="h-4 w-4" />
+                      {t("অর্ডার দেওয়া হচ্ছে…", "Placing order…")}
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="h-4 w-4" />
+                      {t(`আর্ডার দিন — ${money(total, isBn)}`, `Place order — ${money(total, isBn)}`)}
+                    </>
+                  )}
+                </button>
+                <p className="flex items-center justify-center gap-1.5 text-[11px] text-sand-100/40">
+                  <ShieldCheck className="h-3 w-3 text-leaf-400" />
+                  {t("অর্ডার দেওয়ার পর পেমেন্ট নির্দেশনা দেখতে পাবেন", "You'll see payment instructions after placing the order")}
                 </p>
               </div>
-
-              <button onClick={placeOrder} disabled={submitting} className="btn-mint mt-4 w-full !py-3.5 text-[15px]">
-                {submitting ? <Spinner /> : <Lock className="h-4 w-4" />}
-                {t(`অর্ডার কনফার্ম করুন — ${money(total, isBn)}`, `Place order — ${money(total, false)}`)}
-              </button>
-              <p className="mt-2 text-center text-[10.5px] leading-relaxed text-sand-100/35">
-                {t("অর্ডার করলে আপনি আমাদের শর্তাবলী মেনে নিচ্ছেন।", "By ordering you agree to our terms.")}
-              </p>
             </section>
           ) : null}
         </div>
 
-        {/* ── summary */}
+        {/* ── RIGHT: order summary ───────────────────────────────────────── */}
         <aside className="lg:sticky lg:top-24 lg:self-start">
-          <div className="card p-5">
-            <h2 className="text-[15px] font-bold">{t("অর্ডার সারাংশ", "Order summary")}</h2>
-
-            <ul className="mt-3 max-h-56 space-y-2 overflow-y-auto pr-1">
-              {cart.items.map((l) => (
-                <li key={l.id} className="flex items-center gap-2.5">
-                  <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-ink-800">
-                    {l.image ? <Image src={l.image} alt="" fill sizes="40px" className="object-cover" /> : null}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[12px]">{t(l.nameBn, l.nameEn)}</p>
-                    <p className="text-[10.5px] text-sand-100/40">{l.quantity} × {money(l.price, isBn)}</p>
-                  </div>
-                  <p className="text-[12px] font-semibold">{money(l.price * l.quantity, isBn)}</p>
-                </li>
-              ))}
-            </ul>
-
-            {/* coupon */}
-            <div className="mt-4">
-              <div className="flex gap-2">
-                <label className="relative flex-1">
-                  <Tag className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-sand-100/35" />
-                  <input
-                    value={coupon}
-                    onChange={(e) => setCoupon(e.target.value.toUpperCase())}
-                    placeholder={t("কুপন কোড", "Coupon code")}
-                    className="input !rounded-xl !py-2.5 !pl-9 text-[12px] uppercase"
-                  />
-                </label>
-                <button onClick={applyCoupon} disabled={couponLoading} className="btn-ghost btn-sm !rounded-xl">
-                  {couponLoading ? <Spinner /> : t("প্রয়োগ", "Apply")}
-                </button>
-              </div>
-              {appliedCoupon ? (
-                <p className="mt-1.5 flex items-center gap-1 text-[11.5px] text-leaf-300">
-                  <Check className="h-3 w-3" /> {appliedCoupon} {t("প্রয়োগ হয়েছে", "applied")} (−{money(discount, isBn)})
-                </p>
-              ) : (
-                <p className="mt-1.5 text-[10.5px] text-sand-100/35">
-                  {t("ট্রাই করুন: BISWAS10", "Try: BISWAS10")}
-                </p>
-              )}
+          <div className="card overflow-hidden">
+            <div className="border-b border-white/[0.06] bg-white/[0.02] px-5 py-3.5">
+              <h2 className="flex items-center gap-2 text-[15px] font-bold">
+                <Truck className="h-4 w-4 text-leaf-300" />
+                {t("অর্ডার সারসংক্ষেপ", "Order summary")}
+              </h2>
             </div>
-
-            <dl className="mt-4 space-y-2 text-[12.5px]">
-              <div className="flex justify-between">
-                <dt className="text-sand-100/55">{t("সাবটোটাল", "Subtotal")}</dt>
-                <dd className="font-medium">{money(cart.subtotal, isBn)}</dd>
+            <div className="space-y-2.5 p-5">
+              <div className="flex justify-between text-[12.5px]">
+                <span className="text-sand-100/50">{t("সাবটোটাল", "Subtotal")}</span>
+                <span className="font-medium">{money(cart.subtotal, isBn)}</span>
               </div>
-              <div className="flex justify-between">
-                <dt className="text-sand-100/55">{t("ডেলিভারি", "Delivery")}</dt>
-                <dd className="font-medium">
-                  {delivery === 0 ? <span className="text-leaf-300">{t("ফ্রি", "Free")}</span> : money(delivery, isBn)}
-                </dd>
+              <div className="flex justify-between text-[12.5px]">
+                <span className="text-sand-100/50">{t("ডেলিভারি", "Delivery")}</span>
+                <span className="font-medium">
+                  {delivery === 0 ? t("ফ্রি", "Free") : money(delivery, isBn)}
+                </span>
               </div>
               {discount > 0 ? (
-                <div className="flex justify-between text-leaf-300">
-                  <dt>{t("ছাড়", "Discount")}</dt>
-                  <dd className="font-medium">−{money(discount, isBn)}</dd>
+                <div className="flex justify-between text-[12.5px] text-leaf-300">
+                  <span>{t("ছাড়", "Discount")}</span>
+                  <span>−{money(discount, isBn)}</span>
                 </div>
               ) : null}
-            </dl>
-
-            <div className="my-3 divider" />
-
-            <div className="flex items-baseline justify-between">
-              <span className="text-[14px] font-semibold">{t("সর্বমোট", "Total")}</span>
-              <span className="text-2xl font-bold text-leaf-200">{money(total, isBn)}</span>
+              {freeDelivery ? (
+                <p className="rounded-lg bg-leaf-600/10 px-2.5 py-1.5 text-[11px] font-semibold text-leaf-200">
+                  {t("ফ্রি ডেলিভারি পেয়েছেন", "You got free delivery")}
+                </p>
+              ) : null}
+              <div className="flex justify-between border-t border-white/[0.06] pt-3 text-[15px] font-bold">
+                <span>{t("মোট", "Total")}</span>
+                <span className="text-leaf-200">{money(total, isBn)}</span>
+              </div>
             </div>
+          </div>
 
-            <div className="mt-4 rounded-xl bg-white/[0.03] p-3">
-              <p className="mb-2 text-[10.5px] font-semibold uppercase tracking-wider text-sand-100/40">
-                {t("অর্ডার প্রক্রিয়া", "Order flow")}
-              </p>
-              <ol className="flex items-center justify-between gap-1">
-                {orderStatusSteps.map((s, i) => (
-                  <li key={s.key} className="flex flex-1 flex-col items-center gap-1 text-center">
-                    <span className="grid h-6 w-6 place-items-center rounded-full bg-leaf-600/15 text-[10px]">{s.icon}</span>
-                    <span className="text-[9px] leading-tight text-sand-100/45">{s.bn}</span>
-                    {i < orderStatusSteps.length - 1 ? <span className="sr-only">→</span> : null}
-                  </li>
-                ))}
-              </ol>
-            </div>
+          <div className="card mt-4 p-4">
+            <p className="flex items-center gap-1.5 text-[11.5px] text-sand-100/50">
+              <ShieldCheck className="h-3.5 w-3.5 text-leaf-400" />
+              {t("১০০% নিরাপদ · ক্যাশ অন ডেলিভারি সুবিধা আছে", "100% secure · cash on delivery available")}
+            </p>
           </div>
         </aside>
       </div>
@@ -633,14 +733,11 @@ export function CheckoutFlow({ methods: initialMethods }: { methods: PublicPayme
 
 function CheckoutSkeleton() {
   return (
-    <div className="container-x py-10">
-      <div className="skeleton h-8 w-40" />
-      <div className="mt-6 grid gap-6 lg:grid-cols-[1.55fr_1fr]">
-        <div className="space-y-4">
-          <div className="skeleton h-64 rounded-3xl" />
-          <div className="skeleton h-40 rounded-3xl" />
-        </div>
-        <div className="skeleton h-80 rounded-3xl" />
+    <div className="container-x py-16">
+      <div className="mx-auto max-w-3xl space-y-4">
+        <div className="h-8 w-48 animate-pulse rounded-lg bg-white/5" />
+        <div className="h-64 animate-pulse rounded-3xl bg-white/5" />
+        <div className="h-64 animate-pulse rounded-3xl bg-white/5" />
       </div>
     </div>
   );

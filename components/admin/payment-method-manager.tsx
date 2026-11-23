@@ -1,656 +1,646 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Banknote,
-  ChevronDown,
-  ChevronUp,
-  Copy,
   CreditCard,
-  Landmark,
-  Pencil,
+  Link2,
   Plus,
   Power,
   Save,
-  Smartphone,
   Trash2,
   X,
 } from "lucide-react";
+import { useLocale } from "@/lib/locale";
+import { adminHref } from "@/lib/paths";
 import { useToast } from "@/lib/toast";
 import { money } from "@/lib/format";
+import { ImageField } from "@/components/admin/image-field";
 import { Spinner } from "@/components/ui";
-import { ImageField } from "./image-field";
 import type { PaymentMethodRow } from "@/lib/types";
 
 /* ==========================================================================
-   PaymentMethodManager — bKash / Nagad / Rocket / bank / COD, no code edits
+   PaymentMethodManager — admin add / edit / delete for payment methods
    --------------------------------------------------------------------------
-   The single most important field is `account_number`: the number customers
-   send money to. It is shown prominently in the list (with a copy button) so
-   the owner can verify at a glance that the live number is the right one.
+   The owner manages every receiving method here: bKash, Nagad, Rocket, Upay,
+   a bank account, cash on delivery — whatever they want to accept. Each row
+   carries the receiving number customers send money to, the account name,
+   and the Bangla instructions shown on the payment page.
 
-   Reordering is two buttons rather than drag-and-drop on purpose — a mis-drop
-   here would send customers to an old bKash number.
+   Add / Edit open a form modal; Delete removes the row (or deactivates it
+   when orders still reference the code). Toggling a row off hides it from
+   the checkout without deleting its history.
    ========================================================================== */
 
-const KIND_META: Record<string, { label: string; Icon: typeof Smartphone }> = {
-  mfs: { label: "মোবাইল ওয়ালেট", Icon: Smartphone },
-  bank: { label: "ব্যাংক", Icon: Landmark },
-  cod: { label: "ক্যাশ অন ডেলিভারি", Icon: Banknote },
-  gateway: { label: "গেটওয়ে", Icon: CreditCard },
-  other: { label: "অন্যান্য", Icon: CreditCard },
+type Draft = {
+  id?: string;
+  code: string;
+  name_bn: string;
+  name_en: string;
+  kind: "mfs" | "bank" | "cod" | "gateway" | "other";
+  logo_url: string;
+  account_type: string;
+  account_number: string;
+  account_name: string;
+  bank_name: string;
+  branch_name: string;
+  routing_number: string;
+  instruction_bn: string;
+  min_amount: string;
+  max_amount: string;
+  requires_trx: boolean;
+  requires_sender: boolean;
+  is_active: boolean;
+  sort_order: string;
 };
-
-const ACCOUNT_TYPES = [
-  { value: "personal", label: "Personal" },
-  { value: "agent", label: "Agent" },
-  { value: "merchant", label: "Merchant" },
-  { value: "account", label: "ব্যাংক অ্যাকাউন্ট" },
-];
-
-const KINDS = [
-  { value: "mfs", label: "মোবাইল ওয়ালেট (বিকাশ/নগদ/রকেট)" },
-  { value: "bank", label: "ব্যাংক ট্রান্সফার" },
-  { value: "cod", label: "ক্যাশ অন ডেলিভারি" },
-  { value: "gateway", label: "অটো গেটওয়ে (SSLCommerz)" },
-  { value: "other", label: "অন্যান্য" },
-];
-
-type Draft = Partial<PaymentMethodRow> & { id?: string };
-
-const PROVIDER_PRESETS = [
-  {
-    id: "bkash",
-    label: "bKash (বিকাশ)",
-    code: "bkash",
-    name_bn: "বিকাশ",
-    name_en: "bKash",
-    kind: "mfs" as const,
-    requires_trx: true,
-    requires_sender: true,
-    instruction_bn: "১. *247# ডায়াল করুন বা bKash অ্যাপ খুলুন।\n২. Send Money-তে গিয়ে উপরের নম্বরে টাকা পাঠান।\n৩. রেফারেন্সে আপনার অর্ডার নম্বর দিন এবং TrxID নিচে লিখুন।",
-  },
-  {
-    id: "nagad",
-    label: "Nagad (নগদ)",
-    code: "nagad",
-    name_bn: "নগদ",
-    name_en: "Nagad",
-    kind: "mfs" as const,
-    requires_trx: true,
-    requires_sender: true,
-    instruction_bn: "১. *167# ডায়াল করুন বা Nagad অ্যাপ খুলুন।\n২. Send Money-তে গিয়ে উপরের নম্বরে টাকা পাঠান।\n৩. লেনদেন শেষে TrxID নিচে লিখুন।",
-  },
-  {
-    id: "rocket",
-    label: "Rocket (রকেট)",
-    code: "rocket",
-    name_bn: "রকেট",
-    name_en: "Rocket",
-    kind: "mfs" as const,
-    requires_trx: true,
-    requires_sender: true,
-    instruction_bn: "১. *322# ডায়াল করুন বা Rocket অ্যাপ খুলুন।\n২. Send Money-তে গিয়ে উপরের নম্বরে টাকা পাঠান।\n৩. TrxID নিচে লিখুন।",
-  },
-  {
-    id: "upay",
-    label: "Upay (উপায়)",
-    code: "upay",
-    name_bn: "উপায়",
-    name_en: "Upay",
-    kind: "mfs" as const,
-    requires_trx: true,
-    requires_sender: true,
-    instruction_bn: "১. Upay অ্যাপ বা *268# থেকে উপরের নম্বরে Send Money করুন।\n২. TrxID নিচে লিখুন।",
-  },
-  {
-    id: "bank",
-    label: "Bank Transfer (ব্যাংক)",
-    code: "bank",
-    name_bn: "ব্যাংক ট্রান্সফার",
-    name_en: "Bank Transfer",
-    kind: "bank" as const,
-    requires_trx: true,
-    requires_sender: false,
-    instruction_bn: "উপরের ব্যাংক অ্যাকাউন্টে টাকা পাঠিয়ে রেফারেন্স/স্লিপ নম্বর দিন এবং পেমেন্টের ছবি আপলোড করুন।",
-  },
-  {
-    id: "cod",
-    label: "Cash on Delivery (হাতে হাতে)",
-    code: "cod",
-    name_bn: "ক্যাশ অন ডেলিভারি",
-    name_en: "Cash on Delivery",
-    kind: "cod" as const,
-    requires_trx: false,
-    requires_sender: false,
-    instruction_bn: "পণ্য হাতে পেয়ে ডেলিভারি ম্যানকে টাকা দিন।",
-  },
-  {
-    id: "custom",
-    label: "Custom (নিজস্ব)",
-    code: "",
-    name_bn: "",
-    name_en: "",
-    kind: "other" as const,
-    requires_trx: true,
-    requires_sender: true,
-    instruction_bn: "",
-  },
-];
 
 const EMPTY: Draft = {
   code: "",
   name_bn: "",
   name_en: "",
   kind: "mfs",
+  logo_url: "",
   account_type: "personal",
   account_number: "",
   account_name: "",
+  bank_name: "",
+  branch_name: "",
+  routing_number: "",
   instruction_bn: "",
-  min_amount: 10,
-  max_amount: null,
-  trx_pattern: "^[A-Z0-9]{8,12}$",
+  min_amount: "1",
+  max_amount: "",
   requires_trx: true,
   requires_sender: true,
   is_active: true,
-  sort_order: 0,
-  logo_url: "",
+  sort_order: "0",
 };
 
-export function PaymentMethodManager({ initial }: { initial: PaymentMethodRow[] }) {
-  const router = useRouter();
+const KIND_LABEL: Record<Draft["kind"], string> = {
+  mfs: "মোবাইল ফিনান্সিয়াল (bKash/Nagad/Rocket)",
+  bank: "ব্যাংক ট্রান্সফার",
+  cod: "ক্যাশ অন ডেলিভারি",
+  gateway: "গেটওয়ে (কার্ড)",
+  other: "অন্যান্য",
+};
+
+export function PaymentMethodManager({
+  initial,
+  dbReady,
+  configured,
+}: {
+  initial: PaymentMethodRow[];
+  dbReady: boolean;
+  configured: boolean;
+}) {
+  const { t } = useLocale();
   const toast = useToast();
-
-  const [rows, setRows] = useState<PaymentMethodRow[]>(initial);
-  const [draft, setDraft] = useState<Draft | null>(null);
+  const [methods, setMethods] = useState<PaymentMethodRow[]>(initial);
+  const [editing, setEditing] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
-  function open(row?: PaymentMethodRow) {
-    setDraft(row ? { ...row } : { ...EMPTY, sort_order: (rows.at(-1)?.sort_order ?? 0) + 10 });
-    setErrors({});
+  function openCreate() {
+    setEditing({ ...EMPTY, sort_order: String(methods.length + 1) });
   }
 
-  function set<K extends keyof Draft>(key: K, value: Draft[K]) {
-    setDraft((d) => (d ? { ...d, [key]: value } : d));
-    setErrors((e) => ({ ...e, [key]: "" }));
+  function openEdit(m: PaymentMethodRow) {
+    setEditing({
+      id: m.id,
+      code: m.code,
+      name_bn: m.name_bn,
+      name_en: m.name_en ?? "",
+      kind: m.kind,
+      logo_url: m.logo_url ?? "",
+      account_type: m.account_type ?? "",
+      account_number: m.account_number ?? "",
+      account_name: m.account_name ?? "",
+      bank_name: m.bank_name ?? "",
+      branch_name: m.branch_name ?? "",
+      routing_number: m.routing_number ?? "",
+      instruction_bn: m.instruction_bn ?? "",
+      min_amount: String(m.min_amount),
+      max_amount: m.max_amount == null ? "" : String(m.max_amount),
+      requires_trx: m.requires_trx,
+      requires_sender: m.requires_sender,
+      is_active: m.is_active,
+      sort_order: String(m.sort_order),
+    });
   }
 
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    if (!draft) return;
+  async function save() {
+    if (!editing) return;
+    if (!editing.code.trim() || !editing.name_bn.trim()) {
+      toast.error(t("কোড ও বাংলা নাম দিন", "Code and Bangla name are required"));
+      return;
+    }
     setSaving(true);
-    setErrors({});
-
     try {
-      const isEdit = Boolean(draft.id);
+      const body = {
+        ...(editing.id ? { id: editing.id } : {}),
+        code: editing.code.trim(),
+        name_bn: editing.name_bn.trim(),
+        name_en: editing.name_en.trim(),
+        kind: editing.kind,
+        logo_url: editing.logo_url.trim(),
+        account_type: editing.account_type || null,
+        account_number: editing.account_number.trim(),
+        account_name: editing.account_name.trim(),
+        bank_name: editing.bank_name.trim(),
+        branch_name: editing.branch_name.trim(),
+        routing_number: editing.routing_number.trim(),
+        instruction_bn: editing.instruction_bn.trim(),
+        min_amount: Number(editing.min_amount) || 0,
+        max_amount: editing.max_amount ? Number(editing.max_amount) : null,
+        requires_trx: editing.requires_trx,
+        requires_sender: editing.requires_sender,
+        is_active: editing.is_active,
+        sort_order: Number(editing.sort_order) || 0,
+      };
+
       const res = await fetch("/api/foisal/payment-methods", {
-        method: isEdit ? "PATCH" : "POST",
+        method: editing.id ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(draft),
+        body: JSON.stringify(body),
       });
       const json = await res.json();
+      if (!res.ok) throw new Error(json.message ?? "সaving ব্যর্থ");
 
-      if (!res.ok) {
-        if (json.errors) setErrors(json.errors);
-        throw new Error(json.message ?? "সংরক্ষণ ব্যর্থ");
+      if (editing.id) {
+        setMethods((prev) => prev.map((m) => (m.id === editing.id ? json.data.method : m)));
+        toast.success(t("মেথড আপডেট হয়েছে", "Payment method updated"));
+      } else {
+        setMethods((prev) => [...prev, json.data.method]);
+        toast.success(t("মেথড তৈরি হয়েছে", "Payment method created"));
       }
-
-      setRows((prev) =>
-        isEdit
-          ? prev.map((r) => (r.id === draft.id ? (json.data as PaymentMethodRow) : r))
-          : [...prev, json.data as PaymentMethodRow].sort((a, b) => a.sort_order - b.sort_order)
-      );
-      toast.success(isEdit ? "আপডেট হয়েছে" : "নতুন মাধ্যম যোগ হয়েছে", "ওয়েবসাইটে সাথে সাথে দেখা যাবে");
-      setDraft(null);
-      router.refresh();
-    } catch (error) {
-      toast.error("সংরক্ষণ হয়নি", (error as Error).message);
+      setEditing(null);
+    } catch (err) {
+      toast.error(t("ব্যর্থ", "Failed"), (err as Error).message);
     } finally {
       setSaving(false);
     }
   }
 
-  async function toggle(row: PaymentMethodRow) {
-    const next = !row.is_active;
-    setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, is_active: next } : r)));
-
-    const res = await fetch("/api/foisal/payment-methods", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...row, is_active: next }),
-    });
-
-    if (!res.ok) {
-      setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, is_active: !next } : r)));
-      toast.error("পরিবর্তন হয়নি", "আবার চেষ্টা করুন");
-    } else {
-      toast.success(next ? "চালু করা হয়েছে" : "বন্ধ করা হয়েছে");
-      router.refresh();
-    }
-  }
-
-  async function move(row: PaymentMethodRow, direction: -1 | 1) {
-    const sorted = [...rows].sort((a, b) => a.sort_order - b.sort_order);
-    const index = sorted.findIndex((r) => r.id === row.id);
-    const swapWith = sorted[index + direction];
-    if (!swapWith) return;
-
-    const next = [...rows].map((r) => {
-      if (r.id === row.id) return { ...r, sort_order: swapWith.sort_order };
-      if (r.id === swapWith.id) return { ...r, sort_order: row.sort_order };
-      return r;
-    });
-    setRows(next.sort((a, b) => a.sort_order - b.sort_order));
-
-    // Persist both rows; the version column is not used, so two updates are safe.
-    await Promise.all([
-      fetch("/api/foisal/payment-methods", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...row, sort_order: swapWith.sort_order }),
-      }),
-      fetch("/api/foisal/payment-methods", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...swapWith, sort_order: row.sort_order }),
-      }),
-    ]);
-    router.refresh();
-  }
-
-  async function remove(id: string) {
+  async function toggleActive(m: PaymentMethodRow) {
+    setBusyId(m.id);
     try {
-      const res = await fetch(`/api/foisal/payment-methods?id=${id}`, { method: "DELETE" });
+      const res = await fetch("/api/foisal/payment-methods", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: m.id, is_active: !m.is_active }),
+      });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.message ?? "মুছে ফেলা যায়নি");
-
-      if (json.data?.deactivated) {
-        setRows((prev) => prev.map((r) => (r.id === id ? { ...r, is_active: false } : r)));
-        toast.success("বন্ধ করা হয়েছে", "পুরনো পেমেন্ট থাকায় মুছে ফেলা হয়নি, শুধু বন্ধ হয়েছে");
-      } else {
-        setRows((prev) => prev.filter((r) => r.id !== id));
-        toast.success("মুছে ফেলা হয়েছে");
-      }
-      setConfirmId(null);
-      router.refresh();
-    } catch (error) {
-      toast.error("ব্যর্থ", (error as Error).message);
+      if (!res.ok) throw new Error(json.message ?? "আপডেট ব্যর্থ");
+      setMethods((prev) => prev.map((x) => (x.id === m.id ? json.data.method : x)));
+      toast.success(
+        !m.is_active ? t("মেথড সক্রিয় হয়েছে", "Method enabled") : t("মেথড বন্ধ হয়েছে", "Method disabled")
+      );
+    } catch (err) {
+      toast.error(t("ব্যর্থ", "Failed"), (err as Error).message);
+    } finally {
+      setBusyId(null);
     }
   }
 
-  const sorted = [...rows].sort((a, b) => a.sort_order - b.sort_order);
+  async function remove(m: PaymentMethodRow) {
+    const ok = window.confirm(
+      `${m.name_bn} মেথডটি মুছে ফেলতে চান?\n\nঅর্ডারে ব্যবহৃত হলে মেথডটি বন্ধ হয়ে যাবে।`
+    );
+    if (!ok) return;
+    setBusyId(m.id);
+    try {
+      const res = await fetch(`/api/foisal/payment-methods?id=${m.id}`, { method: "DELETE" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message ?? "মুছতে পারলেন না");
+      setMethods((prev) => prev.filter((x) => x.id !== m.id));
+      toast.success(
+        json.data.deleted
+          ? t("মেথড মুছে ফেলা হয়েছে", "Method deleted")
+          : t("মেথড বন্ধ করা হয়েছে", "Method deactivated")
+      );
+    } catch (err) {
+      toast.error(t("ব্যর্থ", "Failed"), (err as Error).message);
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <div className="space-y-5">
+      {/* header */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold">পেমেন্ট মাধ্যম</h1>
-          <p className="mt-0.5 text-[11.5px] text-sand-100/45">
-            গ্রাহক যে নম্বরে টাকা পাঠাবে সেটি এখানে বদলান — কোড ছোঁয়া লাগবে না
+          <h1 className="text-[22px] font-bold sm:text-2xl">{t("পেমেন্ট মাধ্যম ও নম্বর", "Payment methods")}</h1>
+          <p className="mt-1 text-[13px] text-sand-100/50">
+            {t(
+              "ক্লায়েন্ট কোন নম্বরে টাকা পাঠাবেন তা আপনি নিয়ন্ত্রণ করুন। যে কোনো মেথড যোগ, সম্পাদনা বা মুছে ফেলতে পারেন।",
+              "Control which number customers send money to. Add, edit, or delete any method."
+            )}
           </p>
         </div>
-        <button onClick={() => open()} className="btn-primary min-h-[40px] rounded-xl px-4 text-[13px]">
-          <Plus className="h-4 w-4" /> নতুন মাধ্যম
+        <button onClick={openCreate} className="btn-primary">
+          <Plus className="h-4 w-4" /> {t("নতুন মেথড", "Add method")}
         </button>
       </div>
 
-      <div className="space-y-2">
-        {sorted.map((row, index) => {
-          const meta = KIND_META[row.kind] ?? KIND_META.other;
-          return (
-            <div
-              key={row.id}
-              className={`card flex flex-wrap items-center gap-3 p-3 sm:flex-nowrap ${
-                row.is_active ? "" : "opacity-55"
-              }`}
-            >
-              {/* logo / icon */}
-              <div className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl bg-white/[0.06]">
-                {row.logo_url ? (
-                  <Image src={row.logo_url} alt="" fill sizes="44px" className="object-contain p-1" />
-                ) : (
-                  <meta.Icon className="h-5 w-5 text-leaf-300" />
-                )}
-              </div>
+      {!dbReady ? (
+        <div className="card p-8 text-center">
+          <p className="text-[14px] font-semibold text-amber-200/90">
+            {t("ডেটাবেস সেটআপ হয়নি", "Database is not configured")}
+          </p>
+          <p className="mt-1 text-[12.5px] text-sand-100/50">
+            {t("SQL ফাইল চালিয়ে ডেটাবেস সেটআপ করুন, তার পর এখানে মেথড যোগ করতে পারবেন।", "Run the SQL files to set up the database, then add methods here.")}
+          </p>
+        </div>
+      ) : methods.length === 0 ? (
+        <div className="card p-8 text-center">
+          <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-leaf-600/15 text-2xl">💳</span>
+          <p className="mt-3 text-[14px] font-semibold">{t("কোনো পেমেন্ট মেথড নেই", "No payment methods yet")}</p>
+          <p className="mt-1 text-[12.5px] text-sand-100/50">
+            {t("প্রথম মেথডটি যোগ করুন — চেকআউট তখন থেকেই কাজ করতে শুরু করবে।", "Add your first method — checkout will work from that moment.")}
+          </p>
+          <button onClick={openCreate} className="btn-primary mt-4">
+            <Plus className="h-4 w-4" /> {t("প্রথম মেথড যোগ করুন", "Add first method")}
+          </button>
+        </div>
+      ) : (
+        <div className="card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[860px] text-left text-[13px]">
+              <thead>
+                <tr className="border-b border-white/[0.06] text-[11px] uppercase tracking-wider text-sand-100/40">
+                  <th className="px-4 py-3 font-semibold">{t("মাধ্যম", "Method")}</th>
+                  <th className="px-4 py-3 font-semibold">{t("রিসিভিং নম্বর", "Receiving number")}</th>
+                  <th className="px-4 py-3 font-semibold">{t("ধরন", "Kind")}</th>
+                  <th className="px-4 py-3 font-semibold">{t("সীমা", "Limits")}</th>
+                  <th className="px-4 py-3 font-semibold">{t("স্টেটাস", "Status")}</th>
+                  <th className="px-4 py-3 text-right font-semibold">{t("কাজ", "Actions")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {methods.map((m) => (
+                  <tr key={m.id} className="border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02]">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <span className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-lg bg-white/5 text-base">
+                          {m.logo_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={m.logo_url} alt={m.name_bn} className="h-full w-full object-contain" />
+                          ) : (
+                            <span aria-hidden>{METHOD_EMOJI[m.code] ?? "💳"}</span>
+                          )}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="font-semibold">{m.name_bn}</p>
+                          <p className="font-mono text-[10.5px] uppercase text-sand-100/40">{m.code}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {m.account_number ? (
+                        <span className="font-mono text-[12.5px] text-leaf-200/90">{m.account_number}</span>
+                      ) : m.bank_name ? (
+                        <span className="text-[12.5px] text-sand-100/70">{m.bank_name}</span>
+                      ) : (
+                        <span className="text-[12.5px] text-sand-100/40">—</span>
+                      )}
+                      {m.account_name ? <p className="text-[11px] text-sand-100/40">{m.account_name}</p> : null}
+                    </td>
+                    <td className="px-4 py-3 text-sand-100/60">{KIND_LABEL[m.kind]}</td>
+                    <td className="px-4 py-3 text-sand-100/60">
+                      {money(Number(m.min_amount), false)}
+                      {m.max_amount != null ? ` – ${money(Number(m.max_amount), false)}` : ""}
+                    </td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => toggleActive(m)}
+                        disabled={busyId === m.id}
+                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold transition disabled:opacity-50 ${
+                          m.is_active
+                            ? "bg-leaf-600/20 text-leaf-200 hover:bg-leaf-600/30"
+                            : "bg-white/5 text-sand-100/40 hover:bg-white/10"
+                        }`}
+                      >
+                        {busyId === m.id ? <Spinner className="h-3 w-3" /> : <Power className="h-3 w-3" />}
+                        {m.is_active ? t("সক্রিয়", "Active") : t("বন্ধ", "Off")}
+                      </button>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-end gap-1.5">
+                        <button
+                          onClick={() => openEdit(m)}
+                          className="rounded-lg border border-white/10 px-2.5 py-1 text-[11.5px] font-semibold text-sand-100/70 transition hover:border-leaf-500/40 hover:text-leaf-200"
+                        >
+                          {t("সম্পাদনা", "Edit")}
+                        </button>
+                        <button
+                          onClick={() => remove(m)}
+                          disabled={busyId === m.id}
+                          className="rounded-lg border border-red-400/20 px-2.5 py-1 text-[11.5px] font-semibold text-red-200/70 transition hover:border-red-400/40 hover:text-red-200 disabled:opacity-50"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
-              {/* identity + the receiving number */}
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <p className="text-[13px] font-semibold">{row.name_bn}</p>
-                  <span className="rounded-full bg-white/[0.07] px-1.5 py-0.5 text-[9px] text-sand-100/50">
-                    {meta.label}
-                  </span>
-                  {row.account_type ? (
-                    <span className="rounded-full bg-leaf-600/15 px-1.5 py-0.5 text-[9px] text-leaf-200">
-                      {ACCOUNT_TYPES.find((t) => t.value === row.account_type)?.label ?? row.account_type}
-                    </span>
-                  ) : null}
-                  {!row.is_active ? (
-                    <span className="rounded-full bg-red-500/15 px-1.5 py-0.5 text-[9px] text-red-300">
-                      বন্ধ
-                    </span>
-                  ) : null}
-                </div>
-                <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-sand-100/50">
-                  <span className="font-mono text-leaf-200">{row.account_number ?? "নম্বর দেওয়া হয়নি"}</span>
-                  {row.account_number ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        void navigator.clipboard?.writeText(row.account_number ?? "");
-                        toast.success("কপি হয়েছে");
-                      }}
-                      className="text-sand-100/35 hover:text-leaf-200"
-                      aria-label="নম্বর কপি"
-                    >
-                      <Copy className="h-3 w-3" />
-                    </button>
-                  ) : null}
-                  <span className="text-sand-100/25">·</span>
-                  <span>
-                    {money(Number(row.min_amount))}
-                    {row.max_amount ? ` – ${money(Number(row.max_amount))}` : "+"}
-                  </span>
-                  {row.requires_trx ? (
-                    <>
-                      <span className="text-sand-100/25">·</span>
-                      <span>TrxID লাগে</span>
-                    </>
-                  ) : null}
-                </div>
-              </div>
-
-              {/* actions */}
-              <div className="flex shrink-0 items-center gap-1">
-                <button
-                  onClick={() => move(row, -1)}
-                  disabled={index === 0}
-                  className="rounded-lg p-1.5 text-sand-100/40 hover:bg-white/10 hover:text-sand-100 disabled:opacity-20"
-                  aria-label="উপরে"
-                >
-                  <ChevronUp className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  onClick={() => move(row, 1)}
-                  disabled={index === sorted.length - 1}
-                  className="rounded-lg p-1.5 text-sand-100/40 hover:bg-white/10 hover:text-sand-100 disabled:opacity-20"
-                  aria-label="নিচে"
-                >
-                  <ChevronDown className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  onClick={() => toggle(row)}
-                  className={`rounded-lg p-1.5 hover:bg-white/10 ${
-                    row.is_active ? "text-leaf-300" : "text-sand-100/35"
-                  }`}
-                  aria-label={row.is_active ? "বন্ধ করুন" : "চালু করুন"}
-                >
-                  <Power className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  onClick={() => open(row)}
-                  className="rounded-lg p-1.5 text-sand-100/40 hover:bg-white/10 hover:text-sand-100"
-                  aria-label="সম্পাদনা"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  onClick={() => setConfirmId(row.id)}
-                  className="rounded-lg p-1.5 text-sand-100/30 hover:bg-red-500/15 hover:text-red-300"
-                  aria-label="মুছুন"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-
-              {confirmId === row.id ? (
-                <div className="flex w-full items-center justify-between gap-2 rounded-xl bg-red-500/10 px-3 py-2 text-[11.5px] sm:w-auto">
-                  <span>নিশ্চিত? পুরনো পেমেন্ট থাকলে শুধু বন্ধ হবে।</span>
-                  <span className="flex gap-1.5">
-                    <button onClick={() => remove(row.id)} className="rounded-lg bg-red-500/25 px-2 py-1 font-semibold text-red-200">
-                      হ্যাঁ
-                    </button>
-                    <button onClick={() => setConfirmId(null)} className="rounded-lg bg-white/10 px-2 py-1">
-                      না
-                    </button>
-                  </span>
-                </div>
-              ) : null}
-            </div>
-          );
-        })}
+      {/* footer help */}
+      <div className="card flex flex-wrap items-center gap-x-5 gap-y-2 p-4 text-[11.5px] text-sand-100/45">
+        <span className="inline-flex items-center gap-1.5">
+          <CreditCard className="h-3.5 w-3.5 text-leaf-400" />
+          {t("চেকআউটে শুধু সক্রিয় মেথডগুলো দেখা যায়", "Only active methods appear on checkout")}
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <Banknote className="h-3.5 w-3.5 text-leaf-400" />
+          {t("টাকা পাঠানোর পর অ্যাডমিন অর্ডার যাচাই করে পরিশোধিত চিহ্নিত করেন", "Admin marks orders paid after receiving the money")}
+        </span>
+        {!configured ? (
+          <Link href={adminHref("system-check")} className="inline-flex items-center gap-1.5 text-leaf-300 hover:underline">
+            <Link2 className="h-3.5 w-3.5" /> {t("সেটআপ যাচাই করুন", "Check setup")}
+          </Link>
+        ) : null}
       </div>
 
-      {/* ---- editor drawer */}
-      {draft ? (
-        <div className="fixed inset-0 z-[96]">
-          <button
-            className="absolute inset-0 bg-ink-950/70 backdrop-blur-sm"
-            onClick={() => setDraft(null)}
-            aria-label="বন্ধ"
-          />
-          <form
-            onSubmit={save}
-            className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col border-l border-white/10 bg-ink-900"
-          >
-            <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
-              <h2 className="text-[14px] font-bold">{draft.id ? "মাধ্যম সম্পাদনা" : "নতুন পেমেন্ট মাধ্যম"}</h2>
-              <button type="button" onClick={() => setDraft(null)} className="rounded-lg p-1.5 text-sand-100/50 hover:bg-white/10">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
-              {!draft.id ? (
-                <Field label="প্রোভাইডার বাছাই করুন" hint="বাছাই করলে নাম ও নির্দেশনা অটো-পূরণ হবে">
-                  <select
-                    className="inp"
-                    defaultValue=""
-                    onChange={(e) => {
-                      const p = PROVIDER_PRESETS.find((x) => x.id === e.target.value);
-                      if (!p || p.id === "custom") return;
-                      setDraft((d) =>
-                        d
-                          ? {
-                              ...d,
-                              code: p.code,
-                              name_bn: p.name_bn,
-                              name_en: p.name_en,
-                              kind: p.kind,
-                              requires_trx: p.requires_trx,
-                              requires_sender: p.requires_sender,
-                              instruction_bn: p.instruction_bn,
-                            }
-                          : d
-                      );
-                    }}
-                  >
-                    <option value="">-- প্রোভাইডার বাছাই করুন (ঐচ্ছিক) --</option>
-                    {PROVIDER_PRESETS.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.label}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-              ) : null}
-
-              <div className="grid grid-cols-2 gap-2.5">
-                <Field label="বাংলা নাম" error={errors.name_bn} required>
-                  <input className="inp" value={draft.name_bn ?? ""} onChange={(e) => set("name_bn", e.target.value)} placeholder="বিকাশ" />
-                </Field>
-                <Field label="কোড" error={errors.code} required hint="ছোট হাতের ইংরেজি, যেমন bkash">
-                  <input
-                    className="inp font-mono"
-                    value={draft.code ?? ""}
-                    onChange={(e) => set("code", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
-                    placeholder="bkash"
-                  />
-                </Field>
-              </div>
-
-              <Field label="ধরন">
-                <select className="inp" value={draft.kind ?? "mfs"} onChange={(e) => set("kind", e.target.value as PaymentMethodRow["kind"])}>
-                  {KINDS.map((k) => (
-                    <option key={k.value} value={k.value}>
-                      {k.label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-
-              <ImageField
-                label="লোগো (ঐচ্ছিক)"
-                value={draft.logo_url ?? ""}
-                onChange={(url) => set("logo_url", url)}
-                bucket="payment-logos"
-                ratio="square"
-                hint="বিকাশ/নগদ লোগো আপলোড করুন — ফোনের গ্যালারি থেকেও চলবে"
-              />
-
-              <Field
-                label="টাকা পাঠানোর নম্বর / অ্যাকাউন্ট"
-                error={errors.account_number}
-                hint="এটিই গ্রাহক দেখবে — সঠিক নম্বর দিন"
-              >
-                <input
-                  className="inp font-mono text-[14px] tracking-wide"
-                  value={draft.account_number ?? ""}
-                  onChange={(e) => set("account_number", e.target.value)}
-                  placeholder="01712345678"
-                  inputMode="tel"
-                />
-              </Field>
-
-              <div className="grid grid-cols-2 gap-2.5">
-                <Field label="অ্যাকাউন্টের ধরন">
-                  <select
-                    className="inp"
-                    value={draft.account_type ?? "personal"}
-                    onChange={(e) => set("account_type", e.target.value as PaymentMethodRow["account_type"])}
-                  >
-                    {ACCOUNT_TYPES.map((t) => (
-                      <option key={t.value} value={t.value}>
-                        {t.label}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <Field label="অ্যাকাউন্টের নাম">
-                  <input className="inp" value={draft.account_name ?? ""} onChange={(e) => set("account_name", e.target.value)} placeholder="বিশ্বাস এগ্রো" />
-                </Field>
-              </div>
-
-              {draft.kind === "bank" ? (
-                <div className="grid grid-cols-2 gap-2.5">
-                  <Field label="ব্যাংকের নাম">
-                    <input className="inp" value={draft.bank_name ?? ""} onChange={(e) => set("bank_name", e.target.value)} placeholder="Dutch Bangla Bank" />
-                  </Field>
-                  <Field label="ব্র্যাঞ্চ">
-                    <input className="inp" value={draft.branch_name ?? ""} onChange={(e) => set("branch_name", e.target.value)} />
-                  </Field>
-                </div>
-              ) : null}
-
-              <Field label="বাংলায় নির্দেশনা" hint="গ্রাহক পেমেন্ট পেজে এই লেখাটি দেখবে">
-                <textarea
-                  className="inp min-h-[74px]"
-                  value={draft.instruction_bn ?? ""}
-                  onChange={(e) => set("instruction_bn", e.target.value)}
-                  placeholder="বিকাশ অ্যাপ → Send Money → উপরের নম্বরে টাকা পাঠান…"
-                />
-              </Field>
-
-              <div className="grid grid-cols-2 gap-2.5">
-                <Field label="সর্বনিম্ন ৳">
-                  <input
-                    className="inp"
-                    type="number"
-                    min={0}
-                    value={draft.min_amount ?? 0}
-                    onChange={(e) => set("min_amount", Number(e.target.value))}
-                  />
-                </Field>
-                <Field label="সর্বোচ্চ ৳" hint="খালি রাখলে সীমা নেই">
-                  <input
-                    className="inp"
-                    type="number"
-                    min={0}
-                    value={draft.max_amount ?? ""}
-                    onChange={(e) => set("max_amount", e.target.value === "" ? null : Number(e.target.value))}
-                  />
-                </Field>
-              </div>
-
-              <Field
-                label="TrxID ফরম্যাট (রেগুলার এক্সপ্রেশন)"
-                error={errors.trx_pattern}
-                hint="বিকাশ/নগদ সাধারণত ৮–১২ অক্ষর। খালি রাখলে ডিফল্ট ব্যবহার হবে।"
-              >
-                <input className="inp font-mono text-[11.5px]" value={draft.trx_pattern ?? ""} onChange={(e) => set("trx_pattern", e.target.value)} placeholder="^[A-Z0-9]{8,12}$" />
-              </Field>
-
-              <div className="space-y-1.5 rounded-xl bg-white/[0.03] p-2.5">
-                <Check label="TrxID আবশ্যক" checked={Boolean(draft.requires_trx)} onChange={(v) => set("requires_trx", v)} />
-                <Check label="প্রেরকের নম্বর আবশ্যক" checked={Boolean(draft.requires_sender)} onChange={(v) => set("requires_sender", v)} />
-                <Check label="সাইটে চালু" checked={Boolean(draft.is_active)} onChange={(v) => set("is_active", v)} />
-              </div>
-
-              <Field label="ক্রম">
-                <input className="inp" type="number" value={draft.sort_order ?? 0} onChange={(e) => set("sort_order", Number(e.target.value))} />
-              </Field>
-            </div>
-
-            <div className="flex gap-2 border-t border-white/[0.06] px-4 py-3">
-              <button type="button" onClick={() => setDraft(null)} className="btn-ghost flex-1 rounded-xl text-[13px]">
-                বাতিল
-              </button>
-              <button type="submit" disabled={saving} className="btn-primary flex-1 rounded-xl text-[13px]">
-                {saving ? <Spinner className="h-4 w-4" /> : <Save className="h-4 w-4" />} সংরক্ষণ
-              </button>
-            </div>
-          </form>
-        </div>
+      {/* editor modal */}
+      {editing ? (
+        <MethodEditor
+          draft={editing}
+          setDraft={setEditing}
+          onClose={() => setEditing(null)}
+          onSave={save}
+          saving={saving}
+        />
       ) : null}
     </div>
   );
 }
 
-function Field({
-  label,
-  children,
-  error,
-  hint,
-  required,
-}: {
-  label: string;
-  children: React.ReactNode;
-  error?: string;
-  hint?: string;
-  required?: boolean;
-}) {
-  return (
-    <label className="block space-y-1">
-      <span className="text-[11.5px] font-medium text-sand-100/70">
-        {label}
-        {required ? <span className="text-red-300"> *</span> : null}
-      </span>
-      {children}
-      {hint ? <span className="block text-[10px] text-sand-100/35">{hint}</span> : null}
-      {error ? <span className="block text-[10.5px] text-red-300">{error}</span> : null}
-    </label>
-  );
-}
+const METHOD_EMOJI: Record<string, string> = {
+  bkash: "🟢",
+  nagad: "🟡",
+  rocket: "🚀",
+  upay: "💳",
+  bank: "🏦",
+  cod: "💵",
+  sslcommerz: "🏦",
+};
 
-function Check({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+function MethodEditor({
+  draft,
+  setDraft,
+  onClose,
+  onSave,
+  saving,
+}: {
+  draft: Draft;
+  setDraft: (d: Draft) => void;
+  onClose: () => void;
+  onSave: () => void;
+  saving: boolean;
+}) {
+  const { t } = useLocale();
+
+  function set<K extends keyof Draft>(key: K, value: Draft[K]) {
+    setDraft({ ...draft, [key]: value });
+  }
+
+  const isBank = draft.kind === "bank";
+  const isCod = draft.kind === "cod";
+
   return (
-    <label className="flex items-center gap-2 text-[11.5px]">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="h-3.5 w-3.5 accent-leaf-500" />
-      {label}
-    </label>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink-950/70 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+      <div className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-ink-900 shadow-2xl sm:rounded-3xl">
+        {/* header */}
+        <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-4">
+          <h2 className="text-[16px] font-bold">
+            {draft.id ? t("মেথড সম্পাদনা", "Edit method") : t("নতুন পেমেন্ট মেথড", "New payment method")}
+          </h2>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-sand-100/50 hover:bg-white/10 hover:text-white">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* body */}
+        <div className="flex-1 space-y-4 overflow-y-auto p-5">
+          {/* identity */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label>
+              <span className="label">{t("কোড", "Code")} *</span>
+              <input
+                value={draft.code}
+                onChange={(e) => set("code", e.target.value)}
+                className="input font-mono"
+                placeholder="bkash"
+              />
+              <p className="mt-1 text-[10.5px] text-sand-100/35">{t("ছোট হাতের ইংরেজি (bkash, nagad, bank…)", "lowercase English (bkash, nagad, bank…)")}</p>
+            </label>
+            <label>
+              <span className="label">{t("ধরন", "Kind")} *</span>
+              <select value={draft.kind} onChange={(e) => set("kind", e.target.value as Draft["kind"])} className="input">
+                {(Object.keys(KIND_LABEL) as Draft["kind"][]).map((k) => (
+                  <option key={k} value={k}>{KIND_LABEL[k]}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span className="label">{t("বাংলা নাম", "Bangla name")} *</span>
+              <input
+                value={draft.name_bn}
+                onChange={(e) => set("name_bn", e.target.value)}
+                className="input"
+                placeholder="বিকাশ"
+              />
+            </label>
+            <label>
+              <span className="label">{t("ইংরেজি নাম (ঐচ্ছিক)", "English name (optional)")}</span>
+              <input
+                value={draft.name_en}
+                onChange={(e) => set("name_en", e.target.value)}
+                className="input"
+                placeholder="bKash"
+              />
+            </label>
+          </div>
+
+          {/* logo */}
+          <div>
+            <span className="label">{t("লোগো (ঐচ্ছিক)", "Logo (optional)")}</span>
+            <ImageField
+              value={draft.logo_url}
+              onChange={(url) => set("logo_url", url)}
+              bucket="payment-logos"
+              hint={t("ছবি আপলোড করুন বা লিংক দিন", "Upload an image or paste a link")}
+              ratio="square"
+            />
+          </div>
+
+          {/* receiving details */}
+          {!isCod ? (
+            <div className="rounded-2xl border border-white/[0.08] p-4">
+              <p className="mb-3 text-[12px] font-bold text-sand-100/70">{t("রিসিভিং তথ্য", "Receiving details")}</p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label>
+                  <span className="label">{t("অ্যাকাউন্ট ধরন", "Account type")}</span>
+                  <select
+                    value={draft.account_type}
+                    onChange={(e) => set("account_type", e.target.value)}
+                    className="input"
+                  >
+                    <option value="personal">{t("ব্যক্তিগত", "Personal")}</option>
+                    <option value="agent">{t("এজেন্ট", "Agent")}</option>
+                    <option value="merchant">{t("মেরিচেন্ট", "Merchant")}</option>
+                    <option value="account">{t("অ্যাকাউন্ট", "Account")}</option>
+                  </select>
+                </label>
+                <label>
+                  <span className="label">
+                    {isBank ? t("অ্যাকাউন্ট নম্বর / রেফারেন্স", "Account / reference number") : t("রিসিভিং নম্বর", "Receiving number")}
+                  </span>
+                  <input
+                    value={draft.account_number}
+                    onChange={(e) => set("account_number", e.target.value)}
+                    className="input font-mono"
+                    placeholder={isBank ? "01700-123456" : "01712345678"}
+                  />
+                </label>
+                <label>
+                  <span className="label">{t("অ্যাকাউন্ট নাম", "Account name")}</span>
+                  <input
+                    value={draft.account_name}
+                    onChange={(e) => set("account_name", e.target.value)}
+                    className="input"
+                    placeholder="বিশ্বাস এগ্রো"
+                  />
+                </label>
+                {isBank ? (
+                  <>
+                    <label>
+                      <span className="label">{t("ব্যাংক নাম", "Bank name")}</span>
+                      <input
+                        value={draft.bank_name}
+                        onChange={(e) => set("bank_name", e.target.value)}
+                        className="input"
+                        placeholder="Sonali Bank"
+                      />
+                    </label>
+                    <label>
+                      <span className="label">{t("ব্র্যান্চ", "Branch")}</span>
+                      <input
+                        value={draft.branch_name}
+                        onChange={(e) => set("branch_name", e.target.value)}
+                        className="input"
+                        placeholder="Gulshan"
+                      />
+                    </label>
+                  </>
+                ) : null}
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-leaf-500/20 bg-leaf-600/[0.05] p-4">
+              <p className="text-[12px] text-leaf-200/80">
+                {t("ক্যাশ অন ডেলিভারি — কোনো রিসিভিং নম্বর দরকার নেই। পণ্য হাতে পেয়ে টাকা দেওয়া হবে।", "Cash on delivery — no receiving number needed. Cash is handed over at delivery.")}
+              </p>
+            </div>
+          )}
+
+          {/* instructions */}
+          <label>
+            <span className="label">{t("পেমেন্ট নির্দেশনা (বাংলা)", "Payment instructions (Bangla)")}</span>
+            <textarea
+              value={draft.instruction_bn}
+              onChange={(e) => set("instruction_bn", e.target.value)}
+              className="input min-h-[96px] resize-y"
+              placeholder={"১. bKash অ্যাপ খুলুন।\n২. Send Money-তে গিয়ে উপরের নম্বরে টাকা পাঠান।\n৩. প্রাপ্ত TrxID কিংবা পাঠানোর  screenshot আমাদের জানান।"}
+            />
+            <p className="mt-1 text-[10.5px] text-sand-100/35">{t("লাইনের ভিত্তিতে নির্দেশনা দেখানো হবে", "Shown as numbered steps on the payment page")}</p>
+          </label>
+
+          {/* limits */}
+          <div className="grid gap-4 sm:grid-cols-3">
+            <label>
+              <span className="label">{t("ন্যূনতম (৳)", "Min (৳)")}</span>
+              <input
+                type="number"
+                value={draft.min_amount}
+                onChange={(e) => set("min_amount", e.target.value)}
+                className="input"
+                min="0"
+              />
+            </label>
+            <label>
+              <span className="label">{t("সর্বোচ্চ (৳)", "Max (৳)")}</span>
+              <input
+                type="number"
+                value={draft.max_amount}
+                onChange={(e) => set("max_amount", e.target.value)}
+                className="input"
+                min="0"
+                placeholder="—"
+              />
+            </label>
+            <label>
+              <span className="label">{t("দেখার ক্রম", "Display order")}</span>
+              <input
+                type="number"
+                value={draft.sort_order}
+                onChange={(e) => set("sort_order", e.target.value)}
+                className="input"
+                min="0"
+              />
+            </label>
+          </div>
+
+          {/* flags */}
+          {!isCod ? (
+            <div className="flex flex-wrap gap-4">
+              <label className="flex items-center gap-2 text-[12.5px] text-sand-100/70">
+                <input
+                  type="checkbox"
+                  checked={draft.requires_trx}
+                  onChange={(e) => set("requires_trx", e.target.checked)}
+                  className="accent-leaf-500 h-4 w-4"
+                />
+                {t("TrxID প্রয়োজন", "Requires TrxID")}
+              </label>
+              <label className="flex items-center gap-2 text-[12.5px] text-sand-100/70">
+                <input
+                  type="checkbox"
+                  checked={draft.requires_sender}
+                  onChange={(e) => set("requires_sender", e.target.checked)}
+                  className="accent-leaf-500 h-4 w-4"
+                />
+                {t("সেন্ডার নম্বর প্রয়োজন", "Requires sender number")}
+              </label>
+            </div>
+          ) : null}
+
+          <label className="flex items-center gap-2 text-[12.5px] text-sand-100/70">
+            <input
+              type="checkbox"
+              checked={draft.is_active}
+              onChange={(e) => set("is_active", e.target.checked)}
+              className="accent-leaf-500 h-4 w-4"
+            />
+            {t("চেকআউটে দেখানো হবে (সক্রিয়)", "Show on checkout (active)")}
+          </label>
+        </div>
+
+        {/* footer */}
+        <div className="flex justify-end gap-2 border-t border-white/[0.06] px-5 py-4">
+          <button onClick={onClose} className="btn-ghost">{t("বাদ দিন", "Cancel")}</button>
+          <button onClick={onSave} disabled={saving} className="btn-primary">
+            {saving ? <Spinner className="h-4 w-4" /> : <Save className="h-4 w-4" />}
+            {draft.id ? t("সাবমিট করুন", "Save changes") : t("যোগ করুন", "Add method")}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

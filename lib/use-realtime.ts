@@ -15,8 +15,8 @@ import { createClient as createBrowserClient } from "./supabase/client";
    Three details that matter:
 
      • The socket is authenticated with the BROWSER Supabase session, so RLS is
-       applied per subscriber: a customer subscribing to `payments` only ever
-       receives their own rows, an admin receives the queue.
+       applied per subscriber: a customer subscribing to their own tables only
+       ever receives their own rows, an admin receives everything allowed.
 
      • Realtime is best-effort. If the socket never connects (blocked network,
        free-tier connection cap, mobile sleeping) we fall back to polling —
@@ -27,8 +27,7 @@ import { createClient as createBrowserClient } from "./supabase/client";
        a busy console re-subscribes dozens of times and can hit the project's
        concurrent-connection limit.
 
-   Migration 0010 adds `payments` and `notifications` to the
-   `supabase_realtime` publication with REPLICA IDENTITY FULL.
+   Migration 0010 adds the realtime publication with REPLICA IDENTITY FULL.
    ========================================================================== */
 
 type ChangeHandler = (payload: RealtimePayload) => void;

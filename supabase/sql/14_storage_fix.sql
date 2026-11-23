@@ -2,22 +2,22 @@
 -- 14_storage_fix.sql
 -- ============================================================================
 -- WHAT IT DOES
---   Fixes "Bucket not found" and storage permission errors by ensuring all 11
+--   Fixes "Bucket not found" and storage permission errors by ensuring all 10
 --   Supabase Storage buckets exist with proper public flags, size limits, and
 --   MIME types, and sets up idempotent RLS policies on storage.objects:
 --     • Public read for public buckets (logos, product-images, farm-images, etc.)
 --     • Admin full manage via public.is_admin()
 --     • Sellers can upload/update/delete in product-images/{seller_id}/... and
 --       farm-images/{seller_id}/...
---     • Users can upload/update/delete their own avatars, review-photos,
---       complaint-photos, and private payment-proofs
+--     • Users can upload/update/delete their own avatars, review-photos and
+--       complaint-photos
 --
 -- WHEN TO RUN
 --   After 13_verify_setup.sql (or anytime "Bucket not found" occurs).
 --
 -- WHAT YOU SHOULD SEE AFTER RUNNING
 --   "Success. No rows returned"
---   Storage → Buckets shows all 11 buckets, and Admin → System Check is green.
+--   Storage → Buckets shows all 10 buckets, and Admin → System Check is green.
 --
 -- SAFE TO RUN TWICE
 --   Yes — uses ON CONFLICT DO UPDATE and DROP POLICY IF EXISTS.
@@ -34,8 +34,7 @@ values
   ('team',             'team',             true,  3145728,  array['image/jpeg','image/png','image/webp','image/avif']),
   ('review-photos',    'review-photos',    true,  6291456,  array['image/jpeg','image/png','image/webp','image/avif']),
   ('complaint-photos', 'complaint-photos', true,  6291456,  array['image/jpeg','image/png','image/webp','image/avif']),
-  ('blog-images',      'blog-images',      true,  6291456,  array['image/jpeg','image/png','image/webp','image/avif']),
-  ('payment-proofs',   'payment-proofs',   false, 6291456,  array['image/jpeg','image/png','image/webp','image/avif'])
+  ('blog-images',      'blog-images',      true,  6291456,  array['image/jpeg','image/png','image/webp','image/avif'])
 on conflict (id) do update
   set public             = excluded.public,
       file_size_limit    = excluded.file_size_limit,
@@ -105,19 +104,3 @@ create policy "sellers manage own media" on storage.objects
     )
   );
 
--- Payment proofs: owner + admin only
-drop policy if exists "payment proof owner read" on storage.objects;
-create policy "payment proof owner read" on storage.objects
-  for select to authenticated
-  using (
-    bucket_id = 'payment-proofs'
-    and ((storage.foldername(name))[1] = auth.uid()::text or public.is_admin())
-  );
-
-drop policy if exists "payment proof owner upload" on storage.objects;
-create policy "payment proof owner upload" on storage.objects
-  for insert to authenticated
-  with check (
-    bucket_id = 'payment-proofs'
-    and (storage.foldername(name))[1] = auth.uid()::text
-  );

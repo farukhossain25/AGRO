@@ -10,10 +10,10 @@ import { useToast } from "@/lib/toast";
    --------------------------------------------------------------------------
    A typed form over the `settings` key/value table. Every field here is read
    by running code, so the labels spell out the consequence, not the column
-   name: "৩টির বেশি পেমেন্ট বাতিল হলে ব্লক" not "max_rejected_before_block".
+   name: "ঢাকার ভেতরে ৬০ টাকা" not "inside_dhaka".
 
    Grouped by consequence rather than by table row, because the owner thinks
-   "I want fewer fraud attempts", not "I want the payments object".
+   "I want cheaper delivery", not "I want the delivery object".
 
    Numbers are sent as numbers. The API merges shallowly, so a field left alone
    in one tab cannot wipe a field the owner set in another.
@@ -22,7 +22,7 @@ import { useToast } from "@/lib/toast";
 type Values = Record<string, Record<string, unknown>>;
 
 type Field = {
-  /** dotted path: "payments.max_submits_per_hour" */
+  /** dotted path: "delivery.inside_dhaka" */
   path: string;
   label: string;
   hint?: string;
@@ -38,37 +38,6 @@ type Group = {
 };
 
 const GROUPS: Group[] = [
-  {
-    key: "payments",
-    title: "ম্যানুয়াল পেমেন্ট ও জালিয়াতি রোধ",
-    desc: "গ্রাহক কতবার পেমেন্ট জমা দিতে পারবে, কতবার বাতিল হলে ব্লক হবে — সব এখান থেকে।",
-    fields: [
-      {
-        path: "payments.max_submits_per_hour",
-        label: "ঘণ্টায় সর্বোচ্চ জমা",
-        hint: "একজন গ্রাহক এক ঘণ্টায় এর বেশি TrxID জমা দিতে পারবেন না।",
-        type: "number",
-      },
-      {
-        path: "payments.max_rejected_before_block",
-        label: "কতবার বাতিল হলে ব্লক",
-        hint: "ভুল/জাল TrxID বারবার দিলে গ্রাহক সাময়িকভাবে ব্লক হবেন।",
-        type: "number",
-      },
-      {
-        path: "payments.block_hours",
-        label: "ব্লক কত ঘণ্টা থাকবে",
-        type: "number",
-        suffix: "ঘণ্টা",
-      },
-      {
-        path: "payments.auto_trx_regex",
-        label: "TrxID-এর ফরম্যাট নিজে যাচাই করবে",
-        hint: "বন্ধ করলে শুধু দৈর্ঘ্য দেখা হবে, অক্ষরের ধরন নয়।",
-        type: "boolean",
-      },
-    ],
-  },
   {
     key: "delivery",
     title: "ডেলিভারি চার্জ",

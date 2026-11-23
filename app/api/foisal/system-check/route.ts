@@ -15,7 +15,7 @@ export const runtime = "nodejs";
      • db       — every table is readable, the RPCs/views exist, write probe
                   (insert → read back → delete in `audit_log`, self-cleaning)
      • auth     — an active admin profile exists and is_admin() resolves
-     • storage  — every bucket from 09 is present, payment-proofs is private,
+     • storage  — every bucket from 09 is present,
                   and a 1-byte upload/download/delete round-trip works
      • realtime — the public key is present so the browser socket can open
 
@@ -66,8 +66,6 @@ const TABLES = [
   "order_items",
   "sub_orders",
   "payment_methods",
-  "payments",
-  "payment_logs",
   "parcels",
   "custom_combos",
   "plans",
@@ -103,8 +101,6 @@ const VIEWS = [
   "v_supplier_quality",
   "v_product_supplier",
   "v_farm_stats",
-  "v_payment_queue",
-  "v_payment_reconciliation",
   "v_premium_revenue",
   "v_seller_leaderboard",
 ] as const;
@@ -120,7 +116,6 @@ const BUCKETS = [
   "review-photos",
   "complaint-photos",
   "blog-images",
-  "payment-proofs",
 ] as const;
 
 const REQUIRED_ENV = [
@@ -292,22 +287,17 @@ export async function GET() {
     const privates = new Set(list.filter((b) => !b.public).map((b) => b.id));
     for (const bucket of BUCKETS) {
       const present = bucketNames.has(bucket);
-      const wantsPrivate = bucket === "payment-proofs";
       const isPrivate = privates.has(bucket);
       checks.push({
         id: `storage:bucket:${bucket}`,
         label: `বাকেট — ${bucket}`,
         group: "storage",
-        status: present && (!wantsPrivate || isPrivate) ? "pass" : "fail",
+        status: present && !isPrivate ? "pass" : "fail",
         detail: !present
           ? "বাকেট নেই — 09_storage_buckets_and_policies.sql চালান"
-          : wantsPrivate
-            ? isPrivate
-              ? "private ✓"
-              : "PRIVATE হওয়া উচিত!"
-            : isPrivate
-              ? "PUBLIC হওয়া উচিত!"
-              : "public ✓",
+          : isPrivate
+            ? "PUBLIC হওয়া উচিত!"
+            : "public ✓",
       });
     }
   } catch (error) {

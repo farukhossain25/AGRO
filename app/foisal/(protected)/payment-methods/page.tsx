@@ -1,15 +1,26 @@
-import { db } from "@/lib/db";
-import { PaymentMethodManager } from "@/components/admin/payment-method-manager";
+import { isDbConfigured } from "@/lib/db";
+import { listAllMethods } from "@/lib/payment-methods";
 import type { PaymentMethodRow } from "@/lib/types";
+import { PaymentMethodManager } from "@/components/admin/payment-method-manager";
 
 export const dynamic = "force-dynamic";
 
-/** /foisal/payment-methods — receiving numbers, no code edit needed. */
 export default async function AdminPaymentMethodsPage() {
-  const { data } = await db()
-    .from("payment_methods")
-    .select("*")
-    .order("sort_order", { ascending: true });
+  let methods: PaymentMethodRow[] = [];
 
-  return <PaymentMethodManager initial={(data ?? []) as PaymentMethodRow[]} />;
+  if (isDbConfigured()) {
+    try {
+      methods = await listAllMethods();
+    } catch {
+      methods = [];
+    }
+  }
+
+  return (
+    <PaymentMethodManager
+      initial={methods}
+      dbReady={isDbConfigured()}
+      configured={Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL)}
+    />
+  );
 }

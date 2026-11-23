@@ -131,26 +131,18 @@ if (!/createServerClient/.test(serverAuth)) {
   add("error", "lib/supabase/server.ts", "createServerClient() missing — sessions would not refresh");
 }
 
-/* 9 ── manual payments: the verdict must stay server-side -------------------- */
-/* A payment is only allowed to become `verified` through decidePayment(), which
-   requires `payments.verify` (admin) and re-checks the duplicate TrxID. If some
-   future route writes `status: "verified"` directly with a narrower guard, the
-   shop accepts unpaid orders. */
+/* 9 ── payment methods: the receiving numbers stay admin-managed ---------- */
+/* The payment system is deliberately simple: orders carry only
+   `payment_method` + `payment_status`, and the owner marks an order paid from
+   the admin panel. No route may mark an order `paid` on the customer's own
+   request — that path was the old manual-verification engine and is gone. */
 for (const file of source.filter((f) => f.endsWith(".ts") && f.startsWith("app/api"))) {
   const body = readFileSync(file, "utf8");
-  const writesVerified = /status:\s*["']verified["']/.test(body);
-  const isDecisionPath = /decidePayment\(/.test(body) || file.includes("api/foisal/payments/");
-  if (writesVerified && !isDecisionPath) {
-    add("error", file, 'writes status: "verified" outside decidePayment()');
+  const writesPaid = /payment_status:\s*["']paid["']/.test(body);
+  const isAdminOrderPatch = file.includes("api/foisal/orders");
+  if (writesPaid && !isAdminOrderPatch) {
+    add("error", file, 'writes payment_status: "paid" outside the admin orders patch');
   }
-}
-
-const mp = readFileSync("lib/manual-payments.ts", "utf8");
-if (!/export async function decidePayment/.test(mp)) {
-  add("error", "lib/manual-payments.ts", "decidePayment() is missing — nothing may approve a payment");
-}
-if (!/trx_norm/.test(mp)) {
-  add("error", "lib/manual-payments.ts", "duplicate-TrxID check is gone");
 }
 
 /* 10 ── the admin URL must stay in one place -------------------------------- */

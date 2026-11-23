@@ -10,7 +10,7 @@
 --     v_product_rating_breakdown
 --     v_supplier_quality    seller scorecard for the quality board
 --     v_product_supplier    farm + seller card for a product page
---     v_farm_stats, v_payment_queue, v_payment_reconciliation,
+--     v_farm_stats,
 --     v_premium_revenue, v_seller_leaderboard
 --
 -- WHEN TO RUN
@@ -66,12 +66,6 @@ create index if not exists sub_orders_order_idx         on public.sub_orders (or
 create index if not exists sub_orders_seller_idx        on public.sub_orders (seller_id, created_at desc);
 create index if not exists sub_orders_status_idx        on public.sub_orders (status);
 
-create index if not exists payments_user_idx            on public.payments (user_id, created_at desc);
-create index if not exists payments_order_idx           on public.payments (order_id);
-create index if not exists payments_status_idx          on public.payments (status, created_at desc);
-create index if not exists payments_created_idx         on public.payments (created_at desc);
-create index if not exists payments_trx_idx             on public.payments (trx_norm);
-create index if not exists payment_logs_payment_idx     on public.payment_logs (payment_id, created_at desc);
 
 create index if not exists parcels_order_idx            on public.parcels (order_id);
 create index if not exists parcels_token_idx            on public.parcels (qr_token);
@@ -311,39 +305,6 @@ from public.farms f
 left join public.cameras c on c.farm_id = f.id and c.is_active
 group by f.id;
 
-create or replace view public.v_payment_queue
-with (security_invoker = false) as
-select
-  p.*,
-  round(p.amount - p.expected_amount, 2)                      as amount_delta,
-  (abs(p.amount - p.expected_amount) <= 0.5)                  as amount_matches,
-  exists (
-    select 1 from public.payments p2
-     where p2.trx_norm = p.trx_norm and p2.id <> p.id
-       and p2.status in ('verified', 'pending')
-  )                                                            as trx_collision,
-  o.order_no,
-  coalesce(o.customer_name, pr.full_name)                      as customer_name,
-  coalesce(o.customer_phone, pr.phone)                         as customer_phone,
-  us.sub_no,
-  us.plan_name_bn
-from public.payments p
-left join public.orders o               on o.id = p.order_id
-left join public.profiles pr            on pr.id = p.user_id
-left join public.user_subscriptions us  on us.id = p.subscription_id;
-
-create or replace view public.v_payment_reconciliation
-with (security_invoker = false) as
-select
-  (p.created_at at time zone 'Asia/Dhaka')::date              as day,
-  p.method_code,
-  count(*) filter (where p.status = 'verified')::int          as verified_count,
-  coalesce(sum(p.amount) filter (where p.status = 'verified'), 0) as verified_amount,
-  count(*) filter (where p.status = 'rejected')::int          as rejected_count,
-  count(*) filter (where p.status = 'pending')::int           as pending_count
-from public.payments p
-group by 1, 2;
-
 create or replace view public.v_premium_revenue
 with (security_invoker = false) as
 select
@@ -376,13 +337,10 @@ group by s.id, s.slug, s.name_bn;
 -- ---------------------------------------------------------------------------
 grant select on public.public_sellers, public.public_cameras to anon, authenticated;
 
-revoke all on public.v_payment_queue          from anon, authenticated;
-revoke all on public.v_payment_reconciliation from anon, authenticated;
 revoke all on public.v_team_members           from anon, authenticated;
 revoke all on public.v_premium_revenue        from anon, authenticated;
 revoke all on public.v_seller_leaderboard     from anon, authenticated;
-grant select on public.v_payment_queue, public.v_payment_reconciliation,
-                public.v_team_members, public.v_product_rating_breakdown,
+grant select on public.v_team_members, public.v_product_rating_breakdown,
                 public.v_supplier_quality, public.v_product_supplier,
                 public.v_farm_stats, public.v_premium_revenue,
                 public.v_seller_leaderboard

@@ -7,11 +7,10 @@
 --     • handle_new_user(): creates the profile row on signup (cannot fail signup)
 --     • guard_profile_role(): a user can never promote themselves
 --     • set_updated_at() triggers on every table that has updated_at
---     • number generators: order, sub-order, payment, complaint ticket
+--     • number generators: order, sub-order, complaint ticket
 --     • place_order(): ONE transaction — validate, re-price, reserve stock,
---       create order + items + per-seller sub-orders + payment row + parcel +
+--       create order + items + per-seller sub-orders + parcel +
 --       notifications
---     • approve_payment(): admin-only, verifies a manual payment atomically
 --     • recalc_product_rating(): rating aggregate maintained by trigger
 --     • product_images / review_photos sync triggers
 --     • log_audit(): writes the admin audit trail
@@ -160,7 +159,7 @@ declare
     'static_pages', 'seo_meta', 'categories', 'farms', 'cameras', 'sellers',
     'seller_payouts', 'camera_requests', 'products', 'coupons', 'delivery_charges',
     'combos', 'subscription_plans', 'subscriptions', 'cart_items', 'orders',
-    'sub_orders', 'payment_methods', 'payments', 'parcels', 'custom_combos',
+    'sub_orders', 'payment_methods', 'parcels', 'custom_combos',
     'plans', 'user_subscriptions', 'reviews', 'complaints', 'hero_slides',
     'homepage_sections', 'banners', 'menus', 'menu_items', 'blog_posts', 'faq_items'
   ];
@@ -186,19 +185,6 @@ declare
 begin
   select count(*) + 1 into seq from public.orders where created_at::date = current_date;
   return 'BA-' || to_char(now(), 'YYMMDD') || '-' || lpad(seq::text, 4, '0');
-end;
-$$;
-
-create or replace function public.gen_payment_no()
-returns text
-language plpgsql
-volatile
-as $$
-declare
-  seq int;
-begin
-  select count(*) + 1 into seq from public.payments where created_at::date = current_date;
-  return 'PAY-' || to_char(now(), 'YYMMDD') || '-' || lpad(seq::text, 4, '0');
 end;
 $$;
 
@@ -378,7 +364,7 @@ $$;
 --   p_customer : {customer_name, phone, email, division, district, upazila, address, delivery_note}
 --   p_items    : [{id|product_id, kind, quantity}]
 --   returns    : {order_id, order_no, subtotal, delivery_charge, discount, total,
---                 payment_no, payment_id, eta_days, item_count}
+--                 method_code, eta_days, item_count}
 -- ---------------------------------------------------------------------------
 create or replace function public.place_order(
   p_user uuid,
@@ -412,8 +398,6 @@ declare
   v_sub_map jsonb := '{}'::jsonb;
   v_order_id uuid;
   v_order_no text;
-  v_payment_id uuid;
-  v_payment_no text;
   v_method public.payment_methods%rowtype;
   v_coupon public.coupons%rowtype;
   v_have_coupon boolean := false;
@@ -649,19 +633,6 @@ begin
     update public.coupons set used_count = used_count + 1, updated_at = now() where id = v_coupon.id;
   end if;
 
-  -- ---------------------------------------------------------------- payment --
-  if v_method.code <> 'cod' and v_method.kind <> 'cod' then
-    v_payment_no := public.gen_payment_no();
-    insert into public.payments (
-      payment_no, user_id, purpose, order_id, method_id, method_code, method_name_bn,
-      expected_amount, amount, status, meta
-    ) values (
-      v_payment_no, p_user, 'order', v_order_id, v_method.id, v_method.code, v_method.name_bn,
-      v_total, v_total, 'pending', jsonb_build_object('auto_created', true)
-    )
-    returning id into v_payment_id;
-  end if;
-
   -- ----------------------------------------------------------------- parcel --
   insert into public.parcels (order_id, order_no, qr_token)
   values (v_order_id, v_order_no, encode(extensions.gen_random_bytes(16), 'hex'))
@@ -698,8 +669,6 @@ begin
     'delivery_charge', v_delivery,
     'discount', v_discount,
     'total', v_total,
-    'payment_no', v_payment_no,
-    'payment_id', v_payment_id,
     'method_code', v_method.code,
     'eta_days', v_eta,
     'item_count', jsonb_array_length(v_lines)
@@ -708,111 +677,6 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
--- approve_payment() — admin only. Verifies one manual payment and applies all
--- side effects atomically (order paid / premium activated + access code).
--- Returns {status, effects: [...]}.
--- ---------------------------------------------------------------------------
-create or replace function public.approve_payment(
-  p_payment uuid,
-  p_actor uuid default null,
-  p_note text default null
-)
-returns jsonb
-language plpgsql
-security definer
-set search_path = public, extensions, pg_temp
-as $$
-declare
-  v_pay public.payments%rowtype;
-  v_sub public.user_subscriptions%rowtype;
-  v_plan public.plans%rowtype;
-  v_expires timestamptz;
-  v_code text;
-  v_effects jsonb := '[]'::jsonb;
-  v_actor uuid := coalesce(p_actor, auth.uid());
-begin
-  if auth.uid() is not null and not public.is_admin() then
-    raise exception 'ADMIN_ONLY';
-  end if;
-
-  select * into v_pay from public.payments where id = p_payment for update;
-  if not found then
-    raise exception 'PAYMENT_NOT_FOUND';
-  end if;
-
-  if v_pay.status = 'verified' then
-    return jsonb_build_object('status', 'verified', 'effects', jsonb_build_array('আগেই যাচাই করা হয়েছে'));
-  end if;
-
-  update public.payments
-     set status = 'verified',
-         reviewed_by = v_actor,
-         reviewed_at = now(),
-         admin_note = coalesce(p_note, admin_note)
-   where id = p_payment;
-
-  insert into public.payment_logs (payment_id, actor_id, actor_role, action, from_status, to_status, note)
-  values (p_payment, v_actor, 'admin', 'approved', v_pay.status::text, 'verified', p_note);
-
-  if v_pay.purpose = 'order' and v_pay.order_id is not null then
-    update public.orders
-       set payment_status = 'paid',
-           payment_ref = coalesce(v_pay.trx_norm, v_pay.trx_id),
-           updated_at = now()
-     where id = v_pay.order_id;
-    v_effects := v_effects || to_jsonb('অর্ডার পরিশোধিত হিসেবে চিহ্নিত'::text);
-  end if;
-
-  if v_pay.purpose = 'premium' and v_pay.subscription_id is not null then
-    select * into v_sub from public.user_subscriptions where id = v_pay.subscription_id;
-    if found then
-      select * into v_plan from public.plans where id = v_sub.plan_id;
-      v_expires := greatest(coalesce(v_sub.expires_at, now()), now())
-                   + make_interval(days => coalesce(v_plan.duration_days, 30));
-
-      update public.user_subscriptions
-         set status = 'active',
-             started_at = coalesce(started_at, now()),
-             expires_at = v_expires,
-             grace_until = null,
-             updated_at = now()
-       where id = v_sub.id;
-
-      update public.profiles
-         set premium_until = v_expires,
-             role = case when role = 'admin' then role else 'premium'::public.user_role end
-       where id = v_sub.user_id;
-
-      v_code := upper(substr(encode(extensions.gen_random_bytes(9), 'hex'), 1, 4) || '-' ||
-                      substr(encode(extensions.gen_random_bytes(9), 'hex'), 1, 4) || '-' ||
-                      substr(encode(extensions.gen_random_bytes(9), 'hex'), 1, 4));
-      insert into public.access_codes (code, plan_id, user_id, subscription_id, status, note, meta)
-      values (v_code, v_sub.plan_id, v_sub.user_id, v_sub.id, 'unused', 'পেমেন্ট অ্যাপ্রুভালে তৈরি',
-              jsonb_build_object('payment_no', v_pay.payment_no, 'sub_no', v_sub.sub_no));
-
-      insert into public.notifications (user_id, audience, kind, title_bn, body_bn, link, meta)
-      values (v_sub.user_id, 'user', 'premium', 'প্রিমিয়াম সক্রিয় হয়েছে',
-              'আপনার প্ল্যান চালু হয়েছে। লাইভ ক্যামেরা দেখতে পারবেন।', '/live/plans',
-              jsonb_build_object('sub_no', v_sub.sub_no, 'access_code', v_code));
-
-      v_effects := v_effects || to_jsonb('প্রিমিয়াম সক্রিয়'::text) || to_jsonb('অ্যাক্সেস কোড তৈরি'::text);
-    end if;
-  end if;
-
-  if v_pay.user_id is not null then
-    insert into public.notifications (user_id, audience, kind, title_bn, body_bn, link, meta)
-    values (v_pay.user_id, 'user', 'payment', 'পেমেন্ট যাচাই হয়েছে',
-            'আপনার পেমেন্ট (' || v_pay.payment_no || ') অনুমোদিত হয়েছে।',
-            case when v_pay.purpose = 'premium' then '/account/premium' else '/track?order=' || coalesce(v_pay.payment_no, '') end,
-            jsonb_build_object('payment_no', v_pay.payment_no));
-  end if;
-
-  perform public.log_audit(v_actor, 'payment.approved', 'payments', p_payment::text,
-                           jsonb_build_object('payment_no', v_pay.payment_no, 'amount', v_pay.amount), null);
-
-  return jsonb_build_object('status', 'verified', 'effects', v_effects);
-end;
-$$;
 
 -- ---------------------------------------------------------------------------
 -- login_help(): "why did my login fail?" — never leaks password hashes.
@@ -859,9 +723,6 @@ $$;
 -- ---------------------------------------------------------------------------
 revoke all on function public.place_order(uuid, jsonb, jsonb, text, text) from public, anon;
 grant execute on function public.place_order(uuid, jsonb, jsonb, text, text) to authenticated, service_role;
-
-revoke all on function public.approve_payment(uuid, uuid, text) from public, anon;
-grant execute on function public.approve_payment(uuid, uuid, text) to authenticated, service_role;
 
 revoke all on function public.login_help(text) from public, anon;
 grant execute on function public.login_help(text) to service_role;

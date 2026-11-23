@@ -7,7 +7,6 @@ import {
   Activity,
   AlertTriangle,
   BarChart3,
-  Banknote,
   BookOpen,
   Camera,
   CreditCard,
@@ -71,7 +70,6 @@ const navGroups: { title: string; items: NavItem[] }[] = [
   {
     title: "পেমেন্ট",
     items: [
-      { href: adminHref("payments"), label: "যাচাই বাকি", Icon: Banknote, perm: "payments.read" },
       { href: adminHref("payment-methods"), label: "মাধ্যম ও নম্বর", Icon: CreditCard, perm: "payments.manage" },
     ],
   },
