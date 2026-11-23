@@ -324,7 +324,7 @@ export function ManualPaymentForm({ methods, expected, orderNo, subNo, initialMe
           </p>
           {proof ? (
             <div className="relative flex items-center gap-2 rounded-xl bg-white/[0.04] p-2">
-              <img src={proof.preview} alt="" className="h-12 w-12 rounded-lg object-cover" />
+              <Image src={proof.preview} alt="" width={48} height={48} unoptimized className="h-12 w-12 rounded-lg object-cover" />
               <p className="flex-1 text-[11px] text-leaf-200">সংযুক্ত হয়েছে ✅</p>
               <button type="button" onClick={() => setProof(null)} className="p-1 text-sand-100/40" aria-label="সরান">
                 <X className="h-3.5 w-3.5" />

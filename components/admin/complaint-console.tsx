@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/lib/toast";
 import { formatDateBn, toBn } from "@/lib/format";
@@ -205,16 +206,14 @@ export function ComplaintConsole({ initial }: { initial: AdminComplaintRow[] }) 
                 {row.photos?.length ? (
                   <div className="mt-2 flex flex-wrap gap-2">
                     {row.photos.map((src) => (
-                      // eslint-disable-next-line @next/next/no-img-element
                       <a key={src} href={src} target="_blank" rel="noreferrer">
-                        <img
+                        <Image
                           src={src}
                           alt="অভিযোগের ছবি"
                           width={56}
                           height={56}
-                          loading="lazy"
-                          className="rounded-lg object-cover"
-                          style={{ height: 56, width: 56 }}
+                          unoptimized
+                          className="h-14 w-14 rounded-lg object-cover"
                         />
                       </a>
                     ))}

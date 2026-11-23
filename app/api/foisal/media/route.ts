@@ -84,7 +84,7 @@ export async function POST(req: Request) {
     };
     const resolvedBucket = BUCKET_ALIAS[bucket] ?? bucket;
     const folderPrefix = bucket === "payment-logos" ? "payment-methods/" : "library/";
-    const path = `${folderPrefix}${new Date().toString(36)}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const path = `${folderPrefix}${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
     const storage = supabaseAdmin().storage.from(resolvedBucket);
     const { error: uploadError } = await storage.upload(path, buffer, {
