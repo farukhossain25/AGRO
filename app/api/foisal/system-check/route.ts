@@ -123,8 +123,6 @@ const BUCKETS = [
   "payment-proofs",
 ] as const;
 
-const PUBLIC_BUCKETS = BUCKETS.filter((b) => b !== "payment-proofs");
-
 const REQUIRED_ENV = [
   "NEXT_PUBLIC_SUPABASE_URL",
   "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",

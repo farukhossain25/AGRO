@@ -77,7 +77,6 @@ export async function POST(req: Request) {
     if (!sniffed || !EXT[sniffed]) return fail("ফাইলটি আসলে ছবি নয়", 415);
 
     const ext = EXT[sniffed];
-    const name = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
     const BUCKET_ALIAS: Record<string, string> = {
       "payment-logos": "logos",
       "hero-slides": "slides",
