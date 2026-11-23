@@ -43,6 +43,16 @@ const config: Config = {
         terradk: "#a64f30",
         terraxd: "#8a4127",
         inkmut: "#6b6253",
+        // ── LumenStudio premium commerce (light paper + cobalt) ─────────────
+        cobalt: {
+          50: "#eff4ff",
+          100: "#dbe6ff",
+          500: "#2563eb",
+          600: "#1d4ed8",
+          700: "#1e40af",
+        },
+        paper: "#f8fafc",
+        slatey: "#475569",
       },
       fontFamily: {
         sans: ["Inter", "var(--font-hind)", "var(--font-noto-bn)", "Hind Siliguri", "Noto Sans Bengali", "system-ui", "sans-serif"],
@@ -58,6 +68,12 @@ const config: Config = {
         prem: "0 1px 2px rgba(43,37,29,.04), 0 12px 32px -12px rgba(43,37,29,.18)",
         premsoft: "0 1px 2px rgba(43,37,29,.05), 0 6px 18px -10px rgba(43,37,29,.14)",
         prembutn: "0 8px 20px -6px rgba(196,99,63,.5)",
+        // spec: LumenStudio light premium shadows (cardhi/nav/pill)
+        cardhi: "0 2px 4px rgba(15,23,42,.06), 0 28px 50px -18px rgba(37,99,235,.30)",
+        navsh: "0 1px 0 rgba(15,23,42,.06)",
+        pill: "0 6px 18px -6px rgba(37,99,235,.55)",
+        // light 'card' shadow — named distinctly so the dark-theme `card` stays intact
+        lcard: "0 1px 2px rgba(15,23,42,.04), 0 12px 30px -12px rgba(15,23,42,.18)",
       },
       backgroundImage: {
         "leaf-radial":
