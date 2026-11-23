@@ -15,6 +15,34 @@ import { SUPABASE_PUBLIC_KEY, SUPABASE_URL, isSupabasePublicConfigured } from "@
 
 let browserClient: SupabaseClient | null = null;
 
+/* --------------------------------------------------------------------------
+   "এই ডিভাইসে লগইন রাখুন" (remember me)
+   --------------------------------------------------------------------------
+   @supabase/ssr always writes the session cookie with a 400-day max-age, so the
+   checkbox cannot change the cookie itself. Instead the choice is remembered
+   here and AuthProvider signs the visitor out once per browser session when the
+   box was left unchecked — session-only behaviour, no fake switch.
+   -------------------------------------------------------------------------- */
+const REMEMBER_KEY = "ba:remember";
+
+export function setRememberSession(remember: boolean) {
+  try {
+    localStorage.setItem(REMEMBER_KEY, remember ? "1" : "0");
+  } catch {
+    /* private mode — the cookie still works, just always persistent */
+  }
+}
+
+/** null = never asked (treat as remembered) */
+export function readRememberSession(): boolean | null {
+  try {
+    const raw = localStorage.getItem(REMEMBER_KEY);
+    return raw === null ? null : raw === "1";
+  } catch {
+    return null;
+  }
+}
+
 /** True when the public Supabase keys exist (hide Google login etc. if not). */
 export const supabaseConfigured = isSupabasePublicConfigured;
 

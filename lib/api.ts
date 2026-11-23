@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 import { getSessionUser } from "./supabase/server";
 import type { SessionUser } from "./session";
 import { can, isStaffRole, type Permission } from "./permissions";
+import { describeError } from "./errors";
 
 export type { SessionUser };
 
@@ -64,10 +65,20 @@ export function handleError(error: unknown) {
     );
   }
 
-  console.error("[api]", error);
-  const message =
-    process.env.NODE_ENV !== "production" ? raw : "সার্ভারে সমস্যা হয়েছে, আবার চেষ্টা করুন";
-  return NextResponse.json({ ok: false, message }, { status: 500 });
+  /* Log the real reason, every time. This is the only place a server failure
+     is recorded, so it must never be swallowed. */
+  console.error("[api]", raw, (error as { details?: string })?.details ?? "", error);
+
+  // Turn the driver's message into something the owner can act on: a missing
+  // column, a missing GRANT, a missing bucket, a duplicate slug …
+  const described = describeError(error);
+  if (described.code && described.code !== "UNKNOWN") {
+    return NextResponse.json(
+      { ok: false, message: described.message, code: described.code },
+      { status: described.status }
+    );
+  }
+  return NextResponse.json({ ok: false, message: described.message }, { status: described.status });
 }
 
 /**

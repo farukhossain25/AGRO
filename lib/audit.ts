@@ -65,12 +65,17 @@ export async function recordAudit(input: {
 }) {
   if (!dbUsable()) return;
   try {
-    await db()
+    /* Supabase returns `{ error }` instead of throwing, so the old try/catch
+       could never see a rejected insert: the audit trail was empty and silent.
+       `admin_name` is a legacy NOT NULL column the actor fills here. */
+    const { error } = await db()
       .from("audit_logs")
       .insert({
         actor_id: input.actor?.id ?? null,
         actor_email: input.actor?.email ?? null,
         actor_role: input.actor?.role ?? null,
+        admin_id: input.actor?.id ?? null,
+        admin_name: input.actor?.name ?? input.actor?.email ?? "সিস্টেম",
         action: input.action,
         entity: input.entity,
         entity_id: input.entityId ?? null,
@@ -79,7 +84,8 @@ export async function recordAudit(input: {
         ip: input.ip ?? null,
         user_agent: input.userAgent ?? null,
       });
+    if (error) console.error("[audit] write failed:", error.message, error.details ?? "");
   } catch (error) {
-    console.warn("[audit] write failed:", (error as Error).message);
+    console.error("[audit] write threw:", (error as Error).message);
   }
 }

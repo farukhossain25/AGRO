@@ -71,6 +71,12 @@ export function CheckoutFlow({ methods: initialMethods }: { methods: PublicPayme
   const [couponLoading, setCouponLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  /* Lines the server refused at placement time (removed from sale, stock out).
+     They are shown as a named list with a one-tap "remove" so the customer is
+     never stuck on an order that can never succeed. */
+  const [unavailable, setUnavailable] = useState<
+    Array<{ id: string; name: string; reason: string; slug?: string }>
+  >([]);
 
   const districtList = useMemo(() => (form.division ? districtsOf(form.division) : []), [form.division]);
   const upazilaList = useMemo(
@@ -142,15 +148,25 @@ export function CheckoutFlow({ methods: initialMethods }: { methods: PublicPayme
           ...form,
           payment_method: payment,
           coupon_code: appliedCoupon ?? "",
-          items: cart.items.map((l) => ({ id: l.id, kind: l.kind, quantity: l.quantity })),
+          items: cart.items.map((l) => ({
+            id: l.id,
+            kind: l.kind,
+            quantity: l.quantity,
+            slug: l.slug,
+            name: isBn ? l.nameBn : l.nameEn,
+          })),
         }),
       });
       const json = await res.json();
 
       if (!res.ok) {
         if (json.errors) setErrors(json.errors);
+        if (Array.isArray(json.unavailable) && json.unavailable.length) {
+          setUnavailable(json.unavailable);
+        }
         throw new Error(json.message ?? "অর্ডার সম্পন্ন হয়নি");
       }
+      setUnavailable([]);
 
       const { order_no } = json.data;
 
@@ -195,6 +211,35 @@ export function CheckoutFlow({ methods: initialMethods }: { methods: PublicPayme
       </div>
 
       {/* step indicator */}
+      {unavailable.length ? (
+        <div className="mb-5 rounded-2xl border border-red-400/30 bg-red-500/10 p-4">
+          <p className="text-[13px] font-semibold text-red-200">
+            {t(
+              "এই পণ্যগুলো এখন পাওয়া যাচ্ছে না — সরিয়ে দিলেই অর্ডার সম্পন্ন হবে",
+              "These items are no longer available — remove them to continue"
+            )}
+          </p>
+          <ul className="mt-2 space-y-1 text-[12px] text-red-100/80">
+            {unavailable.map((u) => (
+              <li key={u.id}>
+                • {u.name} — {u.reason}
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            onClick={() => {
+              unavailable.forEach((u) => cart.remove(u.id));
+              setUnavailable([]);
+              toast.success(t("অপ্রাপ্য পণ্য সরানো হয়েছে", "Unavailable items removed"));
+            }}
+            className="btn-ghost btn-sm mt-3 !border-red-300/30 !text-red-100"
+          >
+            {t("সরিয়ে ফেলুন", "Remove them")}
+          </button>
+        </div>
+      ) : null}
+
       <ol className="mb-6 flex items-center gap-2 text-[11.5px]">
         {[
           { n: 1, label: t("ঠিকানা", "Address") },

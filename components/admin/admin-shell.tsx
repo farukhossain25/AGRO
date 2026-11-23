@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import {
+  Activity,
   AlertTriangle,
   BarChart3,
   Banknote,
@@ -128,6 +129,7 @@ const navGroups: { title: string; items: NavItem[] }[] = [
       { href: adminHref("audit"), label: "অডিট লগ", Icon: ScrollText, perm: "audit.read" },
       { href: adminHref("delivery"), label: "ডেলিভারি জোন", Icon: Truck, perm: "settings.write" },
       { href: adminHref("settings"), label: "সাইট সেটিংস", Icon: Settings, perm: "settings.write" },
+      { href: adminHref("system-check"), label: "সিস্টেম চেক", Icon: Activity, perm: "admin.access" },
     ],
   },
 ];

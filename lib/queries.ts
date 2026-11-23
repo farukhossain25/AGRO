@@ -89,10 +89,32 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
   return (data as Product) ?? null;
 }
 
+/**
+ * Products for the given ids, used when re-pricing a cart on the server.
+ * Never swallows an error: an empty list here used to look identical to
+ * "nobody sells this any more", which is exactly the wrong message to show a
+ * customer at checkout.
+ */
 export async function getProductsByIds(ids: string[]): Promise<Product[]> {
   if (!ids.length) return [];
-  const { data } = await db().from("products").select("*").in("id", ids);
+  const { data, error } = await db().from("products").select("*").in("id", ids);
+  if (error) throw error;
   return (data ?? []) as Product[];
+}
+
+/** Same lookup keyed by slug — lets a cart survive an id change. */
+export async function getProductsBySlugs(slugs: string[]): Promise<Product[]> {
+  if (!slugs.length) return [];
+  const { data, error } = await db().from("products").select("*").in("slug", slugs);
+  if (error) throw error;
+  return (data ?? []) as Product[];
+}
+
+export async function getCombosBySlugs(slugs: string[]): Promise<Combo[]> {
+  if (!slugs.length) return [];
+  const { data, error } = await db().from("combos").select("*").in("slug", slugs);
+  if (error) throw error;
+  return (data ?? []) as Combo[];
 }
 
 export async function getRelatedProducts(product: Product, limit = 4): Promise<Product[]> {

@@ -1,7 +1,9 @@
+import { NextResponse } from "next/server";
 import { clientKey, created, currentUser, fail, handleError, rateLimit, tooMany } from "@/lib/api";
 import { checkoutSchema } from "@/lib/validation";
 import { createOrder } from "@/lib/orders";
 import { ensureParcel } from "@/lib/parcels";
+import { createSubOrders } from "@/lib/sellers";
 import { notify, notifyAdmins } from "@/lib/notify";
 import { ADMIN_BASE } from "@/lib/paths";
 
@@ -17,7 +19,7 @@ export async function POST(req: Request) {
 
     const user = await currentUser().catch(() => null);
 
-    const { order } = await createOrder({
+    const { order, lines } = await createOrder({
       userId: user?.id ?? null,
       customer: {
         customer_name: data.customer_name,
@@ -33,6 +35,13 @@ export async function POST(req: Request) {
       items: data.items,
       couponCode: data.coupon_code || undefined,
     });
+
+    // Per-seller split. Products without a seller (our own catalogue) produce
+    // no sub-order, so this is a no-op until sellers exist.
+    await createSubOrders(
+      order.id,
+      lines.map((l) => ({ seller_id: l.seller_id ?? null, lineTotal: l.price * l.quantity }))
+    ).catch((error) => console.error("[orders] sub-order split failed:", (error as Error).message));
 
     // A parcel row (with its QR token) is created up-front so the shipping
     // label can be printed the moment the order lands. Failure is non-fatal.
@@ -81,7 +90,19 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     const status = (error as { status?: number }).status;
+    const unavailable = (error as { unavailable?: unknown }).unavailable;
+
+    /* Product-level rejection: send the list back so the cart can offer a
+       one-tap "remove these" instead of a dead end. */
+    if (status === 409 && Array.isArray(unavailable)) {
+      return NextResponse.json(
+        { ok: false, message: (error as Error).message, code: "CART_UNAVAILABLE", unavailable },
+        { status: 409 }
+      );
+    }
     if (status === 422) return fail((error as Error).message, 422);
+
+    console.error("[orders] placement failed:", (error as Error).message, error);
     return handleError(error);
   }
 }

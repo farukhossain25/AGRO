@@ -34,6 +34,8 @@ type CartContextValue = {
   remove: (id: string) => void;
   setQty: (id: string, quantity: number) => void;
   clear: () => void;
+  /** Wholesale replace — used by the cart page after a server re-validation. */
+  replaceAll: (items: CartLine[]) => void;
   qtyOf: (id: string) => number;
   has: (id: string) => boolean;
 };
@@ -113,6 +115,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const clear = useCallback(() => setItems([]), []);
+  const replaceAll = useCallback((next: CartLine[]) => setItems(next), []);
 
   const value = useMemo<CartContextValue>(() => {
     const count = items.reduce((sum, l) => sum + l.quantity, 0);
@@ -126,10 +129,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
       remove,
       setQty,
       clear,
+      replaceAll,
       qtyOf: (id: string) => items.find((l) => l.id === id)?.quantity ?? 0,
       has: (id: string) => items.some((l) => l.id === id),
     };
-  }, [items, ready, add, remove, setQty, clear]);
+  }, [items, ready, add, remove, setQty, clear, replaceAll]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
@@ -148,6 +152,7 @@ export function useCart(): CartContextValue {
       remove: noop as never,
       setQty: noop as never,
       clear: noop as never,
+      replaceAll: noop as never,
       qtyOf: () => 0,
       has: () => false,
     };

@@ -54,14 +54,13 @@ function contentSecurityPolicy(nonce: string, isDev: boolean): string {
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""} https://va.vercel-scripts.com`,
     "style-src 'self' 'unsafe-inline' https://unpkg.com",
     // Avatars come from Supabase Storage or a Google account; product imagery
-    // from the CDN; maps from the tile hosts. No third-party avatar placeholder
-    // (i.pravatar.cc) is allowed — the login page no longer uses one.
+    // from Supabase Storage / our own /images; maps from the tile hosts.
+    // No third-party placeholder host (unsplash, pravatar) is allowed.
     [
       "img-src 'self' data: blob:",
       ...http,
       "https://*.googleusercontent.com",
       "https://lh3.googleusercontent.com",
-      "https://images.unsplash.com",
       "https://*.tile.openstreetmap.org",
       "https://*.basemaps.cartocdn.com",
     ].join(" "),
@@ -155,6 +154,14 @@ export async function middleware(req: NextRequest) {
   // ── 4. admin panel — role = 'admin' only, checked server-side ───────────
   const isAdminArea = pathname === ADMIN_BASE || pathname.startsWith(`${ADMIN_BASE}/`);
   if (isAdminArea) {
+    /* The panel's own login screen has to render before there is an admin
+       session, otherwise the guard below would 404 the only door in. */
+    if (pathname === `${ADMIN_BASE}/login`) {
+      const { response } = await updateSession(req, { nonce });
+      response.headers.set("Content-Security-Policy", contentSecurityPolicy(nonce, isDev));
+      return noStore(response);
+    }
+
     const { response, user, role } = await updateSession(req, { nonce, withRole: true });
 
     if (!user) {
@@ -162,7 +169,7 @@ export async function middleware(req: NextRequest) {
          who types /foisal lands on the home page after signing in and has to
          type the URL again. safeNextPath() in the login form rejects only
          /login, /reset-password and /auth, so /foisal survives the round-trip. */
-      const url = new URL("/login", req.url);
+      const url = new URL(`${ADMIN_BASE}/login`, req.url);
       url.searchParams.set("next", `${pathname}${search}`);
       return noStore(NextResponse.redirect(url));
     }

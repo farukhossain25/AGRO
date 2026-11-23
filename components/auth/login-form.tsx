@@ -2,22 +2,19 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import {
   ArrowRight,
   CheckCircle2,
   Eye,
   EyeOff,
-  Leaf,
   Loader2,
   Lock,
   Mail,
   ShieldCheck,
-  Sparkles,
-  Truck,
   User as UserIcon,
 } from "lucide-react";
-import { createClient, supabaseConfigured } from "@/lib/supabase/client";
+import { createClient, setRememberSession, supabaseConfigured } from "@/lib/supabase/client";
 import { safeNextPath } from "@/lib/session";
 import { useToast } from "@/lib/toast";
 
@@ -43,8 +40,6 @@ type FriendlyError = {
   bn: string;
   /** show the "resend verification" button */
   resend?: boolean;
-  /** show the "sign up instead" hint */
-  isNewUser?: boolean;
   /**
    * A concrete next step offered under the message. `diagnose()` sets one after
    * a rejected password so the visitor is never left with a dead end.
@@ -104,24 +99,86 @@ function friendlyError(raw: string): FriendlyError {
   return { bn: `সমস্যা হয়েছে: ${raw}` };
 }
 
-function Field({
-  icon,
-  children,
-}: {
+/* ==========================================================================
+   FloatField — floating-label input
+   --------------------------------------------------------------------------
+   The label sits inside the box and rises on focus / when filled. Pure CSS
+   (`peer` + `placeholder=" "`), so it works before hydration too.
+   ========================================================================== */
+type FloatFieldProps = {
+  label: string;
   icon: React.ReactNode;
-  children: React.ReactNode;
-}) {
+  type?: string;
+  value: string;
+  onChange: (value: string) => void;
+  autoComplete?: string;
+  inputMode?: "email" | "text" | "numeric" | "tel";
+  minLength?: number;
+  trailing?: React.ReactNode;
+  hint?: React.ReactNode;
+};
+
+function FloatField({
+  label,
+  icon,
+  type = "text",
+  value,
+  onChange,
+  autoComplete,
+  inputMode,
+  minLength,
+  trailing,
+  hint,
+}: FloatFieldProps) {
+  const id = useId();
   return (
-    <div className="relative mt-1.5">
-      <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sand-100/35">
-        {icon}
-      </span>
-      {children}
+    <div>
+      <div className="group relative">
+        <span className="pointer-events-none absolute left-3.5 top-1/2 z-[1] -translate-y-1/2 text-sand-100/35 transition group-focus-within:text-leaf-300">
+          {icon}
+        </span>
+        <input
+          id={id}
+          type={type}
+          inputMode={inputMode}
+          autoComplete={autoComplete}
+          minLength={minLength}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder=" "
+          aria-label={label}
+          /* 16px text stops iOS from zooming the page on focus */
+          className="peer h-[52px] w-full rounded-2xl border border-white/10 bg-ink-800/70 pb-1.5 pl-10 pr-12 pt-6 text-[16px] text-sand-100 outline-none transition placeholder:text-transparent focus:border-leaf-500/70 focus:bg-ink-800 focus:ring-4 focus:ring-leaf-600/15"
+        />
+        <label
+          htmlFor={id}
+          className="pointer-events-none absolute left-10 top-1/2 -translate-y-1/2 text-[14px] text-sand-100/45 transition-all duration-200 peer-focus:top-[15px] peer-focus:text-[11px] peer-focus:font-semibold peer-focus:tracking-wide peer-focus:text-leaf-300 peer-[:not(:placeholder-shown)]:top-[15px] peer-[:not(:placeholder-shown)]:text-[11px] peer-[:not(:placeholder-shown)]:font-semibold peer-[:not(:placeholder-shown)]:tracking-wide"
+        >
+          {label}
+        </label>
+        {trailing ? <span className="absolute right-1.5 top-1/2 -translate-y-1/2">{trailing}</span> : null}
+      </div>
+      {hint}
     </div>
   );
 }
 
-export function LoginForm() {
+/** 3-bar password strength: length, letters+digits, symbol/length bonus. */
+function strengthOf(password: string) {
+  const checks = [
+    password.length >= 8,
+    /[A-Za-z]/.test(password) && /\d/.test(password),
+    password.length >= 12 || /[^A-Za-z0-9]/.test(password),
+  ];
+  const score = checks.filter(Boolean).length;
+  return {
+    score,
+    label: ["খুব দুর্বল", "দুর্বল", "ভালো", "শক্তিশালী"][score],
+    tone: ["bg-red-500", "bg-amber-500", "bg-leaf-400", "bg-leaf-500"][score],
+  };
+}
+
+export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
   const router = useRouter();
   const toast = useToast();
   const params = useSearchParams();
@@ -130,12 +187,16 @@ export function LoginForm() {
   const callbackError = params.get("error");
   const callbackReason = params.get("reason");
 
-  const [mode, setMode] = useState<Mode>(() => (params.get("mode") === "signup" ? "signup" : "login"));
+  const [mode, setMode] = useState<Mode>(() =>
+    !admin && params.get("mode") === "signup" ? "signup" : "login"
+  );
   const [busy, setBusy] = useState(false);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [remember, setRemember] = useState(true);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [error, setError] = useState<FriendlyError | null>(null);
   const [notice, setNotice] = useState<{ title: string; body: string } | null>(null);
   const [resetSentTo, setResetSentTo] = useState<string | null>(null);
@@ -154,6 +215,7 @@ export function LoginForm() {
   }, [mode]);
 
   const cleanEmail = () => email.trim().toLowerCase();
+  const strength = strengthOf(password);
 
   /* --------------------------------------------------- why did it fail? */
   /**
@@ -225,6 +287,7 @@ export function LoginForm() {
 
     setBusy(true);
     try {
+      setRememberSession(remember);
       const supabase = createClient();
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email: cleanEmail(),
@@ -268,12 +331,14 @@ export function LoginForm() {
     if (fullName.trim().length < 2) return setError({ bn: "আপনার পুরো নাম লিখুন (কমপক্ষে ২ অক্ষর)।" });
     if (!cleanEmail()) return setError({ bn: "একটি সঠিক ইমেইল ঠিকানা দিন।" });
     if (password.length < 8) return setError({ bn: "পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে।" });
+    if (!acceptedTerms) return setError({ bn: "অ্যাকাউন্ট খুলতে শর্তাবলী ও গোপনীয়তা নীতিতে সম্মতি দিন।" });
     if (!supabaseConfigured) {
       return setError({ bn: "সার্ভার কনফিগারেশন পাওয়া যাচ্ছে না — অ্যাডমিনকে জানান।" });
     }
 
     setBusy(true);
     try {
+      setRememberSession(remember);
       const supabase = createClient();
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: cleanEmail(),
@@ -372,6 +437,7 @@ export function LoginForm() {
     }
     setBusy(true);
     try {
+      setRememberSession(remember);
       const { error: oauthError } = await createClient().auth.signInWithOAuth({
         provider: "google",
         options: {
@@ -391,70 +457,61 @@ export function LoginForm() {
   }
 
   const tabClass = (active: boolean) =>
-    `relative flex-1 rounded-xl px-3 py-2.5 text-[13.5px] font-semibold transition min-h-[44px] ${
-      active ? "bg-leaf-600 text-white shadow-[0_8px_20px_-10px_rgba(31,122,77,0.9)]" : "text-sand-100/60 hover:text-sand-100"
+    `relative flex-1 rounded-xl px-2 py-2.5 text-[13px] font-semibold transition min-h-[44px] sm:text-[13.5px] ${
+      active
+        ? "bg-leaf-600 text-white shadow-[0_10px_24px_-12px_rgba(31,122,77,0.95)]"
+        : "text-sand-100/60 hover:bg-white/[0.04] hover:text-sand-100"
     }`;
 
-  return (
-    <div className="grid w-full max-w-[1040px] overflow-hidden rounded-[26px] border border-white/[0.07] bg-ink-900/80 shadow-card backdrop-blur-xl lg:grid-cols-[1.05fr_1fr]">
-      {/* ── brand panel (desktop only) */}
-      <aside className="relative hidden flex-col justify-between gap-8 overflow-hidden bg-gradient-to-br from-leaf-900 via-ink-900 to-[#06110b] p-9 lg:flex">
-        <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-leaf-500/20 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-20 -left-10 h-56 w-56 rounded-full bg-emerald-600/15 blur-3xl" />
-        <div className="relative">
-          <span className="inline-flex items-center gap-2 rounded-full border border-leaf-500/30 bg-leaf-600/15 px-3 py-1 text-[11px] font-semibold text-leaf-200">
-            <Leaf className="h-3.5 w-3.5" /> বিশ্বাস এগ্রো
-          </span>
-          <h1 className="mt-5 text-[28px] font-bold leading-snug text-white">
-            খামার থেকে সরাসরি
-            <br />
-            আপনার পরিবারের টেবিলে
-          </h1>
-          <p className="mt-3 max-w-[34ch] text-[13px] leading-relaxed text-sand-100/60">
-            অ্যাকাউন্ট খুললে অর্ডার হিস্ট্রি, সেভ করা ঠিকানা, প্রিমিয়াম স্ট্যাটাস আর নোটিফিকেশন — সব এক জায়গায়।
-          </p>
-        </div>
-        <ul className="relative space-y-3 text-[12.5px] text-sand-100/70">
-          {[
-            { Icon: Truck, text: "সারা বাংলাদেশে ডেলিভারি, ২৪–৪৮ ঘণ্টায়" },
-            { Icon: ShieldCheck, text: "১০০% খাঁটি — ল্যাব টেস্টেড পণ্য" },
-            { Icon: Sparkles, text: "প্রিমিয়াম সদস্যদের জন্য লাইভ খামার ভিউ" },
-          ].map(({ Icon, text }) => (
-            <li key={text} className="flex items-center gap-2.5">
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-white/[0.06] text-leaf-300">
-                <Icon className="h-4 w-4" />
-              </span>
-              {text}
-            </li>
-          ))}
-        </ul>
-      </aside>
+  const actionButton =
+    "mt-2 inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-red-300/30 px-3 py-1 text-[11.5px] font-semibold text-red-100 transition hover:bg-red-500/10 disabled:opacity-60";
 
-      {/* ── form panel */}
-      <section className="p-5 sm:p-7">
-        <h2 className="text-[20px] font-bold text-white sm:text-[22px]">
-          {mode === "signup" ? "নতুন অ্যাকাউন্ট" : mode === "forgot" ? "পাসওয়ার্ড রিসেট" : "আবার স্বাগতম"}
+  return (
+    <div className="auth-card w-full max-w-[484px]">
+      {/* mobile brand header (the desktop split panel carries this on ≥lg) */}
+      <div className="mb-5 flex items-center gap-2.5 lg:hidden">
+        <span className="grid h-10 w-10 place-items-center rounded-2xl bg-leaf-600/20 text-leaf-200 ring-1 ring-leaf-500/30">
+          <ShieldCheck className="h-5 w-5" />
+        </span>
+        <div>
+          <p className="text-[15px] font-bold leading-tight text-white">বিশ্বাস এগ্রো</p>
+          <p className="text-[11px] text-sand-100/45">বিশুদ্ধতার আস্থায়, খামার থেকে আপনার ঘরে</p>
+        </div>
+      </div>
+
+      <div className="auth-inner">
+        {admin ? (
+          <span className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-leaf-400/30 bg-leaf-600/15 px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wider text-leaf-200">
+            <ShieldCheck className="h-3.5 w-3.5" /> Secure admin access
+          </span>
+        ) : null}
+        <h2 className="text-[21px] font-bold tracking-tight text-white sm:text-[23px]">
+          {mode === "signup" ? "নতুন অ্যাকাউন্ট" : mode === "forgot" ? "পাসওয়ার্ড রিসেট" : admin ? "অ্যাডমিন প্যানেল" : "আবার স্বাগতম"}
         </h2>
-        <p className="mt-1 text-[12.5px] text-sand-100/50">
+        <p className="mt-1 text-[12.5px] leading-relaxed text-sand-100/50">
           {mode === "signup"
-            ? "মাত্র ৩টি তথ্য দিয়ে অ্যাকাউন্ট খুলুন।"
+            ? "মাত্র ৩টি তথ্য দিয়ে অ্যাকাউন্ট খুলুন — অর্ডার, ঠিকানা আর স্ট্যাটাস এক জায়গায়।"
             : mode === "forgot"
-              ? "ইমেইল দিন — রিসেট লিঙ্ক পাঠিয়ে দেব।"
-              : "ইমেইল/পাসওয়ার্ড বা Google — যেভাবে সুবিধা।"}
+              ? "অ্যাকাউন্টের ইমেইল দিন — রিসেট লিঙ্ক পাঠিয়ে দেব।"
+              : admin
+                ? "শুধু অনুমোদিত অ্যাডমিন অ্যাকাউন্টে প্রবেশ করুন।"
+                : "ইমেইল/পাসওয়ার্ড বা Google — যেভাবে আপনার সুবিধা।"}
         </p>
 
         {/* tabs */}
         <div
           role="tablist"
-          aria-label="লগইন বা সাইন আপ"
+          aria-label="লগইন, সাইন আপ বা পাসওয়ার্ড রিসেট"
           className="mt-5 flex gap-1 rounded-2xl border border-white/[0.07] bg-white/[0.03] p-1"
         >
           <button type="button" role="tab" aria-selected={mode === "login"} className={tabClass(mode === "login")} onClick={() => setMode("login")}>
             লগইন
           </button>
-          <button type="button" role="tab" aria-selected={mode === "signup"} className={tabClass(mode === "signup")} onClick={() => setMode("signup")}>
-            সাইন আপ
-          </button>
+          {admin ? null : (
+            <button type="button" role="tab" aria-selected={mode === "signup"} className={tabClass(mode === "signup")} onClick={() => setMode("signup")}>
+              সাইন আপ
+            </button>
+          )}
           <button type="button" role="tab" aria-selected={mode === "forgot"} className={tabClass(mode === "forgot")} onClick={() => setMode("forgot")}>
             পাসওয়ার্ড ভুলে গেছি
           </button>
@@ -465,43 +522,25 @@ export function LoginForm() {
           <div role="alert" className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-3.5 py-3 text-[12.5px] leading-relaxed text-red-200">
             <p>{error.bn}</p>
             {error.resend ? (
-              <button
-                type="button"
-                onClick={resendVerification}
-                disabled={busy}
-                className="mt-2 inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-red-300/30 px-3 py-1 text-[11.5px] font-semibold text-red-100 hover:bg-red-500/10 disabled:opacity-60"
-              >
+              <button type="button" onClick={resendVerification} disabled={busy} className={actionButton}>
                 যাচাই ইমেইল আবার পাঠান
               </button>
             ) : null}
 
             {error.action === "google" ? (
-              <button
-                type="button"
-                onClick={continueWithGoogle}
-                disabled={busy}
-                className="mt-2 inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-red-300/30 px-3 py-1 text-[11.5px] font-semibold text-red-100 hover:bg-red-500/10 disabled:opacity-60"
-              >
+              <button type="button" onClick={continueWithGoogle} disabled={busy} className={actionButton}>
                 Google দিয়ে লগইন
               </button>
             ) : null}
 
             {error.action === "reset" ? (
-              <button
-                type="button"
-                onClick={() => setMode("forgot")}
-                className="mt-2 inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-red-300/30 px-3 py-1 text-[11.5px] font-semibold text-red-100 hover:bg-red-500/10"
-              >
+              <button type="button" onClick={() => setMode("forgot")} className={actionButton}>
                 পাসওয়ার্ড রিসেট করুন
               </button>
             ) : null}
 
             {error.action === "signup" ? (
-              <button
-                type="button"
-                onClick={() => setMode("signup")}
-                className="mt-2 inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-red-300/30 px-3 py-1 text-[11.5px] font-semibold text-red-100 hover:bg-red-500/10"
-              >
+              <button type="button" onClick={() => setMode("signup")} className={actionButton}>
                 সাইন আপ করুন
               </button>
             ) : null}
@@ -517,57 +556,84 @@ export function LoginForm() {
           </div>
         ) : null}
 
+        {/* ── Google FIRST, then the email form (both login and signup) */}
+        {!admin && mode !== "forgot" ? (
+          <>
+            <button
+              type="button"
+              onClick={continueWithGoogle}
+              disabled={busy}
+              className="mt-5 flex min-h-[50px] w-full items-center justify-center gap-2.5 rounded-2xl bg-white px-4 text-[14.5px] font-semibold text-gray-800 shadow-[0_10px_26px_-16px_rgba(0,0,0,0.9)] transition hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/30 disabled:opacity-60"
+            >
+              {busy ? (
+                <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
+              ) : (
+                <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" aria-hidden>
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1Z" />
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.65l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23Z" />
+                  <path fill="#FBBC05" d="M5.84 14.11a6.6 6.6 0 0 1 0-4.22V7.05H2.18a11 11 0 0 0 0 9.9l3.66-2.84Z" />
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.05l3.66 2.84c.87-2.6 3.3-4.51 6.16-4.51Z" />
+                </svg>
+              )}
+              Google দিয়ে চালিয়ে যান
+            </button>
+
+            <div className="my-4 flex items-center gap-3">
+              <span className="h-px flex-1 bg-white/10" />
+              <span className="text-[11px] font-medium tracking-wider text-sand-100/35">অথবা ইমেইল দিয়ে</span>
+              <span className="h-px flex-1 bg-white/10" />
+            </div>
+          </>
+        ) : null}
+
         {/* ── LOGIN */}
         {mode === "login" ? (
-          <form onSubmit={handleLogin} className="mt-5 space-y-3.5" noValidate>
-            <label className="block">
-              <span className="label">ইমেইল</span>
-              <Field icon={<Mail className="h-4 w-4" />}>
-                <input
-                  type="email"
-                  inputMode="email"
-                  autoComplete="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="input !pl-10 !text-[16px]"
-                  placeholder="you@example.com"
-                  aria-label="ইমেইল"
-                />
-              </Field>
-            </label>
+          <form onSubmit={handleLogin} className="space-y-3.5" noValidate>
+            <FloatField
+              label="ইমেইল"
+              icon={<Mail className="h-4 w-4" />}
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              value={email}
+              onChange={setEmail}
+            />
 
-            <label className="block">
-              <span className="label">পাসওয়ার্ড</span>
-              <Field icon={<Lock className="h-4 w-4" />}>
-                <input
-                  type={showPassword ? "text" : "password"}
-                  autoComplete="current-password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="input !pl-10 !pr-11 !text-[16px]"
-                  placeholder="••••••••"
-                  aria-label="পাসওয়ার্ড"
-                />
+            <FloatField
+              label="পাসওয়ার্ড"
+              icon={<Lock className="h-4 w-4" />}
+              type={showPassword ? "text" : "password"}
+              autoComplete="current-password"
+              value={password}
+              onChange={setPassword}
+              trailing={
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
                   aria-label={showPassword ? "পাসওয়ার্ড লুকান" : "পাসওয়ার্ড দেখুন"}
-                  className="absolute right-1.5 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-xl text-sand-100/50 hover:bg-white/[0.06] hover:text-sand-100"
+                  className="grid h-10 w-10 place-items-center rounded-xl text-sand-100/50 transition hover:bg-white/[0.06] hover:text-sand-100"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
-              </Field>
-            </label>
+              }
+            />
 
-            <div className="flex justify-end">
+            <div className="flex items-center justify-between gap-3">
+              <label className="flex cursor-pointer select-none items-center gap-2 text-[12px] text-sand-100/60">
+                <input
+                  type="checkbox"
+                  checked={remember}
+                  onChange={(e) => setRemember(e.target.checked)}
+                  className="h-4 w-4 rounded border-white/20 bg-ink-800 accent-leaf-500"
+                />
+                এই ডিভাইসে লগইন রাখুন
+              </label>
               <button type="button" onClick={() => setMode("forgot")} className="text-[12px] font-semibold text-leaf-300 hover:underline">
                 পাসওয়ার্ড ভুলে গেছেন?
               </button>
             </div>
 
-            <button type="submit" disabled={busy} className="btn-primary min-h-[48px] w-full !text-[15px]">
+            <button type="submit" disabled={busy} className="btn-primary min-h-[50px] w-full !text-[15px]">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
               {busy ? "লগইন হচ্ছে…" : "লগইন করুন"}
             </button>
@@ -576,72 +642,84 @@ export function LoginForm() {
 
         {/* ── SIGNUP */}
         {mode === "signup" ? (
-          <form onSubmit={handleSignup} className="mt-5 space-y-3.5" noValidate>
-            <label className="block">
-              <span className="label">পুরো নাম</span>
-              <Field icon={<UserIcon className="h-4 w-4" />}>
-                <input
-                  type="text"
-                  autoComplete="name"
-                  required
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="input !pl-10 !text-[16px]"
-                  placeholder="আপনার নাম"
-                  aria-label="পুরো নাম"
-                />
-              </Field>
-            </label>
+          <form onSubmit={handleSignup} className="space-y-3.5" noValidate>
+            <FloatField
+              label="পুরো নাম"
+              icon={<UserIcon className="h-4 w-4" />}
+              autoComplete="name"
+              value={fullName}
+              onChange={setFullName}
+            />
 
-            <label className="block">
-              <span className="label">ইমেইল</span>
-              <Field icon={<Mail className="h-4 w-4" />}>
-                <input
-                  type="email"
-                  inputMode="email"
-                  autoComplete="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="input !pl-10 !text-[16px]"
-                  placeholder="you@example.com"
-                  aria-label="ইমেইল"
-                />
-              </Field>
-            </label>
+            <FloatField
+              label="ইমেইল"
+              icon={<Mail className="h-4 w-4" />}
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              value={email}
+              onChange={setEmail}
+            />
 
-            <label className="block">
-              <span className="label">পাসওয়ার্ড</span>
-              <Field icon={<Lock className="h-4 w-4" />}>
-                <input
-                  type={showPassword ? "text" : "password"}
-                  autoComplete="new-password"
-                  required
-                  minLength={8}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="input !pl-10 !pr-11 !text-[16px]"
-                  placeholder="কমপক্ষে ৮ অক্ষর"
-                  aria-label="পাসওয়ার্ড"
-                />
+            <FloatField
+              label="পাসওয়ার্ড"
+              icon={<Lock className="h-4 w-4" />}
+              type={showPassword ? "text" : "password"}
+              autoComplete="new-password"
+              minLength={8}
+              value={password}
+              onChange={setPassword}
+              trailing={
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
                   aria-label={showPassword ? "পাসওয়ার্ড লুকান" : "পাসওয়ার্ড দেখুন"}
-                  className="absolute right-1.5 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-xl text-sand-100/50 hover:bg-white/[0.06] hover:text-sand-100"
+                  className="grid h-10 w-10 place-items-center rounded-xl text-sand-100/50 transition hover:bg-white/[0.06] hover:text-sand-100"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
-              </Field>
-              <span className="mt-1.5 flex items-center gap-1.5 text-[11px] text-sand-100/40">
-                <span className={password.length >= 8 ? "text-leaf-300" : ""}>• কমপক্ষে ৮ অক্ষর</span>
-                <span className={/[A-Za-z]/.test(password) && /\d/.test(password) ? "text-leaf-300" : ""}>
-                  • অক্ষর + সংখ্যা (ভালো)
-                </span>
+              }
+              hint={
+                <div className="mt-2">
+                  <div className="flex gap-1.5" aria-hidden>
+                    {[0, 1, 2].map((i) => (
+                      <span
+                        key={i}
+                        className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${
+                          password && strength.score > i ? strength.tone : "bg-white/10"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <p className="mt-1.5 flex items-center justify-between text-[11px] text-sand-100/40">
+                    <span>কমপক্ষে ৮ অক্ষর, অক্ষর + সংখ্যা মিশিয়ে দিন</span>
+                    {password ? <span className="font-semibold text-sand-100/60">{strength.label}</span> : null}
+                  </p>
+                </div>
+              }
+            />
+
+            <label className="flex cursor-pointer select-none items-start gap-2.5 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-3 text-[12px] leading-relaxed text-sand-100/60">
+              <input
+                type="checkbox"
+                checked={acceptedTerms}
+                onChange={(e) => setAcceptedTerms(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-white/20 bg-ink-800 accent-leaf-500"
+              />
+              <span>
+                আমি{" "}
+                <Link href="/policies/terms" className="font-semibold text-leaf-300 hover:underline">
+                  শর্তাবলী
+                </Link>{" "}
+                ও{" "}
+                <Link href="/policies/privacy" className="font-semibold text-leaf-300 hover:underline">
+                  গোপনীয়তা নীতি
+                </Link>{" "}
+                পড়েছি এবং সম্মতি দিচ্ছি।
               </span>
             </label>
 
-            <button type="submit" disabled={busy} className="btn-primary min-h-[48px] w-full !text-[15px]">
+            <button type="submit" disabled={busy} className="btn-primary min-h-[50px] w-full !text-[15px]">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserIcon className="h-4 w-4" />}
               {busy ? "অ্যাকাউন্ট তৈরি হচ্ছে…" : "অ্যাকাউন্ট তৈরি করুন"}
             </button>
@@ -672,82 +750,42 @@ export function LoginForm() {
               </button>
             </div>
           ) : (
-            <form onSubmit={handleForgot} className="mt-5 space-y-3.5" noValidate>
-              <label className="block">
-                <span className="label">অ্যাকাউন্টের ইমেইল</span>
-                <Field icon={<Mail className="h-4 w-4" />}>
-                  <input
-                    type="email"
-                    inputMode="email"
-                    autoComplete="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="input !pl-10 !text-[16px]"
-                    placeholder="you@example.com"
-                    aria-label="ইমেইল"
-                  />
-                </Field>
-              </label>
-              <button type="submit" disabled={busy} className="btn-primary min-h-[48px] w-full !text-[15px]">
+            <form onSubmit={handleForgot} className="mt-1 space-y-3.5" noValidate>
+              <FloatField
+                label="অ্যাকাউন্টের ইমেইল"
+                icon={<Mail className="h-4 w-4" />}
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                value={email}
+                onChange={setEmail}
+              />
+              <button type="submit" disabled={busy} className="btn-primary min-h-[50px] w-full !text-[15px]">
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
                 {busy ? "পাঠানো হচ্ছে…" : "রিসেট লিঙ্ক পাঠান"}
               </button>
-              <button type="button" onClick={() => setMode("login")} className="w-full text-center text-[12px] text-sand-100/50 hover:text-sand-100">
+              <button type="button" onClick={() => setMode("login")} className="w-full text-center text-[12px] text-sand-100/50 transition hover:text-sand-100">
                 লগইনে ফিরে যান
               </button>
             </form>
           )
         ) : null}
 
-        {/* ── Google (login + signup) */}
-        {mode !== "forgot" ? (
-          <>
-            <div className="my-4 flex items-center gap-3">
-              <span className="h-px flex-1 bg-white/10" />
-              <span className="text-[11px] font-medium uppercase tracking-wider text-sand-100/35">অথবা</span>
-              <span className="h-px flex-1 bg-white/10" />
-            </div>
-            <button
-              type="button"
-              onClick={continueWithGoogle}
-              disabled={busy}
-              className="flex min-h-[48px] w-full items-center justify-center gap-2.5 rounded-2xl bg-white px-4 text-[14px] font-semibold text-gray-800 transition hover:bg-gray-50 disabled:opacity-60"
-            >
-              {busy ? (
-                <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
-              ) : (
-                <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" aria-hidden>
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1Z" />
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.65l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23Z" />
-                  <path fill="#FBBC05" d="M5.84 14.11a6.6 6.6 0 0 1 0-4.22V7.05H2.18a11 11 0 0 0 0 9.9l3.66-2.84Z" />
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.05l3.66 2.84c.87-2.6 3.3-4.51 6.16-4.51Z" />
-                </svg>
-              )}
-              Google দিয়ে চালিয়ে যান
-            </button>
-          </>
+        {admin ? (
+          <p className="mt-5 rounded-2xl border border-white/[0.07] bg-white/[0.02] px-3 py-2.5 text-[11px] leading-relaxed text-sand-100/45">
+            এই পেজে Google লগইন বন্ধ। শুধু ইমেইল+পাসওয়ার্ড, এবং অ্যাকাউন্টের রোল{" "}
+            <span className="font-semibold text-sand-100/70">admin</span> হতে হবে — নাহলে প্যানেল খুলবে না।
+          </p>
         ) : null}
 
         <p className="mt-5 text-center text-[11px] leading-relaxed text-sand-100/35">
-          লগইন করলে আপনি আমাদের{" "}
-          <Link href="/policies/terms" className="font-semibold text-leaf-300 hover:underline">
-            শর্তাবলী
-          </Link>{" "}
-          ও{" "}
-          <Link href="/policies/privacy" className="font-semibold text-leaf-300 hover:underline">
-            গোপনীয়তা নীতি
-          </Link>{" "}
-          মেনে নিচ্ছেন।
-        </p>
-
-        <p className="mt-2 text-center text-[11px] text-sand-100/30">
           সমস্যা হচ্ছে?{" "}
-          <Link href="/contact" className="underline hover:text-sand-100/60">
+          <Link href="/contact" className="underline transition hover:text-sand-100/70">
             আমাদের জানান
-          </Link>
+          </Link>{" "}
+          — অথবা হটলাইনে কল করুন। আপনার তথ্য এনক্রিপ্টেড থাকে।
         </p>
-      </section>
+      </div>
     </div>
   );
 }
