@@ -425,3 +425,18 @@ npm run dev                     # http://localhost:3000
 
 ### রিয়েলটাইম অর্ডার নোটিফিকেশন
 - কোনো কাস্টমার অর্ডার করলে সাথে সাথে অ্যাডমিন ও সংশ্লিষ্ট সব সেলারের কাছে বেল আইকনে রিয়েলটাইম নোটিফিকেশন চলে যাবে।
+
+---
+
+## নতুন পেমেন্ট সিস্টেম (SQL ফাইল ১৭ থেকে ২১)
+Supabase Dashboard → **SQL Editor**-এ নিচের ৫টি ফাইল একের পর এক চালান:
+1. `supabase/sql/17_payments_reset.sql` — শুধু পুরোনো পেমেন্ট টেবিল/পলিসি মুছে ফেলে (অর্ডার, প্রোডাক্ট বা ইউজার মুছে না)।
+2. `supabase/sql/18_payments_schema.sql` — নতুন `payment_methods`, `payments`, `payment_logs`, `payment_settings` টেবিল তৈরি করে।
+3. `supabase/sql/19_payments_functions.sql` — `submit_payment()`, `review_payment()`, `cancel_unpaid_orders()` RPC ও ট্রিগার তৈরি করে।
+4. `supabase/sql/20_payments_rls_storage.sql` — RLS পলিসি, `payment-logos` ও `payment-proofs` বাকেট এবং `payments` Realtime চালু করে।
+5. `supabase/sql/21_payments_seed.sql` — bKash, Nagad, Rocket, Upay, Bank, COD ডিফল্ট মেথড যোগ করে (অ্যাডমিন চালু না করা পর্যন্ত নিষ্ক্রিয় থাকবে)।
+
+### সমস্যা সমাধান (Troubleshooting)
+- **Bucket not found:** `14_storage_fix.sql` এবং `20_payments_rls_storage.sql` চালান, তারপর অ্যাডমিন → **System Check** পেজ দেখুন।
+- **Duplicate TrxID:** একই TrxID দিয়ে দ্বিতীয়বার সাবমিট করলে বাতিল হবে (শুধুমাত্র অ্যাডমিন Reject করলে পুনরায় সাবমিট করা যাবে)।
+- **Permission denied / RLS violation:** সাধারণ ইউজার অন্যের পেমেন্ট দেখতে বা অ্যাপ্রুভ করতে পারবে না — এটি নিরাপত্তার জন্য।
