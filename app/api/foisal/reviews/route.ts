@@ -11,11 +11,12 @@ export async function PATCH(req: Request) {
     await requirePermission("reviews.moderate");
     const { id, is_approved } = schema.parse(await req.json());
 
+    const status = is_approved ? "published" : "hidden";
     const { data, error } = await db()
       .from("reviews")
-      .update({ is_approved })
+      .update({ status })
       .eq("id", id)
-      .select("id, is_approved")
+      .select("id, status")
       .single();
 
     if (error) throw error;

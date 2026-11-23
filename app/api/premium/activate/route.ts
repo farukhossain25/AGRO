@@ -38,7 +38,7 @@ export async function POST(req: Request) {
 
     const client = db();
     const { data: sub, error } = await client
-      .from("premium_subscriptions")
+      .from("user_subscriptions")
       .select("*")
       .eq("sub_no", subNo.toUpperCase())
       .maybeSingle();
@@ -57,9 +57,9 @@ export async function POST(req: Request) {
     /* Length comes from the plan the customer actually bought (30 / 182 / 365
        days) — a hard-coded 30 gave a yearly customer one month. */
     const { data: plan } = await client
-      .from("premium_plans")
+      .from("plans")
       .select("duration_days")
-      .eq("id", sub.plan_id)
+      .eq("id", sub.plan_id ?? "")
       .maybeSingle();
     const durationDays = Number(plan?.duration_days) > 0 ? Number(plan?.duration_days) : 30;
 
@@ -71,7 +71,7 @@ export async function POST(req: Request) {
         : new Date(now.getTime() + durationDays * 86_400_000);
 
     const { data: updated, error: updateError } = await client
-      .from("premium_subscriptions")
+      .from("user_subscriptions")
       .update({
         status: "active",
         payment_ref: reference ?? sub.payment_ref ?? null,
@@ -85,7 +85,7 @@ export async function POST(req: Request) {
     if (updateError) throw updateError;
 
     await client
-      .from("users")
+      .from("profiles")
       .update({ role: "premium", premium_until: expires.toISOString() })
       .eq("id", sub.user_id)
       .neq("role", "admin");
@@ -139,7 +139,7 @@ export async function DELETE(req: Request) {
     const { subNo } = schema.parse(await req.json());
 
     const { data, error } = await db()
-      .from("premium_subscriptions")
+      .from("user_subscriptions")
       .update({ status: "cancelled", auto_renew: false })
       .eq("sub_no", subNo.toUpperCase())
       .eq("user_id", user.id)

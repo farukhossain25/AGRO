@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { db, dbDynamic } from "@/lib/db";
 import { fail, handleError, ok, requirePermission } from "@/lib/api";
 import { clientIp } from "@/lib/api";
 import { recordAudit, diffOf } from "@/lib/audit";
@@ -72,7 +72,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ kind: s
     const parsed = config.schema.parse(await req.json());
     const payload = clean(parsed as Record<string, unknown>);
 
-    const { data, error } = await db().from(config.table).insert(payload).select().single();
+    const { data, error } = await dbDynamic().from(config.table).insert(payload).select().single();
     if (error) throw error;
 
     await recordAudit({
@@ -133,9 +133,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ kind: 
     const parsed = config.schema.parse(raw);
     const payload = clean(parsed as Record<string, unknown>);
 
-    const { data: before } = await db().from(config.table).select("*").eq("id", raw.id).maybeSingle();
+    const { data: before } = await dbDynamic().from(config.table).select("*").eq("id", raw.id).maybeSingle();
 
-    const { data, error } = await db()
+    const { data, error } = await dbDynamic()
       .from(config.table)
       .update(payload)
       .eq("id", raw.id)
@@ -171,7 +171,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ kind:
     const id = new URL(req.url).searchParams.get("id");
     if (!id) return fail("আইডি দিন", 422);
 
-    const { error } = await db().from(config.table).delete().eq("id", id);
+    const { error } = await dbDynamic().from(config.table).delete().eq("id", id);
     if (error) throw error;
 
     await recordAudit({

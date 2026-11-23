@@ -114,7 +114,7 @@ export async function POST(req: Request) {
 
     // ---- 3. one review per product per order (edit instead)
     const { data: existing } = await client
-      .from("order_reviews")
+      .from("reviews")
       .select("id, created_at, status")
       .eq("order_id", body.orderId)
       .eq("product_id", body.productId)
@@ -135,7 +135,7 @@ export async function POST(req: Request) {
       }
 
       const { error } = await client
-        .from("order_reviews")
+        .from("reviews")
         .update({
           rating: body.rating,
           seller_rating: body.sellerRating ?? null,
@@ -163,7 +163,7 @@ export async function POST(req: Request) {
     }
 
     const { data: review, error } = await client
-      .from("order_reviews")
+      .from("reviews")
       .insert({
         order_id: body.orderId,
         sub_order_id: (line.sub_order_id as string | null) ?? null,
@@ -261,7 +261,7 @@ async function maybeNotifyLowRating(input: {
 
     // 2. every admin
     const { data: admins } = await db()
-      .from("users")
+      .from("profiles")
       .select("id")
       .eq("role", "admin")
       .eq("is_active", true);

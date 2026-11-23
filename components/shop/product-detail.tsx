@@ -6,7 +6,6 @@ import { useState } from "react";
 import {
   CalendarDays,
   Check,
-  Heart,
   Leaf,
   MapPin,
   Minus,

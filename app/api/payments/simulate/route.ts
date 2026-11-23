@@ -45,7 +45,7 @@ export async function POST(req: Request) {
     }
     const { data: order } = await db()
       .from("orders")
-      .select("id, order_no, total, payment_ref, user_id, phone")
+      .select("id, order_no, total, payment_ref, user_id, customer_phone")
       .eq("order_no", order_no.toUpperCase())
       .maybeSingle();
 
@@ -70,7 +70,7 @@ export async function POST(req: Request) {
 
     // audit: a "paid" row must always be explainable later
     await db()
-      .from("audit_logs")
+      .from("audit_log")
       .insert({
         actor_id: user.id,
         actor_email: user.email,

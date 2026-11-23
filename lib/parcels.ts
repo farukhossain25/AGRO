@@ -96,7 +96,7 @@ export async function buildLabel(orderNo: string): Promise<{ parcel: ParcelLabel
   const label: ParcelLabel = {
     order_no: order.order_no,
     customer_name: order.customer_name,
-    phone: order.phone,
+    phone: order.customer_phone,
     address: order.address,
     district: order.district,
     upazila: order.upazila,

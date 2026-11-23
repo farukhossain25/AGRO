@@ -13,10 +13,9 @@ import {
 } from "lucide-react";
 import { useCart } from "@/lib/cart";
 import { useLocale } from "@/lib/locale";
-import { nav, site } from "@/lib/site";
+import { nav } from "@/lib/site";
 import { Logo } from "./icon-logo";
 import { CartDrawer } from "./cart-drawer";
-import { SocialLinks } from "./social-links";
 import { UserMenu } from "./account/user-menu";
 import { SearchBox } from "./shop/search-box";
 import { MobileNav } from "./mobile-nav";

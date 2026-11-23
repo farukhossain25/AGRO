@@ -40,7 +40,7 @@ export default async function SellerReviewPage() {
 
     const [{ data: reviews }, { data: tickets }] = await Promise.all([
       client
-        .from("order_reviews")
+        .from("reviews")
         .select(
           "id, rating, seller_rating, comment, photos, tags, status, seller_reply, created_at, products(name_bn, slug)"
         )

@@ -1,8 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Clock, Leaf, ShieldCheck, Snowflake, Star, Truck } from "lucide-react";
+import { ArrowRight, Clock, ShieldCheck, Snowflake } from "lucide-react";
 import { ProductGrid } from "@/components/product-card";
-import { SectionHeader, StarRating, ViewAll } from "@/components/ui";
+import { SectionHeader, ViewAll } from "@/components/ui";
 import { CombosStrip } from "@/components/home/combos-strip";
 import { PackagesPreview } from "@/components/home/packages-preview";
 import { Testimonials } from "@/components/home/testimonials";
@@ -10,7 +10,6 @@ import { TrustStrip } from "@/components/home/trust-strip";
 import { LiveFarmsStrip } from "@/components/home/live-farms";
 import { WhyChooseUs } from "@/components/home/why-choose-us";
 import { FaqAccordion } from "@/components/faq-accordion";
-import { money } from "@/lib/format";
 import { whyChooseUs } from "@/lib/site";
 import type { BlogPost, Category, Combo, Farmer, Package, Product, Review } from "@/lib/types";
 
@@ -136,10 +135,7 @@ export function StoryBlock({
           <div className="flex flex-col justify-center p-6 sm:p-10">
             <span className="eyebrow mb-4">খামার থেকে টেবিল</span>
             <h2 className="h-section">{headingBn}</h2>
-            <p className="mt-4 text-[15px] leading-relaxed text-sand-100/65">
-              আমরা সরাসরি ২৩০+ কৃষক পরিবারের সাথে কাজ করি। কোনো মধ্যস্বত্বভোগী নেই —
-              তাই কৃষক পান ন্যায্য দাম, আর আপনি পান সবচেয়ে তাজা সবজি।
-            </p>
+            <p className="mt-4 text-[15px] leading-relaxed text-sand-100/65">{bodyBn}</p>
             <ul className="mt-6 space-y-3">
               {[
                 { icon: Clock, t: "৮ ঘণ্টার মধ্যে ঢাকায় ডেলিভারি", d: "সকালে তোলা, সন্ধ্যায় আপনার দরজায়" },

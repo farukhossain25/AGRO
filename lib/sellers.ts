@@ -25,7 +25,7 @@ export const defaultSellerSettings: SellerSettings = {
 export async function getSellerSettings(): Promise<SellerSettings> {
   try {
     const { data } = await db()
-      .from("settings")
+      .from("site_settings")
       .select("value")
       .eq("key", "seller")
       .maybeSingle();

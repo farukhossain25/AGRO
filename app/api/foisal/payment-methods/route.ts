@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import type { TablesInsert, TablesUpdate } from "@/lib/database.types";
 import { fail, handleError, ok, requirePermission } from "@/lib/api";
 import { clientIp } from "@/lib/api";
 import { recordAudit, diffOf } from "@/lib/audit";
@@ -41,7 +42,7 @@ export async function POST(req: Request) {
 
     const payload = clean(parsed);
 
-    const { data, error } = await db().from("payment_methods").insert(payload).select().single();
+    const { data, error } = await db().from("payment_methods").insert(payload as TablesInsert<"payment_methods">).select().single();
     if (error) {
       if ((error as { code?: string }).code === "23505") {
         return fail("এই কোডে আরেকটি মাধ্যম আছেই — অন্য কোড দিন", 409, { code: "কোড আগেই ব্যবহৃত" });
@@ -84,7 +85,7 @@ export async function PATCH(req: Request) {
 
     const { data, error } = await client
       .from("payment_methods")
-      .update(payload)
+      .update(payload as TablesUpdate<"payment_methods">)
       .eq("id", raw.id)
       .select()
       .single();

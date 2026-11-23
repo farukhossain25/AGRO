@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ADMIN_BASE } from "@/lib/paths";
 import { Suspense } from "react";
 import { ArrowLeft, Lock, ShieldCheck } from "lucide-react";
 import { LoginForm } from "@/components/auth/login-form";
@@ -45,7 +46,7 @@ export default function AdminLoginPage() {
       <div className="relative w-full max-w-[462px]">
         <div className="auth-rise mb-4 flex items-center justify-between" style={{ ["--d" as string]: "40ms" }}>
           <Link
-            href="/foisal"
+            href={ADMIN_BASE}
             className="group inline-flex items-center gap-2 text-[12px] text-sand-100/45 transition hover:text-sand-100"
           >
             <ArrowLeft className="h-3.5 w-3.5 transition-transform duration-300 group-hover:-translate-x-0.5" /> প্যানেল

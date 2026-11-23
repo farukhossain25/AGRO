@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CreditCard, MonitorSmartphone, Video } from "lucide-react";
@@ -20,7 +19,7 @@ export default async function AccountPremiumPage() {
 
   const [{ data: subs }, { data: devices }] = await Promise.all([
     db()
-      .from("premium_subscriptions")
+      .from("user_subscriptions")
       .select("*")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false }),

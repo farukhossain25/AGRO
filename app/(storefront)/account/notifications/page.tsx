@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/api";
 import { db } from "@/lib/db";

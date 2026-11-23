@@ -1,20 +1,11 @@
 import { db, isDbConfigured } from "@/lib/db";
 import { SimpleManager } from "@/components/admin/simple-manager";
-import { allSeedCameras, seedFarms } from "@/lib/seed-premium";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminCamerasPage() {
-  const farmLabel = (id: unknown) => seedFarms.find((f) => f.id === id)?.name_bn ?? "—";
-
-  let rows: Record<string, unknown>[] = allSeedCameras.map((c) => ({
-    ...c,
-    farm_name: farmLabel(c.farm_id),
-  })) as unknown as Record<string, unknown>[];
-  let farmOptions: { value: string; label: string }[] = seedFarms.map((f) => ({
-    value: f.id,
-    label: f.name_bn,
-  }));
+  let rows: Record<string, unknown>[] = [];
+  let farmOptions: { value: string; label: string }[] = [];
   let online = rows.filter((r) => r.status === "online").length;
   let dbReady = isDbConfigured();
   const proxyReady = Boolean(process.env.STREAM_PROXY_TARGET);

@@ -10,7 +10,7 @@ export default async function AdminCodesPage() {
   if (isDbConfigured()) {
     try {
       const { data } = await db()
-        .from("premium_access_codes")
+        .from("access_codes")
         .select("*")
         .order("issued_at", { ascending: false })
         .limit(300);

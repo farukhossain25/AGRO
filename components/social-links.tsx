@@ -45,7 +45,6 @@ export async function SocialLinks({
   placement,
   className = "",
   size = "md",
-  showLabel = false,
 }: {
   placement: SocialPlacement;
   className?: string;

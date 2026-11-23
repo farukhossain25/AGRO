@@ -56,11 +56,11 @@ export default async function PaymentStatusPage({
 
   /* Which order / plan this payment settles, for the receipt header. */
   const { data: order } = payment.order_id
-    ? await db().from("orders").select("order_no, total, customer_name, phone, address, district").eq("id", payment.order_id).maybeSingle()
+    ? await db().from("orders").select("order_no, total, customer_name, customer_phone, address, district").eq("id", payment.order_id).maybeSingle()
     : { data: null };
 
   const { data: subscription } = payment.subscription_id
-    ? await db().from("premium_subscriptions").select("sub_no, plan_name_bn, amount, expires_at").eq("id", payment.subscription_id).maybeSingle()
+    ? await db().from("user_subscriptions").select("sub_no, plan_name_bn, amount, expires_at").eq("id", payment.subscription_id).maybeSingle()
     : { data: null };
 
   const verified = payment.status === "verified";

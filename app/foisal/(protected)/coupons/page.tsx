@@ -1,18 +1,17 @@
 import { db, isDbConfigured } from "@/lib/db";
-import { seedCoupons } from "@/lib/seed-data";
 import { SimpleManager } from "@/components/admin/simple-manager";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminCouponsPage() {
-  let rows: Record<string, unknown>[] = seedCoupons as unknown as Record<string, unknown>[];
+  let rows: Record<string, unknown>[] = [];
 
   if (isDbConfigured()) {
     try {
       const { data } = await db().from("coupons").select("*").order("created_at", { ascending: false });
-      if (data?.length) rows = data;
+      rows = data ?? [];
     } catch {
-      /* fall back */
+      rows = [];
     }
   }
 

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
+import type { Json } from "@/lib/database.types";
 import { fail, handleError, ok, requirePermission } from "@/lib/api";
 import { clientIp } from "@/lib/api";
 import { recordAudit } from "@/lib/audit";
@@ -63,7 +64,7 @@ export async function GET() {
   try {
     await requirePermission("settings.write");
 
-    const { data, error } = await db().from("settings").select("key, value").order("key");
+    const { data, error } = await db().from("site_settings").select("key, value").order("key");
     if (error) throw error;
 
     const map: Record<string, Record<string, unknown>> = {};
@@ -87,7 +88,7 @@ export async function PATCH(req: Request) {
 
     const client = db();
     const { data: existing, error: readError } = await client
-      .from("settings")
+      .from("site_settings")
       .select("value")
       .eq("key", key)
       .maybeSingle();
@@ -105,8 +106,8 @@ export async function PATCH(req: Request) {
     }
 
     const { data, error } = await client
-      .from("settings")
-      .upsert({ key, value: merged, updated_at: new Date().toISOString() }, { onConflict: "key" })
+      .from("site_settings")
+      .upsert({ key, value: merged as unknown as Json, updated_at: new Date().toISOString() }, { onConflict: "key" })
       .select("key, value")
       .single();
 
@@ -144,7 +145,7 @@ export async function PUT(req: Request) {
 
     for (const [key, value] of Object.entries(body.settings)) {
       const { data: existing, error: readError } = await client
-        .from("settings")
+        .from("site_settings")
         .select("value")
         .eq("key", key)
         .maybeSingle();
@@ -157,8 +158,8 @@ export async function PUT(req: Request) {
       }
 
       const { error } = await client
-        .from("settings")
-        .upsert({ key, value: merged, updated_at: new Date().toISOString() }, { onConflict: "key" });
+        .from("site_settings")
+        .upsert({ key, value: merged as unknown as Json, updated_at: new Date().toISOString() }, { onConflict: "key" });
       if (error) throw error;
       changed.push(key);
     }

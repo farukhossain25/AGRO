@@ -1,6 +1,5 @@
 import { db, isDbConfigured } from "@/lib/db";
 import { SimpleManager } from "@/components/admin/simple-manager";
-import { seedSellers } from "@/lib/seed-premium";
 
 export const dynamic = "force-dynamic";
 
@@ -11,13 +10,13 @@ export default async function AdminSellersPage() {
       contact: s.email ? `${s.phone} · ${s.email}` : s.phone,
     }));
 
-  let rows: Record<string, unknown>[] = decorate(seedSellers as unknown as Record<string, unknown>[]);
+  let rows: Record<string, unknown>[] = [];
   let dbReady = isDbConfigured();
 
   if (isDbConfigured()) {
     try {
       const { data } = await db().from("sellers").select("*").order("created_at", { ascending: false });
-      if (data?.length) rows = decorate(data as Record<string, unknown>[]);
+      rows = decorate((data ?? []) as Record<string, unknown>[]);
     } catch {
       dbReady = false;
     }

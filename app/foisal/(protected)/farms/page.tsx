@@ -1,6 +1,5 @@
 import { db, isDbConfigured } from "@/lib/db";
 import { SimpleManager } from "@/components/admin/simple-manager";
-import { seedCameras, seedFarms } from "@/lib/seed-premium";
 
 export const dynamic = "force-dynamic";
 
@@ -13,10 +12,10 @@ const TYPE_OPTIONS = [
 ];
 
 export default async function AdminFarmsPage() {
-  // Seed rows keep the table usable when the DB is unreachable (local dev /
-  // outage). `dbReady` is false in that case, which disables writes in the UI.
-  let rows: Record<string, unknown>[] = seedFarms as unknown as Record<string, unknown>[];
-  let cameras = Object.values(seedCameras).flat().length;
+  // An empty table plus `dbReady: false` is the offline state: the UI shows a
+  // friendly empty panel and disables writes instead of inventing seed rows.
+  let rows: Record<string, unknown>[] = [];
+  let cameras = 0;
   let dbReady = isDbConfigured();
 
   if (isDbConfigured()) {
@@ -25,10 +24,8 @@ export default async function AdminFarmsPage() {
         db().from("farms").select("*").order("sort_order"),
         db().from("cameras").select("id", { count: "exact", head: true }),
       ]);
-      if (data?.length) {
-        rows = data as Record<string, unknown>[];
-        cameras = count ?? 0;
-      }
+      rows = (data ?? []) as Record<string, unknown>[];
+      cameras = count ?? 0;
     } catch {
       dbReady = false;
     }

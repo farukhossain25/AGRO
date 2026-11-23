@@ -20,7 +20,6 @@
 import { db } from "./db";
 import { notify } from "./notify";
 import type { Order, PaymentMethodRow, PaymentRow, PremiumSubscription } from "./types";
-import { ADMIN_BASE } from "@/lib/paths";
 
 /* ------------------------------------------------------------- normalising */
 
@@ -92,7 +91,7 @@ const DEFAULT_RULES: PaymentRules = {
 
 export async function getPaymentRules(): Promise<PaymentRules> {
   try {
-    const { data } = await db().from("settings").select("value").eq("key", "payments").maybeSingle();
+    const { data } = await db().from("site_settings").select("value").eq("key", "payments").maybeSingle();
     return { ...DEFAULT_RULES, ...((data?.value as Partial<PaymentRules>) ?? {}) };
   } catch {
     return DEFAULT_RULES;
@@ -237,7 +236,7 @@ export async function resolveTarget(params: {
     return {
       ok: true,
       purpose: "order",
-      order: order as Order,
+      order: order as unknown as Order,
       subscription: null,
       expected: Number(order.total),
       alreadyPaid: paid || ["cancelled", "returned"].includes(String(order.status)),
@@ -246,7 +245,7 @@ export async function resolveTarget(params: {
 
   if (params.subNo) {
     const { data: sub } = await client
-      .from("premium_subscriptions")
+      .from("user_subscriptions")
       .select("*")
       .eq("sub_no", params.subNo.toUpperCase())
       .maybeSingle();
@@ -389,6 +388,47 @@ export async function decidePayment(input: DecisionInput): Promise<DecisionResul
     }
   }
 
+  /* ---------------- approval: one transaction, in SQL ----------------------
+     `approve_payment()` flips the payment to verified, marks the order paid,
+     activates the premium subscription, issues the access code, writes the
+     payment_log, the in-app notification and the audit row. If any part fails
+     the whole thing rolls back, so a paid order can never exist without its
+     payment (or the other way round). */
+  if (input.decision === "verified") {
+    const { data: rpc, error: rpcError } = await client.rpc("approve_payment", {
+      p_payment: row.id,
+      p_actor: input.actor.id,
+      p_note: input.adminNote?.trim() || input.reason?.trim() || "",
+    });
+
+    if (rpcError) {
+      console.error("[payments] approve_payment failed:", rpcError.message, rpcError.details ?? "");
+      return {
+        ok: false,
+        status: 500,
+        message: "পেমেন্ট অনুমোদন করা যায়নি — আবার চেষ্টা করুন।",
+      };
+    }
+
+    const effects = ((rpc as { effects?: string[] } | null)?.effects ?? []).filter(Boolean);
+
+    const { data: fresh } = await client.from("payments").select("*").eq("id", row.id).maybeSingle();
+
+    // The in-app row is already written by the RPC — only fan out channels.
+    await notify({
+      userId: row.user_id,
+      kind: "payment",
+      title: `পেমেন্ট ভেরিফাইড হয়েছে ✅ — ${row.payment_no}`,
+      body: `৳${row.amount} নিশ্চিত হয়েছে${effects.length ? ` — ${effects.join(", ")}` : ""}`,
+      link: `/payment/status/${row.payment_no}`,
+      phone: row.sender_number,
+      storeInApp: false,
+      push: Boolean(row.user_id),
+    }).catch(() => null);
+
+    return { ok: true, payment: (fresh ?? row) as PaymentRow, effects };
+  }
+
   const now = new Date().toISOString();
 
   const { data: updated, error: updateError } = await client
@@ -407,32 +447,16 @@ export async function decidePayment(input: DecisionInput): Promise<DecisionResul
   if (updateError) throw updateError;
   const next = updated as PaymentRow;
 
+  /* Rejection / needs_info: no money moves, so a plain update plus the
+     append-only trail is enough (approve_payment() owns the positive path). */
   const effects: string[] = [];
-
-  // ---- side effects only on approval
-  if (input.decision === "verified") {
-    if (row.purpose === "order" && row.order_id) {
-      const applied = await settleOrder(row.order_id, row.payment_no, next.amount);
-      if (applied) effects.push(...applied);
-    } else if (row.purpose === "premium" && row.subscription_id) {
-      const applied = await activatePremium(row.subscription_id, row.payment_no);
-      if (applied) effects.push(...applied);
-    }
-  }
 
   // ---- append-only trail
   await client.from("payment_logs").insert({
     payment_id: row.id,
     actor_id: input.actor.id,
     actor_role: input.actor.role,
-    action:
-      input.decision === "verified"
-        ? input.via === "bulk"
-          ? "bulk_approved"
-          : "approved"
-        : input.decision === "rejected"
-          ? "rejected"
-          : "needs_info",
+    action: input.decision === "rejected" ? "rejected" : "needs_info",
     from_status: row.status,
     to_status: input.decision,
     note: input.reason?.trim() || input.adminNote?.trim() || null,
@@ -441,7 +465,7 @@ export async function decidePayment(input: DecisionInput): Promise<DecisionResul
 
   // ---- the mirror table the audit screen reads
   await client
-    .from("audit_logs")
+    .from("audit_log")
     .insert({
       actor_id: input.actor.id,
       actor_role: input.actor.role,
@@ -460,11 +484,7 @@ export async function decidePayment(input: DecisionInput): Promise<DecisionResul
 
   // ---- tell the customer
   const verdictBn =
-    input.decision === "verified"
-      ? "পেমেন্ট ভেরিফাইড হয়েছে ✅"
-      : input.decision === "rejected"
-        ? "পেমেন্ট বাতিঘোষিত হয়েছে ❌"
-        : "পেমেন্টে আরও তথ্য দরকার";
+    input.decision === "rejected" ? "পেমেন্ট বাতিল হয়েছে ❌" : "পেমেন্টে আরও তথ্য দরকার";
 
   await notify({
     userId: row.user_id,
@@ -473,157 +493,12 @@ export async function decidePayment(input: DecisionInput): Promise<DecisionResul
     body:
       input.decision === "rejected"
         ? input.reason?.trim() || "TrxID মেলেনি। সঠিক তথ্য দিয়ে আবার জমা দিন।"
-        : input.decision === "needs_info"
-          ? "স্ক্রিনশট বা TrxID আবার যাচাই করে জমা দিন।"
-          : `৳${row.amount} নিশ্চিত হয়েছে${effects.length ? ` — ${effects.join(", ")}` : ""}`,
+        : "স্ক্রিনশট বা TrxID আবার যাচাই করে জমা দিন।",
     link: `/payment/status/${row.payment_no}`,
     phone: row.sender_number,
   }).catch(() => null);
 
   return { ok: true, payment: next, effects };
-}
-
-/** Marks the order paid and pushes it into the seller/parcel flow. */
-async function settleOrder(orderId: string, paymentNo: string, amount: number): Promise<string[]> {
-  const client = db();
-  const effects: string[] = [];
-
-  const { data: order } = await client
-    .from("orders")
-    .select("*")
-    .eq("id", orderId)
-    .maybeSingle();
-
-  if (!order) return effects;
-
-  const { error } = await client
-    .from("orders")
-    .update({
-      payment_status: "paid",
-      status: order.status === "received" ? "confirmed" : order.status,
-      payment_ref: paymentNo,
-    })
-    .eq("id", orderId)
-    .neq("payment_status", "paid");
-
-  // `neq` makes the write a no-op when it was already paid — the effects below
-  // still run, but each is idempotent on its own.
-  if (error) throw error;
-  effects.push(`অর্ডার #${order.order_no} পরিশোধিত`);
-
-  // Parcel + seller fan-out. The parcel already exists (created at checkout),
-  // so this only needs to unblock it.
-  await client
-    .from("parcels")
-    .update({ status: "ready" })
-    .eq("order_id", orderId)
-    .eq("status", "pending")
-    .then(() => null, () => null);
-
-  await notify({
-    userId: order.user_id,
-    kind: "order",
-    title: `অর্ডার #${order.order_no} নিশ্চিত হয়েছে`,
-    body: "পেমেন্ট ভেরিফাইড। এখন প্যাকিং শুরু হচ্ছে।",
-    link: `/track?order=${order.order_no}`,
-    phone: order.phone,
-  }).catch(() => null);
-
-  await notifyAdminsOfPayment(order.order_no, amount).catch(() => null);
-
-  return effects;
-}
-
-/** Activates a premium subscription and issues an access code. */
-async function activatePremium(subscriptionId: string, paymentNo: string): Promise<string[]> {
-  const client = db();
-  const effects: string[] = [];
-
-  const { data: sub } = await client
-    .from("premium_subscriptions")
-    .select("*")
-    .eq("id", subscriptionId)
-    .maybeSingle();
-
-  if (!sub) return effects;
-
-  const now = new Date();
-
-  /* Term comes from the plan the customer bought — basic/full monthly are 30
-     days, half-yearly 182, yearly 365. (The previous hard-coded 30 days gave a
-     ৳2,899 yearly customer a single month.) Fall back to 30 only if the plan
-     row is missing, so a deleted plan cannot leave a sub with no expiry. */
-  const { data: plan } = await client
-    .from("premium_plans")
-    .select("duration_days")
-    .eq("id", sub.plan_id)
-    .maybeSingle();
-  const durationDays = Number(plan?.duration_days) > 0 ? Number(plan?.duration_days) : 30;
-
-  const base = sub.expires_at && new Date(sub.expires_at) > now ? new Date(sub.expires_at) : now;
-  const expires = new Date(base.getTime() + durationDays * 86_400_000);
-
-  await client
-    .from("premium_subscriptions")
-    .update({
-      status: "active",
-      payment_ref: paymentNo,
-      started_at: sub.started_at ?? now.toISOString(),
-      expires_at: expires.toISOString(),
-    })
-    .eq("id", subscriptionId);
-
-  if (sub.user_id) {
-    await client
-      .from("users")
-      .update({ role: "premium", premium_until: expires.toISOString() })
-      .eq("id", sub.user_id)
-      .neq("role", "admin");
-  }
-
-  // Premium access code — lets the customer sign in on the Android app.
-  const code = generateCode();
-  const { error: codeError } = await client.from("premium_access_codes").insert({
-    code,
-    plan_id: sub.plan_id,
-    user_id: sub.user_id,
-    status: "unused",
-    expires_at: expires.toISOString(),
-    meta: { issued_for: paymentNo, sub_no: sub.sub_no },
-  });
-
-  effects.push(`প্রিমিয়াম সক্রিয় (${sub.plan_name_bn})`);
-  if (!codeError) effects.push(`অ্যাক্সেস কোড ${code}`);
-
-  await notify({
-    userId: sub.user_id,
-    kind: "premium",
-    title: "প্রিমিয়াম সক্রিয় হয়েছে ✅",
-    body: codeError
-      ? `${sub.plan_name_bn} — ${expires.toISOString().slice(0, 10)} পর্যন্ত`
-      : `${sub.plan_name_bn} — অ্যাক্সেস কোড: ${code}`,
-    link: "/live",
-  }).catch(() => null);
-
-  return effects;
-}
-
-function generateCode(): string {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const bytes = new Uint8Array(12);
-  globalThis.crypto.getRandomValues(bytes);
-  const chars = Array.from(bytes, (b) => alphabet[b % alphabet.length]);
-  return [chars.slice(0, 4).join(""), chars.slice(4, 8).join(""), chars.slice(8, 12).join("")].join("-");
-}
-
-async function notifyAdminsOfPayment(orderNo: string, amount: number) {
-  const { notifyAdmins } = await import("./notify");
-  await notifyAdmins({
-    kind: "order",
-    title: `পেমেন্ট ভেরিফাইড — #${orderNo}`,
-    body: `৳${amount} নিশ্চিত হয়েছে, প্যাকিংয়ের জন্য প্রস্তুত`,
-    link: `${ADMIN_BASE}/orders`,
-  });
 }
 
 /* ------------------------------------------------------- reconciliation CSV */

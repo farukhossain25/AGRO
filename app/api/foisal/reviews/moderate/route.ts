@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { db, isDbConfigured } from "@/lib/db";
+import type { TablesUpdate } from "@/lib/database.types";
 import { fail, handleError, ok, requirePermission, sanitizeText } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
@@ -26,23 +27,19 @@ export async function PATCH(req: Request) {
     const { id, action, reason } = schema.parse(await req.json());
     const client = db();
 
-    const patch =
+    const patch: TablesUpdate<"reviews"> =
       action === "hide"
         ? {
             status: "hidden",
             hidden_reason: reason ? sanitizeText(reason, 200) : "অ্যাডমিন কর্তৃক লুকানো হয়েছে",
-            hidden_by: admin.id,
-            hidden_at: new Date().toISOString(),
           }
         : {
             status: "published",
             hidden_reason: null,
-            hidden_by: null,
-            hidden_at: null,
           };
 
     const { data, error } = await client
-      .from("order_reviews")
+      .from("reviews")
       .update(patch)
       .eq("id", id)
       .select("id, status")
@@ -52,7 +49,7 @@ export async function PATCH(req: Request) {
 
     // recalc the product rollup immediately (trigger also fires, belt & braces)
     const { data: review } = await client
-      .from("order_reviews")
+      .from("reviews")
       .select("product_id")
       .eq("id", id)
       .maybeSingle();
@@ -65,7 +62,7 @@ export async function PATCH(req: Request) {
     }
 
     await client
-      .from("audit_logs")
+      .from("audit_log")
       .insert({
         actor_id: admin.id,
         action: `review.${action}`,

@@ -2,6 +2,7 @@
 
 import { createBrowserClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/database.types";
 import { SUPABASE_PUBLIC_KEY, SUPABASE_URL, isSupabasePublicConfigured } from "@/lib/env";
 
 /* ==========================================================================
@@ -13,7 +14,7 @@ import { SUPABASE_PUBLIC_KEY, SUPABASE_URL, isSupabasePublicConfigured } from "@
    real permission check happens in Postgres RLS.
    ========================================================================== */
 
-let browserClient: SupabaseClient | null = null;
+let browserClient: SupabaseClient<Database> | null = null;
 
 /* --------------------------------------------------------------------------
    "এই ডিভাইসে লগইন রাখুন" (remember me)
@@ -46,7 +47,7 @@ export function readRememberSession(): boolean | null {
 /** True when the public Supabase keys exist (hide Google login etc. if not). */
 export const supabaseConfigured = isSupabasePublicConfigured;
 
-export function createClient(): SupabaseClient {
+export function createClient(): SupabaseClient<Database> {
   if (browserClient) return browserClient;
 
   if (!isSupabasePublicConfigured) {
@@ -55,7 +56,7 @@ export function createClient(): SupabaseClient {
     );
   }
 
-  browserClient = createBrowserClient(SUPABASE_URL, SUPABASE_PUBLIC_KEY);
+  browserClient = createBrowserClient<Database>(SUPABASE_URL, SUPABASE_PUBLIC_KEY);
   return browserClient;
 }
 

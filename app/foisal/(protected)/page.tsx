@@ -27,7 +27,7 @@ async function loadStats() {
     client.from("orders").select("id, total, status, payment_status").gte("created_at", todayStart.toISOString()),
     client.from("orders").select("id, total, status, created_at").gte("created_at", weekStart.toISOString()),
     client.from("orders").select("id, total, status").limit(1000),
-    client.from("users").select("id", { count: "exact", head: true }).eq("role", "customer"),
+    client.from("profiles").select("id", { count: "exact", head: true }).eq("role", "customer"),
     client
       .from("products")
       .select("id, name_bn, stock, unit, slug")
@@ -68,7 +68,7 @@ export default async function AdminDashboard() {
       .select("*")
       .order("created_at", { ascending: false })
       .limit(8);
-    recent = (data ?? []) as Order[];
+    recent = (data ?? []) as unknown as Order[];
   } catch (error) {
     dbError = (error as Error).message;
   }

@@ -84,7 +84,7 @@ export async function POST(req: Request) {
     const cap = camera.max_viewers || settings.max_viewers_per_camera;
 
     const { count: liveViewers } = await client
-      .from("stream_sessions")
+      .from("stream_tokens")
       .select("jti", { count: "exact", head: true })
       .eq("camera_id", camera.id)
       .gt("expires_at", new Date().toISOString());
@@ -126,7 +126,7 @@ export async function POST(req: Request) {
     const expiresAt = new Date(Date.now() + STREAM_TOKEN_TTL * 1000).toISOString();
 
     const { data: session, error: sessionError } = await client
-      .from("stream_sessions")
+      .from("stream_tokens")
       .insert({
         camera_id: camera.id,
         user_id: user?.id ?? null,
@@ -145,6 +145,10 @@ export async function POST(req: Request) {
       mode: state.reason === "trial" ? "trial" : "premium",
       fp: fingerprint.slice(0, 16),
     });
+
+    if (!camera.stream_key) {
+      return fail("এই ক্যামেরার স্ট্রিম কনফিগার করা হয়নি", 503);
+    }
 
     const path =
       camera.protocol === "webrtc" ? webrtcPath(camera.stream_key) : hlsPath(camera.stream_key);

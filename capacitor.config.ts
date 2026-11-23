@@ -41,14 +41,14 @@ const config: CapacitorConfig = {
 
   server: {
     // Production app → the live Vercel deployment (no custom domain yet).
-    //   CAPACITOR_SERVER_URL=https://biswas-agro.vercel.app   ← free vercel.app URL
+    //   CAPACITOR_SERVER_URL=https://bishwasagro.vercel.app   ← free vercel.app URL
     // Later, after adding a domain: https://bishwasagro.com
     // For the Android emulator against a local dev server: http://10.0.2.2:3000
-    url: process.env.CAPACITOR_SERVER_URL || "https://biswas-agro.vercel.app",
+    url: process.env.CAPACITOR_SERVER_URL || "https://bishwasagro.vercel.app",
     cleartext: false,
     androidScheme: "https",
     allowNavigation: [
-      "biswas-agro.vercel.app",
+      "bishwasagro.vercel.app",
       "*.vercel.app",
       "bishwasagro.com",
       "*.bishwasagro.com",

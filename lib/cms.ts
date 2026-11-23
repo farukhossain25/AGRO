@@ -92,9 +92,9 @@ async function loadPages(): Promise<Map<string, CmsPage>> {
   const bySlug = new Map<string, CmsPage>();
   if (dbUsable()) {
     try {
-      const { data, error } = await db().from("cms_pages").select("*").eq("is_published", true);
+      const { data, error } = await db().from("static_pages").select("*").eq("is_published", true);
       if (error) throw error;
-      for (const row of (data ?? []) as (CmsPage & { blocks: unknown })[]) {
+      for (const row of (data ?? []) as unknown as (CmsPage & { blocks: unknown })[]) {
         bySlug.set(row.slug, { ...row, blocks: parseBlocks(row.blocks) });
       }
     } catch (error) {

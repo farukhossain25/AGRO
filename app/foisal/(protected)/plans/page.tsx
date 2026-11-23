@@ -1,17 +1,16 @@
 import { db, isDbConfigured } from "@/lib/db";
 import { SimpleManager } from "@/components/admin/simple-manager";
-import { seedPremiumPlans } from "@/lib/seed-premium";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminPlansPage() {
-  let rows: Record<string, unknown>[] = seedPremiumPlans as unknown as Record<string, unknown>[];
+  let rows: Record<string, unknown>[] = [];
   let dbReady = isDbConfigured();
 
   if (isDbConfigured()) {
     try {
-      const { data } = await db().from("premium_plans").select("*").order("sort_order");
-      if (data?.length) rows = data as Record<string, unknown>[];
+      const { data } = await db().from("plans").select("*").order("sort_order");
+      rows = (data ?? []) as Record<string, unknown>[];
     } catch {
       dbReady = false;
     }

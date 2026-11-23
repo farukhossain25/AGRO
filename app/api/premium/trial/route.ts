@@ -91,8 +91,7 @@ export async function POST(req: Request) {
         camera_id: null,
         user_id: user?.id ?? null,
         fingerprint,
-        event: "trial_start",
-        created_at: new Date().toISOString(),
+        minutes: 10,
       });
     } catch {
       /* ignore */
@@ -105,7 +104,7 @@ export async function POST(req: Request) {
           title_bn: "১০ মিনিটের ফ্রি ট্রায়াল শুরু হয়েছে",
           body_bn:
             "খামারের লাইভ ক্যামেরা এখন দেখতে পারবেন। ট্রায়াল শেষ হলে প্রিমিয়াম প্ল্যান নিতে পারবেন।",
-          url: "/live",
+          link: "/live",
           kind: "premium",
         });
       } catch {

@@ -17,7 +17,7 @@ export default async function AdminTeamPage() {
         .from("v_team_members")
         .select("*")
         .order("created_at", { ascending: false });
-      rows = (data ?? []) as TeamRow[];
+      rows = (data ?? []) as unknown as TeamRow[];
     } catch {
       rows = [];
     }

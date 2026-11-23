@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import type { TablesInsert, TablesUpdate } from "@/lib/database.types";
 import { created, fail, handleError, limitGuard, ok, requireUser } from "@/lib/api";
 import { sellerProductSchema } from "@/lib/validation";
 import { getSellerByUser } from "@/lib/sellers";
@@ -63,7 +64,7 @@ export async function POST(req: Request) {
     const data = sellerProductSchema.parse(await req.json());
     const client = db();
 
-    const payload = {
+    const payload: TablesInsert<"products"> = {
       seller_id: seller.id,
       farm_id: seller.farm_id,
       category_id: data.category_id,
@@ -82,7 +83,7 @@ export async function POST(req: Request) {
       is_active: true,
       is_featured: false,
       approval_status: "pending",
-      approval_note: null,
+      rejection_reason: null,
     };
 
     const { data: product, error } = await client.from("products").insert(payload).select().single();
@@ -149,7 +150,7 @@ export async function PATCH(req: Request) {
 
     const { data: product, error } = await client
       .from("products")
-      .update(patch)
+      .update(patch as TablesUpdate<"products">)
       .eq("id", id)
       .select()
       .single();

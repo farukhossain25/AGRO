@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
+import type { TablesInsert } from "@/lib/database.types";
 import { clientKey, created, currentUser, fail, handleError, ok, rateLimit, tooMany } from "@/lib/api";
 import { subscriptionSchema } from "@/lib/validation";
 import { subNumber } from "@/lib/format";
@@ -24,7 +25,7 @@ export async function POST(req: Request) {
       .insert({
         sub_no: subNumber(),
         user_id: user?.id ?? null,
-        package_id: pkg.id,
+        plan_id: pkg.id,
         package_name: pkg.name_bn,
         customer_name: data.customer_name,
         phone: data.phone,
@@ -37,7 +38,7 @@ export async function POST(req: Request) {
         frequency: data.frequency,
         price_monthly: pkg.price_monthly,
         status: "active",
-      })
+      } as TablesInsert<"subscriptions">)
       .select("sub_no, package_name, start_date, price_monthly")
       .single();
 

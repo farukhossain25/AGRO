@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import type { TablesInsert } from "@/lib/database.types";
 import { created, fail, handleError, limitGuard, ok, requireUser } from "@/lib/api";
 import { sellerApplySchema } from "@/lib/validation";
 import { getSellerSettings, getSellerByUser } from "@/lib/sellers";
@@ -57,7 +58,7 @@ export async function POST(req: Request) {
     const baseSlug = slugify(data.name_bn);
     const slug = existing?.slug ?? `${baseSlug}-${Math.random().toString(36).slice(2, 6)}`;
 
-    const payload = {
+    const payload: TablesInsert<"sellers"> = {
       user_id: user.id,
       slug,
       name_bn: data.name_bn,
@@ -85,7 +86,7 @@ export async function POST(req: Request) {
 
     if (error) throw error;
 
-    await client.from("users").update({ is_seller: true }).eq("id", user.id);
+    await client.from("profiles").update({ is_seller: true }).eq("id", user.id);
 
     await notify({
       userId: user.id,

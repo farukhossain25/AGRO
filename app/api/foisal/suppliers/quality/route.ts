@@ -97,34 +97,21 @@ export async function POST(req: Request) {
     if (action === "suspend") {
       const { error } = await client
         .from("sellers")
-        .update({ status: "suspended", suspended_at: new Date().toISOString() })
-        .eq("id", sellerId)
-        .then(
-          (r) => r,
-          (r) => r
-        );
-      // if the schema lacks suspended_at, fall back to status-only
-      if (error) {
-        await client.from("sellers").update({ status: "suspended" }).eq("id", sellerId);
-      }
+        .update({ status: "suspended" })
+        .eq("id", sellerId);
+      if (error) throw error;
     }
 
     if (action === "reinstate") {
       const { error } = await client
         .from("sellers")
-        .update({ status: "active", suspended_at: null })
-        .eq("id", sellerId)
-        .then(
-          (r) => r,
-          (r) => r
-        );
-      if (error) {
-        await client.from("sellers").update({ status: "active" }).eq("id", sellerId);
-      }
+        .update({ status: "approved" })
+        .eq("id", sellerId);
+      if (error) throw error;
     }
 
     await client
-      .from("audit_logs")
+      .from("audit_log")
       .insert({
         actor_id: user.id,
         action: `seller.${action}`,

@@ -19,7 +19,7 @@ export async function POST(req: Request) {
 
     const { data: order, error } = await db()
       .from("orders")
-      .select("order_no, total, customer_name, phone, email, address, district, payment_status, user_id")
+      .select("order_no, total, customer_name, customer_phone, customer_email, address, district, payment_status, user_id")
       .eq("order_no", order_no.toUpperCase())
       .maybeSingle();
 
@@ -44,8 +44,8 @@ export async function POST(req: Request) {
       amount: Number(order.total),
       customer: {
         name: order.customer_name,
-        phone: order.phone,
-        email: order.email ?? undefined,
+        phone: order.customer_phone,
+        email: order.customer_email ?? undefined,
         address: order.address,
         district: order.district,
       },

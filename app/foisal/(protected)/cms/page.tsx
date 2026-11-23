@@ -14,7 +14,7 @@ export default async function AdminCmsPage() {
 
   if (dbUsable()) {
     try {
-      const { data } = await db().from("cms_pages").select("*").order("sort_order");
+      const { data } = await db().from("static_pages").select("*").order("sort_order");
       rows = (data ?? []).map((row) => ({
         ...row,
         blocks: JSON.stringify(row.blocks ?? [], null, 1),

@@ -61,7 +61,7 @@ export default async function AdminAuditPage({
   if (dbUsable()) {
     try {
       let q = db()
-        .from("audit_logs")
+        .from("audit_log")
         .select("id, actor_email, actor_role, action, entity, entity_id, diff, meta, ip, created_at", {
           count: "exact",
         })

@@ -31,7 +31,7 @@ export default async function SubscriptionsPage() {
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
-  const subs = (data ?? []) as Subscription[];
+  const subs = (data ?? []) as unknown as Subscription[];
 
   if (!subs.length) {
     return (

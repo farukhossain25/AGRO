@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { db, isDbConfigured } from "@/lib/db";
+import type { TablesUpdate } from "@/lib/database.types";
 import { currentUser, fail, handleError, ok, sanitizeText } from "@/lib/api";
 import { notify } from "@/lib/notify";
 
@@ -68,13 +69,13 @@ export async function PATCH(req: Request, ctx: Ctx) {
       return fail("সমাধান বা বাতিল করার কারণ লিখুন", 422);
     }
 
-    const patch: Record<string, unknown> = {
+    const patch: TablesUpdate<"complaints"> = {
       status: data.status,
       updated_at: new Date().toISOString(),
     };
 
     if (data.status === "resolved") {
-      patch.resolution = data.resolution ?? "inform";
+      patch.resolution = data.resolution === "none" ? null : data.resolution ?? "inform";
       patch.resolved_by = user.id;
       patch.resolved_at = new Date().toISOString();
     }
@@ -113,7 +114,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
     // audit trail
     if (isAdmin) {
       await client
-        .from("audit_logs")
+        .from("audit_log")
         .insert({
           actor_id: user.id,
           action: `complaint.${data.status}`,
