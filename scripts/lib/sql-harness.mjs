@@ -73,6 +73,13 @@ create table if not exists storage.objects (
   created_at timestamptz default now()
 );
 alter table storage.objects enable row level security;
+
+-- Mirrors Supabase's built-in storage helpers (real projects have these
+-- automatically; the harness must stub them so SQL files that use them in
+-- RLS policies can be validated exactly as written).
+create or replace function storage.foldername(filename text)
+returns text[] language sql immutable as
+$$ select regexp_split_to_array(filename, '/') $$;
 `;
 
 /** Boot an empty PGlite with the Supabase stubs applied. */
