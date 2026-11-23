@@ -60,6 +60,86 @@ const KINDS = [
 
 type Draft = Partial<PaymentMethodRow> & { id?: string };
 
+const PROVIDER_PRESETS = [
+  {
+    id: "bkash",
+    label: "bKash (বিকাশ)",
+    code: "bkash",
+    name_bn: "বিকাশ",
+    name_en: "bKash",
+    kind: "mfs" as const,
+    requires_trx: true,
+    requires_sender: true,
+    instruction_bn: "১. *247# ডায়াল করুন বা bKash অ্যাপ খুলুন।\n২. Send Money-তে গিয়ে উপরের নম্বরে টাকা পাঠান।\n৩. রেফারেন্সে আপনার অর্ডার নম্বর দিন এবং TrxID নিচে লিখুন।",
+  },
+  {
+    id: "nagad",
+    label: "Nagad (নগদ)",
+    code: "nagad",
+    name_bn: "নগদ",
+    name_en: "Nagad",
+    kind: "mfs" as const,
+    requires_trx: true,
+    requires_sender: true,
+    instruction_bn: "১. *167# ডায়াল করুন বা Nagad অ্যাপ খুলুন।\n২. Send Money-তে গিয়ে উপরের নম্বরে টাকা পাঠান।\n৩. লেনদেন শেষে TrxID নিচে লিখুন।",
+  },
+  {
+    id: "rocket",
+    label: "Rocket (রকেট)",
+    code: "rocket",
+    name_bn: "রকেট",
+    name_en: "Rocket",
+    kind: "mfs" as const,
+    requires_trx: true,
+    requires_sender: true,
+    instruction_bn: "১. *322# ডায়াল করুন বা Rocket অ্যাপ খুলুন।\n২. Send Money-তে গিয়ে উপরের নম্বরে টাকা পাঠান।\n৩. TrxID নিচে লিখুন।",
+  },
+  {
+    id: "upay",
+    label: "Upay (উপায়)",
+    code: "upay",
+    name_bn: "উপায়",
+    name_en: "Upay",
+    kind: "mfs" as const,
+    requires_trx: true,
+    requires_sender: true,
+    instruction_bn: "১. Upay অ্যাপ বা *268# থেকে উপরের নম্বরে Send Money করুন।\n২. TrxID নিচে লিখুন।",
+  },
+  {
+    id: "bank",
+    label: "Bank Transfer (ব্যাংক)",
+    code: "bank",
+    name_bn: "ব্যাংক ট্রান্সফার",
+    name_en: "Bank Transfer",
+    kind: "bank" as const,
+    requires_trx: true,
+    requires_sender: false,
+    instruction_bn: "উপরের ব্যাংক অ্যাকাউন্টে টাকা পাঠিয়ে রেফারেন্স/স্লিপ নম্বর দিন এবং পেমেন্টের ছবি আপলোড করুন।",
+  },
+  {
+    id: "cod",
+    label: "Cash on Delivery (হাতে হাতে)",
+    code: "cod",
+    name_bn: "ক্যাশ অন ডেলিভারি",
+    name_en: "Cash on Delivery",
+    kind: "cod" as const,
+    requires_trx: false,
+    requires_sender: false,
+    instruction_bn: "পণ্য হাতে পেয়ে ডেলিভারি ম্যানকে টাকা দিন।",
+  },
+  {
+    id: "custom",
+    label: "Custom (নিজস্ব)",
+    code: "",
+    name_bn: "",
+    name_en: "",
+    kind: "other" as const,
+    requires_trx: true,
+    requires_sender: true,
+    instruction_bn: "",
+  },
+];
+
 const EMPTY: Draft = {
   code: "",
   name_bn: "",
@@ -365,6 +445,40 @@ export function PaymentMethodManager({ initial }: { initial: PaymentMethodRow[] 
             </div>
 
             <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+              {!draft.id ? (
+                <Field label="প্রোভাইডার বাছাই করুন" hint="বাছাই করলে নাম ও নির্দেশনা অটো-পূরণ হবে">
+                  <select
+                    className="inp"
+                    defaultValue=""
+                    onChange={(e) => {
+                      const p = PROVIDER_PRESETS.find((x) => x.id === e.target.value);
+                      if (!p || p.id === "custom") return;
+                      setDraft((d) =>
+                        d
+                          ? {
+                              ...d,
+                              code: p.code,
+                              name_bn: p.name_bn,
+                              name_en: p.name_en,
+                              kind: p.kind,
+                              requires_trx: p.requires_trx,
+                              requires_sender: p.requires_sender,
+                              instruction_bn: p.instruction_bn,
+                            }
+                          : d
+                      );
+                    }}
+                  >
+                    <option value="">-- প্রোভাইডার বাছাই করুন (ঐচ্ছিক) --</option>
+                    {PROVIDER_PRESETS.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              ) : null}
+
               <div className="grid grid-cols-2 gap-2.5">
                 <Field label="বাংলা নাম" error={errors.name_bn} required>
                   <input className="inp" value={draft.name_bn ?? ""} onChange={(e) => set("name_bn", e.target.value)} placeholder="বিকাশ" />

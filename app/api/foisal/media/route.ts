@@ -78,15 +78,27 @@ export async function POST(req: Request) {
 
     const ext = EXT[sniffed];
     const name = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const path = `library/${new Date().toISOString().slice(0, 7)}/${name}`;
+    const BUCKET_ALIAS: Record<string, string> = {
+      "payment-logos": "logos",
+      "hero-slides": "slides",
+      "cms-media": "logos",
+    };
+    const resolvedBucket = BUCKET_ALIAS[bucket] ?? bucket;
+    const folderPrefix = bucket === "payment-logos" ? "payment-methods/" : "library/";
+    const path = `${folderPrefix}${new Date().toString(36)}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
-    const storage = supabaseAdmin().storage.from(bucket);
+    const storage = supabaseAdmin().storage.from(resolvedBucket);
     const { error: uploadError } = await storage.upload(path, buffer, {
       contentType: sniffed,
       cacheControl: "31536000",
       upsert: false,
     });
-    if (uploadError) return fail(`আপলোড ব্যর্থ: ${uploadError.message}`, 502);
+    if (uploadError) {
+      const msg = uploadError.message.toLowerCase().includes("not found")
+        ? "আপলোড ব্যর্থ: Bucket নেই, SQL ফাইল 14 (14_storage_fix.sql) চালান"
+        : `আপলোড ব্যর্থ: ${uploadError.message}`;
+      return fail(msg, 502);
+    }
 
     const { data: pub } = storage.getPublicUrl(path);
     const url = pub.publicUrl;
