@@ -205,6 +205,7 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [capsLock, setCapsLock] = useState(false);
   const [remember, setRemember] = useState(true);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [error, setError] = useState<FriendlyError | null>(null);
@@ -218,6 +219,20 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
       if (callbackReason) console.warn("[auth] callback reason:", callbackReason);
     }
   }, [callbackError, callbackReason]);
+
+  useEffect(() => {
+    const checkCaps = (e: KeyboardEvent) => {
+      if (typeof e.getModifierState === "function") {
+        setCapsLock(e.getModifierState("CapsLock"));
+      }
+    };
+    window.addEventListener("keydown", checkCaps);
+    window.addEventListener("keyup", checkCaps);
+    return () => {
+      window.removeEventListener("keydown", checkCaps);
+      window.removeEventListener("keyup", checkCaps);
+    };
+  }, []);
 
   useEffect(() => {
     setError(null);
@@ -837,13 +852,26 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
           </p>
         ) : null}
 
-        <p className="mt-5 text-center text-[11px] leading-relaxed text-sand-100/35">
-          সমস্যা হচ্ছে?{" "}
-          <Link href="/contact" className="underline transition hover:text-sand-100/70">
-            আমাদের জানান
-          </Link>{" "}
-          — অথবা হটলাইনে কল করুন। আপনার তথ্য এনক্রিপ্টেড থাকে।
-        </p>
+        {capsLock && mode !== "forgot" ? (
+          <p className="mt-3 flex items-center justify-center gap-1.5 rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-1.5 text-[11px] font-medium text-amber-200">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-400" />
+            Caps Lock চালু আছে — পাসওয়ার্ডে বড় হাতের অক্ষর টাইপ হচ্ছে
+          </p>
+        ) : null}
+
+        <div className="mt-5 flex flex-col items-center gap-2 text-center text-[11px] leading-relaxed text-sand-100/35">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/15 bg-emerald-500/[0.06] px-2.5 py-0.5 text-[10.5px] font-medium text-emerald-300/80">
+            <ShieldCheck className="h-3 w-3 text-emerald-400" />
+            ২৫৬-বিট SSL এনক্রিপ্টেড নিরাপদ সংযোগ
+          </span>
+          <p>
+            সমস্যা হচ্ছে?{" "}
+            <Link href="/contact" className="underline transition hover:text-sand-100/70">
+              আমাদের জানান
+            </Link>{" "}
+            — অথবা হটলাইনে কল করুন।
+          </p>
+        </div>
       </div>
     </div>
   );
