@@ -1,4 +1,5 @@
 import { AuthProvider } from "@/components/auth/auth-provider";
+import { CartSync } from "@/components/cart/cart-sync";
 import { SiteHeader } from "@/components/site-header";
 import { AnnouncementMarquee } from "@/components/announcement-marquee";
 import { SiteFooter } from "@/components/site-footer";
@@ -38,6 +39,7 @@ export default async function StorefrontLayout({ children }: { children: React.R
 
   return (
     <AuthProvider initialUser={user}>
+      <CartSync />
       {announcement ? <AnnouncementMarquee settings={announcement} /> : null}
       <SiteHeader
         socials={<SocialLinks placement="header" size="sm" />}
