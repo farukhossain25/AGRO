@@ -36,8 +36,16 @@ const config: Config = {
           400: "#5ac797",
         },
         sand: { 100: "#f7f4ec", 200: "#efe8d8", 300: "#e2d6bd" },
+        // ── Premium checkout palette (sand + terracotta) ───────────────────
+        sandlt: "#f6f1e7",
+        sanddk: "#e6dcc9",
+        terra: "#c4633f",
+        terradk: "#a64f30",
+        terraxd: "#8a4127",
+        inkmut: "#6b6253",
       },
       fontFamily: {
+        sans: ["Inter", "var(--font-hind)", "var(--font-noto-bn)", "Hind Siliguri", "Noto Sans Bengali", "system-ui", "sans-serif"],
         bn: ["var(--font-hind)", "var(--font-noto-bn)", "Hind Siliguri", "Noto Sans Bengali", "system-ui", "sans-serif"],
         display: ["var(--font-hind)", "var(--font-noto-bn)", "Hind Siliguri", "Noto Sans Bengali", "system-ui", "sans-serif"],
       },
@@ -46,11 +54,18 @@ const config: Config = {
         soft: "0 10px 40px -12px rgba(0,0,0,.55)",
         glow: "0 0 0 1px rgba(183,234,210,.14), 0 18px 50px -20px rgba(31,122,77,.55)",
         card: "0 1px 0 0 rgba(255,255,255,.04) inset, 0 20px 40px -28px rgba(0,0,0,.9)",
+        // spec: warm-tinted soft + card shadows for the premium checkout
+        prem: "0 1px 2px rgba(43,37,29,.04), 0 12px 32px -12px rgba(43,37,29,.18)",
+        premsoft: "0 1px 2px rgba(43,37,29,.05), 0 6px 18px -10px rgba(43,37,29,.14)",
+        prembutn: "0 8px 20px -6px rgba(196,99,63,.5)",
       },
       backgroundImage: {
         "leaf-radial":
           "radial-gradient(60% 60% at 50% 0%, rgba(31,122,77,.35) 0%, rgba(17,19,18,0) 70%)",
         "mint-line": "linear-gradient(90deg, transparent, rgba(183,234,210,.5), transparent)",
+        // dot-grain texture for the checkout hero strip
+        "dot-grain":
+          "radial-gradient(circle, rgba(43,37,29,.025) 1px, transparent 1px)",
       },
       keyframes: {
         "fade-up": {
