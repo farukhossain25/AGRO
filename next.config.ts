@@ -29,7 +29,10 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   {
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=(self), payment=(self)",
+    /* Only features the browser actually recognises — Chrome logs
+       "Unrecognized feature" for the rest (e.g. `payment`), and `camera` must
+       stay open to self for the admin QR/camera capture. */
+    value: "camera=(self), microphone=(), geolocation=(self), fullscreen=(self)",
   },
   { key: "X-DNS-Prefetch-Control", value: "on" },
   // HSTS — one year, subdomains, preload-ready. Only meaningful over HTTPS.
@@ -66,7 +69,6 @@ const nextConfig: NextConfig = {
        Supabase project's images through the optimiser. */
     remotePatterns: [
       ...(supabaseImageHost() ? [supabaseImageHost()!] : []),
-      { protocol: "https" as const, hostname: "images.unsplash.com" },
     ],
   },
 

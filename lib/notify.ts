@@ -46,19 +46,24 @@ export async function notify(input: NotifyInput): Promise<void> {
 
   // 1) always store the in-app notification
   if (userId) {
-    try {
-      await db().from("notifications").insert({
-        user_id: userId,
-        audience,
-        kind,
-        title_bn: title,
-        body_bn: body ?? null,
-        link: link ?? null,
-        meta,
-      });
-    } catch (error) {
-      console.warn("[notify] in-app insert failed:", (error as Error).message);
-    }
+    /* Both dialects: the live table still carries the legacy NOT NULL
+       `type`/`title`/`message` trio next to `kind`/`title_bn`/`body_bn`. Only
+       the modern half was written before, so the insert was rejected and —
+       because supabase-js returns `{ error }` instead of throwing — nothing
+       was ever stored and nobody was notified about a new order. */
+    const { error } = await db().from("notifications").insert({
+      user_id: userId,
+      audience,
+      kind,
+      type: kind,
+      title,
+      message: body ?? title,
+      title_bn: title,
+      body_bn: body ?? null,
+      link: link ?? null,
+      meta,
+    });
+    if (error) console.error("[notify] in-app insert failed:", error.message, error.details ?? "");
   }
 
   const tasks: Promise<unknown>[] = [];
@@ -78,12 +83,14 @@ export async function notify(input: NotifyInput): Promise<void> {
 
 /** Fan-out to every admin user. Used for new orders and approval queues. */
 export async function notifyAdmins(input: Omit<NotifyInput, "userId" | "audience">): Promise<void> {
-  try {
-    const { data } = await db().from("users").select("id").eq("role", "admin").eq("is_active", true);
-    await Promise.all((data ?? []).map((u) => notify({ ...input, userId: u.id, audience: "admin" })));
-  } catch (error) {
-    console.warn("[notify] admin fan-out failed:", (error as Error).message);
+  /* Roles live in `profiles`; the legacy `users` table is a stale copy and was
+     the reason no admin ever received an in-app alert. */
+  const { data, error } = await db().from("profiles").select("id").eq("role", "admin");
+  if (error) {
+    console.error("[notify] admin lookup failed:", error.message);
+    return;
   }
+  await Promise.all((data ?? []).map((u) => notify({ ...input, userId: u.id, audience: "admin" })));
 }
 
 export async function notifySeller(sellerUserId: string, input: Omit<NotifyInput, "userId" | "audience">) {

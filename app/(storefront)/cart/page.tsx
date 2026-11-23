@@ -3,6 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { AlertTriangle } from "lucide-react";
 import { useCart } from "@/lib/cart";
 import { useDeliveryConfig } from "@/lib/delivery-settings";
 import { useLocale } from "@/lib/locale";
@@ -11,9 +13,68 @@ import { EmptyState } from "@/components/ui";
 
 
 
+type CartIssue = { id: string; name: string; reason: string };
+
 export default function CartPage() {
   const cart = useCart();
   const { t, isBn } = useLocale();
+
+  /* Re-check the cart against the live catalogue once per visit.
+     Two jobs: (1) tell the customer about a product that went out of stock or
+     offline, before they start filling in an address; (2) heal a cart that was
+     saved before a catalogue re-seed by switching stale ids to the current row
+     — that mismatch is what used to make checkout answer
+     "কার্টে থাকা কোনো পণ্য এখন পাওয়া যাচ্ছে না". */
+  const [issues, setIssues] = useState<CartIssue[]>([]);
+  const checked = useRef(false);
+  const { items, ready, replaceAll } = cart;
+
+  useEffect(() => {
+    if (!ready || !items.length || checked.current) return;
+    checked.current = true;
+
+    const snapshot = items;
+    fetch("/api/cart/validate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        items: snapshot.map((l) => ({ id: l.id, kind: l.kind, slug: l.slug, quantity: l.quantity })),
+      }),
+    })
+      .then((r) => r.json())
+      .then((json: { ok?: boolean; data?: { lines?: Array<Record<string, unknown>> } }) => {
+        const lines = json.data?.lines;
+        if (!json.ok || !Array.isArray(lines)) return;
+
+        const bad: CartIssue[] = [];
+        const healed = snapshot.flatMap((line, i) => {
+          const check = lines[i] as
+            | { id: string; ok: boolean; name: string; reason?: string; price: number; stock: number }
+            | undefined;
+          if (!check) return [line];
+          if (!check.ok) {
+            bad.push({ id: line.id, name: check.name || line.nameBn, reason: check.reason ?? "পাওয়া যাচ্ছে না" });
+            return [line];
+          }
+          return [
+            {
+              ...line,
+              id: check.id, // repaired id
+              price: check.price,
+              stock: check.stock,
+              nameBn: check.name || line.nameBn,
+            },
+          ];
+        });
+
+        const changed = healed.some((l, i) => l.id !== snapshot[i].id || l.price !== snapshot[i].price);
+        if (changed) replaceAll(healed);
+        setIssues(bad);
+      })
+      .catch(() => {
+        /* A validation failure must never block the cart page. */
+      });
+  }, [ready, items, replaceAll]);
 
   /* From settings.delivery — the same row the server charges from. */
   const rules = useDeliveryConfig();
@@ -35,6 +96,32 @@ export default function CartPage() {
   return (
     <div className="container-x py-8 sm:py-12">
       <h1 className="text-[26px] font-bold sm:text-3xl">{t("শপিং কার্ট", "Shopping cart")}</h1>
+
+      {issues.length ? (
+        <div className="mt-4 rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4">
+          <p className="flex items-center gap-2 text-[13px] font-semibold text-amber-200">
+            <AlertTriangle className="h-4 w-4" />
+            {t("কিছু পণ্য এখন পাওয়া যাচ্ছে না", "Some items are unavailable")}
+          </p>
+          <ul className="mt-2 space-y-1 text-[12px] text-amber-100/80">
+            {issues.map((i) => (
+              <li key={i.id}>
+                • {i.name} — {i.reason}
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            onClick={() => {
+              issues.forEach((i) => cart.remove(i.id));
+              setIssues([]);
+            }}
+            className="btn-ghost btn-sm mt-3 !border-amber-300/30 !text-amber-100"
+          >
+            {t("সরিয়ে ফেলুন", "Remove them")}
+          </button>
+        </div>
+      ) : null}
       <p className="mt-1.5 text-[13px] text-sand-100/50">
         {cart.count} {t("টি পণ্য", "items")} · {t("কার্ট স্বয়ংক্রিয়ভাবে সেভ হয়", "Your cart saves automatically")}
       </p>

@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { createClient, supabaseConfigured } from "@/lib/supabase/client";
+import { createClient, readRememberSession, supabaseConfigured } from "@/lib/supabase/client";
 import type { SessionUser } from "@/lib/session";
 
 /* ==========================================================================
@@ -45,6 +45,28 @@ export function AuthProvider({
 }) {
   const [user, setUser] = useState<SessionUser | null>(initialUser);
   const [loading, setLoading] = useState(!initialUser && supabaseConfigured);
+
+  /*
+   * "এই ডিভাইসে লগইন রাখুন" unchecked → session-only login.
+   * The cookie from @supabase/ssr is always long-lived, so a fresh browser
+   * session (sessionStorage marker absent) signs the visitor out once. Doing it
+   * here, not in the login form, also covers a tab that was merely reopened.
+   */
+  useEffect(() => {
+    if (!supabaseConfigured) return;
+    if (readRememberSession() !== false) return;
+    try {
+      if (sessionStorage.getItem("ba:boot") === "1") return;
+      sessionStorage.setItem("ba:boot", "1");
+    } catch {
+      return;
+    }
+    void createClient()
+      .auth.signOut()
+      .catch(() => {
+        /* nothing to end */
+      });
+  }, []);
 
   const loadProfile = useCallback(async (authUser: { id: string; email?: string | null; user_metadata?: Record<string, unknown> }) => {
     const fallback: SessionUser = {

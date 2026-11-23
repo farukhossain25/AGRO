@@ -1,10 +1,19 @@
 import { db } from "./db";
-import { getProductsByIds, getCombos, getDeliveryZones, getCouponByCode } from "./data";
+import { getCombos, getDeliveryZones, getCouponByCode } from "./data";
+import { getProductsByIds, getProductsBySlugs, getCombosBySlugs } from "./queries";
 import { orderNumber } from "./format";
 import { dhakaMetroThanas } from "./bd-locations";
 import { getDeliverySettings } from "./site-settings";
 
-export type IncomingItem = { id: string; kind: "product" | "combo"; quantity: number };
+export type IncomingItem = {
+  id: string;
+  kind: "product" | "combo";
+  quantity: number;
+  /** Sent by the cart since 2026-11 so a stale id can still be resolved. */
+  slug?: string;
+  /** Only used to name the product in an error message. */
+  name?: string;
+};
 
 export type PricedLine = {
   product_id: string | null;
@@ -13,60 +22,127 @@ export type PricedLine = {
   price: number;
   quantity: number;
   image: string | null;
+  seller_id?: string | null;
 };
 
-/**
- * Re-prices the cart on the server. Never trust client-supplied prices.
- * Returns null if any line references a missing/inactive product.
- */
-export async function priceCart(items: IncomingItem[]): Promise<{
+/** A cart line the server could not sell any more, with a reason in Bangla. */
+export type UnavailableLine = {
+  id: string;
+  slug?: string;
+  name: string;
+  reason: string;
+};
+
+export type PricedCart = {
   lines: PricedLine[];
   subtotal: number;
   hasCombo: boolean;
-} | null> {
-  const productIds = items.filter((i) => i.kind === "product").map((i) => i.id);
-  const comboIds = items.filter((i) => i.kind === "combo").map((i) => i.id);
+  unavailable: UnavailableLine[];
+  /** Quantities the server lowered because stock was short. */
+  adjusted: Array<{ id: string; name: string; requested: number; available: number }>;
+};
 
-  const [products, combos] = await Promise.all([
+/**
+ * Re-prices the cart on the server. Never trusts client prices.
+ *
+ * Resolution order per line: product id → product slug → combo id → combo slug.
+ * The slug fallback matters: the catalogue was re-seeded in 2026-11 with fresh
+ * row ids, and every cart saved before that pointed at ids that no longer
+ * existed — checkout then cried "কার্টে থাকা কোনো পণ্য এখন পাওয়া যাচ্ছে না"
+ * while the cart page happily showed the items.
+ */
+export async function priceCart(items: IncomingItem[]): Promise<PricedCart> {
+  const productIds = items.filter((i) => i.kind === "product").map((i) => i.id);
+  const productSlugs = items
+    .filter((i) => i.kind === "product" && i.slug)
+    .map((i) => i.slug as string);
+  const combosNeeded = items.some((i) => i.kind === "combo");
+
+  const [productsById, productsBySlug, allCombos, combosBySlug] = await Promise.all([
     productIds.length ? getProductsByIds(productIds) : Promise.resolve([]),
-    comboIds.length ? getCombos() : Promise.resolve([]),
+    productSlugs.length ? getProductsBySlugs(productSlugs) : Promise.resolve([]),
+    combosNeeded ? getCombos() : Promise.resolve([]),
+    combosNeeded
+      ? getCombosBySlugs(items.filter((i) => i.kind === "combo" && i.slug).map((i) => i.slug as string))
+      : Promise.resolve([]),
   ]);
 
+  const products = [...productsById, ...productsBySlug];
+  const combos = [...allCombos, ...combosBySlug];
+
   const lines: PricedLine[] = [];
+  const unavailable: UnavailableLine[] = [];
+  const adjusted: PricedCart["adjusted"] = [];
 
   for (const item of items) {
+    const quantity = Math.max(1, Math.min(99, Math.round(Number(item.quantity) || 1)));
+
     if (item.kind === "product") {
-      const product = products.find((p) => p.id === item.id && p.is_active);
-      if (!product) return null;
-      if (product.stock < item.quantity) {
-        // Clamp to available stock rather than failing the whole order
-        if (product.stock <= 0) return null;
-        item.quantity = product.stock;
+      const product =
+        products.find((p) => p.id === item.id) ??
+        (item.slug ? products.find((p) => p.slug === item.slug) : undefined);
+
+      if (!product) {
+        unavailable.push({
+          id: item.id,
+          slug: item.slug,
+          name: item.name ?? "একটি পণ্য",
+          reason: "পণ্যটি এখন আর বিক্রিতে নেই",
+        });
+        continue;
       }
+      if (product.is_active === false) {
+        unavailable.push({ id: product.id, slug: product.slug, name: product.name_bn, reason: "পণ্যটি বন্ধ আছে" });
+        continue;
+      }
+      if (product.stock <= 0) {
+        unavailable.push({ id: product.id, slug: product.slug, name: product.name_bn, reason: "স্টক শেষ" });
+        continue;
+      }
+
+      let qty = quantity;
+      if (product.stock < qty) {
+        qty = product.stock;
+        adjusted.push({ id: product.id, name: product.name_bn, requested: quantity, available: product.stock });
+      }
+
       lines.push({
         product_id: product.id,
         name_bn: product.name_bn,
         unit: product.unit,
         price: Number(product.price),
-        quantity: item.quantity,
+        quantity: qty,
         image: product.image,
+        seller_id: (product as { seller_id?: string | null }).seller_id ?? null,
       });
     } else {
-      const combo = combos.find((c) => c.id === item.id);
-      if (!combo) return null;
+      const combo =
+        combos.find((c) => c.id === item.id) ??
+        (item.slug ? combos.find((c) => c.slug === item.slug) : undefined);
+
+      if (!combo) {
+        unavailable.push({
+          id: item.id,
+          slug: item.slug,
+          name: item.name ?? "একটি কম্বো",
+          reason: "কম্বোটি এখন আর পাওয়া যাচ্ছে না",
+        });
+        continue;
+      }
       lines.push({
         product_id: null,
         name_bn: combo.name_bn,
         unit: "বক্স",
         price: Number(combo.price),
-        quantity: item.quantity,
+        quantity,
         image: combo.image,
+        seller_id: null,
       });
     }
   }
 
   const subtotal = Math.round(lines.reduce((s, l) => s + l.price * l.quantity, 0) * 100) / 100;
-  return { lines, subtotal, hasCombo: comboIds.length > 0 };
+  return { lines, subtotal, hasCombo: items.some((i) => i.kind === "combo"), unavailable, adjusted };
 }
 
 /**
@@ -155,8 +231,21 @@ export async function createOrder(params: {
   couponCode?: string;
 }) {
   const priced = await priceCart(params.items);
-  if (!priced || !priced.lines.length) {
-    const err = new Error("কার্টে থাকা কোনো পণ্য এখন পাওয়া যাচ্ছে না") as Error & { status?: number };
+
+  if (priced.unavailable.length) {
+    const names = priced.unavailable.map((u) => `${u.name} (${u.reason})`).join(", ");
+    const err = new Error(
+      `কার্টে থাকা কিছু পণ্য এখন পাওয়া যাচ্ছে না — ${names}। কার্ট থেকে সরিয়ে আবার চেষ্টা করুন।`
+    ) as Error & { status?: number; unavailable?: UnavailableLine[] };
+    err.status = 409;
+    err.unavailable = priced.unavailable;
+    throw err;
+  }
+
+  if (!priced.lines.length) {
+    const err = new Error("আপনার কার্টে কোনো পণ্য নেই — প্রথমে পণ্য যোগ করুন।") as Error & {
+      status?: number;
+    };
     err.status = 422;
     throw err;
   }
@@ -206,7 +295,10 @@ export async function createOrder(params: {
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error("[orders] order insert failed:", error.message, error.details ?? "", error.hint ?? "");
+    throw error;
+  }
 
   // keep `items` jsonb in sync for legacy readers (best-effort, never block checkout)
   try {
@@ -218,6 +310,7 @@ export async function createOrder(params: {
     .insert(priced.lines.map((l) => ({ ...l, order_id: order.id })));
 
   if (itemsError) {
+    console.error("[orders] order_items insert failed:", itemsError.message, itemsError.details ?? "");
     // roll back the header so we never leave a half-written order
     await client.from("orders").delete().eq("id", order.id);
     throw itemsError;

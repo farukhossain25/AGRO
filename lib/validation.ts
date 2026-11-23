@@ -48,6 +48,10 @@ export const cartItemSchema = z.object({
   id: z.string().min(1),
   kind: z.enum(["product", "combo"]).default("product"),
   quantity: z.number().int().min(1).max(99),
+  /* The cart keeps the slug next to the id so the server can still resolve a
+     line whose row id changed (re-seeded catalogue, merged products). */
+  slug: z.string().trim().max(120).optional(),
+  name: z.string().trim().max(120).optional(),
 });
 
 export const checkoutSchema = z.object({
