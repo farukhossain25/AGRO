@@ -316,20 +316,19 @@ export async function GET() {
     checks.push({ id: "storage:list", label: "বাকেটের তালিকা", group: "storage", status: "fail", detail: (error as Error).message });
   }
 
-  if (bucketNames.has(PUBLIC_BUCKETS[0])) {
+  for (const b of Array.from(bucketNames)) {
     try {
-      const path = `system-check/${Date.now()}-probe.txt`;
+      const path = `system-check/${Date.now()}-${b}-probe.png`;
+      const tinyPng = new Blob([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], { type: "image/png" });
       const { ms } = await timed(async () => {
-        const up = await db().storage.from("product-images").upload(path, new Blob(["ok"]), { contentType: "text/plain", upsert: true });
+        const up = await db().storage.from(b).upload(path, tinyPng, { contentType: "image/png", upsert: true });
         if (up.error) throw up.error;
-        const down = await db().storage.from("product-images").download(path);
-        if (down.error) throw down.error;
-        const rm = await db().storage.from("product-images").remove([path]);
+        const rm = await db().storage.from(b).remove([path]);
         if (rm.error) throw rm.error;
       });
-      checks.push({ id: "storage:upload", label: "আপলোড → ডাউনলোড → মুছে ফেলা", group: "storage", status: "pass", detail: "product-images-এ রাউন্ড-ট্রিপ ok", ms });
+      checks.push({ id: `storage:rw:${b}`, label: `বাকেট ${b} আপলোড ও ডিলিট`, group: "storage", status: "pass", detail: "আপলোড → ডিলিট ok", ms });
     } catch (error) {
-      checks.push({ id: "storage:upload", label: "আপলোড → ডাউনলোড → মুছে ফেলা", group: "storage", status: "fail", detail: (error as Error).message });
+      checks.push({ id: `storage:rw:${b}`, label: `বাকেট ${b} আপলোড ও ডিলিট`, group: "storage", status: "fail", detail: (error as Error).message });
     }
   }
 
