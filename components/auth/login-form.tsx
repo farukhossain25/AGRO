@@ -470,7 +470,7 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
   const tabIndex = Math.max(0, tabs.indexOf(mode));
 
   const tabClass = (active: boolean) =>
-    `relative z-10 flex-1 rounded-xl px-2 py-2.5 text-[13px] font-semibold transition-colors duration-300 min-h-[44px] sm:text-[13.5px] ${
+    `relative z-10 flex-1 whitespace-nowrap rounded-xl px-1.5 py-2.5 text-[11.5px] font-semibold leading-tight transition-colors duration-300 min-h-[44px] sm:px-2 sm:text-[13.5px] ${
       active ? "text-white" : "text-sand-100/55 hover:text-sand-100"
     }`;
 
@@ -673,8 +673,8 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
               }
             />
 
-            <div className="flex items-center justify-between gap-3">
-              <label className="flex cursor-pointer select-none items-center gap-2 text-[12px] text-sand-100/60">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+              <label className="flex cursor-pointer select-none items-center gap-2 text-[11.5px] text-sand-100/60 sm:text-[12px]">
                 <input
                   type="checkbox"
                   checked={remember}
@@ -683,7 +683,11 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
                 />
                 এই ডিভাইসে লগইন রাখুন
               </label>
-              <button type="button" onClick={() => setMode("forgot")} className="text-[12px] font-semibold text-leaf-300 hover:underline">
+              <button
+                type="button"
+                onClick={() => setMode("forgot")}
+                className="whitespace-nowrap text-[11.5px] font-semibold text-leaf-300 hover:underline sm:text-[12px]"
+              >
                 পাসওয়ার্ড ভুলে গেছেন?
               </button>
             </div>
