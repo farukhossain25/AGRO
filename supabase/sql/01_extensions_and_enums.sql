@@ -39,20 +39,11 @@ begin
   if not exists (select 1 from pg_type where typname = 'payment_status') then
     create type public.payment_status as enum ('pending', 'paid', 'failed', 'refunded');
   end if;
-  if not exists (select 1 from pg_type where typname = 'payment_review_status') then
-    create type public.payment_review_status as enum ('pending', 'verified', 'rejected', 'needs_info');
-  end if;
-  if not exists (select 1 from pg_type where typname = 'payment_purpose') then
-    create type public.payment_purpose as enum ('order', 'premium');
-  end if;
   if not exists (select 1 from pg_type where typname = 'payment_method_kind') then
     create type public.payment_method_kind as enum ('mfs', 'bank', 'cod', 'gateway', 'other');
   end if;
   if not exists (select 1 from pg_type where typname = 'payment_account_type') then
     create type public.payment_account_type as enum ('personal', 'agent', 'merchant', 'account');
-  end if;
-  if not exists (select 1 from pg_type where typname = 'payment_log_action') then
-    create type public.payment_log_action as enum ('submitted', 'resubmitted', 'approved', 'rejected', 'needs_info', 'reopened', 'bulk_approved', 'note');
   end if;
 
   -- catalog ------------------------------------------------------------------

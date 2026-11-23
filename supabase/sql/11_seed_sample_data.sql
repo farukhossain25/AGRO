@@ -36,7 +36,6 @@ insert into public.site_settings (key, value) values
   ('delivery', '{"inside_dhaka":60,"outside_dhaka":120,"free_over":1200,"combo_free_delivery":true}'::jsonb),
   ('seller', '{"auto_approve":false,"default_commission_percent":10}'::jsonb),
   ('reviews', '{"auto_publish":true,"max_photos":3,"edit_window_days":7,"low_rating_threshold":2}'::jsonb),
-  ('payments', '{"max_submits_per_hour":5,"max_rejected_before_block":3,"block_hours":24,"auto_trx_regex":""}'::jsonb),
   ('premium', '{"trial_minutes":10,"grace_days":3,"default_device_limit":2,"max_viewers_per_camera":50}'::jsonb),
   ('announcement', '{"text_bn":"সকাল ১০টার আগে অর্ডার করলে আজই ডেলিভারি — ঢাকার ভেতরে ফ্রি ডেলিভারি ১২০০৳+ অর্ডারে","is_active":true}'::jsonb)
 on conflict (key) do nothing;

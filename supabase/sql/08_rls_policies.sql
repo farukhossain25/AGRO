@@ -48,7 +48,7 @@ declare
     'categories','farms','cameras','sellers','seller_payouts','seller_warnings','camera_requests',
     'camera_view_logs','products','product_images','coupons','delivery_charges',
     'combos','combo_items','subscription_plans','subscriptions','cart_items','orders','order_items',
-    'sub_orders','payment_methods','payments','payment_logs','parcels','custom_combos',
+    'sub_orders','payment_methods','parcels','custom_combos',
     'plans','user_subscriptions','access_codes','trials','stream_tokens','premium_devices',
     'reviews','review_photos','review_tags','complaints','complaint_messages','notifications',
     'push_subscriptions','fcm_tokens','wishlist','recently_viewed',
@@ -303,16 +303,6 @@ create policy "read own sub orders" on public.sub_orders
     or exists (select 1 from public.orders o where o.id = order_id and o.user_id = auth.uid())
   );
 
-drop policy if exists "read own payments" on public.payments;
-create policy "read own payments" on public.payments
-  for select to authenticated using (user_id = auth.uid());
-
-drop policy if exists "read own payment logs" on public.payment_logs;
-create policy "read own payment logs" on public.payment_logs
-  for select to authenticated using (
-    exists (select 1 from public.payments p where p.id = payment_id and p.user_id = auth.uid())
-  );
-
 drop policy if exists "read own parcels" on public.parcels;
 create policy "read own parcels" on public.parcels
   for select to authenticated using (
@@ -410,7 +400,7 @@ declare
     'categories','farms','cameras','sellers','seller_payouts','seller_warnings','camera_requests',
     'camera_view_logs','products','product_images','coupons','delivery_charges',
     'combos','combo_items','subscription_plans','subscriptions','cart_items','orders','order_items',
-    'sub_orders','payment_methods','payments','payment_logs','parcels','custom_combos',
+    'sub_orders','payment_methods','parcels','custom_combos',
     'plans','user_subscriptions','access_codes','trials','stream_tokens','premium_devices',
     'reviews','review_photos','review_tags','complaints','complaint_messages','notifications',
     'push_subscriptions','fcm_tokens','wishlist','recently_viewed',

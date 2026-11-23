@@ -2,15 +2,13 @@
 -- 09_storage_buckets_and_policies.sql
 -- ============================================================================
 -- WHAT IT DOES
---   Creates the eleven Storage buckets the app uploads to and the access rules
+--   Creates the ten Storage buckets the app uploads to and the access rules
 --   for each one:
 --
 --     PUBLIC (anyone can view a file, only admins/owners can write)
 --       avatars, product-images, category-images, farm-images, logos,
 --       slides, team, review-photos, complaint-photos, blog-images
 --
---     PRIVATE (owner + admin only, served with short-lived signed URLs)
---       payment-proofs
 --
 --   Each bucket also enforces a file-size limit and an image-only MIME list,
 --   so a 40 MB PDF cannot be uploaded by mistake.
@@ -20,7 +18,7 @@
 --
 -- WHAT YOU SHOULD SEE AFTER RUNNING
 --   "Success. No rows returned"
---   Storage → Buckets in the dashboard shows all 11 buckets.
+--   Storage → Buckets in the dashboard shows all 10 buckets.
 --
 -- SAFE TO RUN TWICE
 --   Yes — buckets are upserted on id and every policy is dropped first.
@@ -40,8 +38,7 @@ values
   ('team',             'team',             true,  3145728,  array['image/jpeg','image/png','image/webp','image/avif']),
   ('review-photos',    'review-photos',    true,  6291456,  array['image/jpeg','image/png','image/webp','image/avif']),
   ('complaint-photos', 'complaint-photos', true,  6291456,  array['image/jpeg','image/png','image/webp','image/avif']),
-  ('blog-images',      'blog-images',      true,  6291456,  array['image/jpeg','image/png','image/webp','image/avif']),
-  ('payment-proofs',   'payment-proofs',   false, 6291456,  array['image/jpeg','image/png','image/webp','image/avif'])
+  ('blog-images',      'blog-images',      true,  6291456,  array['image/jpeg','image/png','image/webp','image/avif'])
 on conflict (id) do update
   set public             = excluded.public,
       file_size_limit    = excluded.file_size_limit,
@@ -93,18 +90,3 @@ create policy "owners and admins delete images" on storage.objects
     and (owner = auth.uid() or public.is_admin())
   );
 
--- payment-proofs: uploader + admin can read; nobody anonymous
-drop policy if exists "payment proof owner read" on storage.objects;
-create policy "payment proof owner read" on storage.objects
-  for select to authenticated
-  using (bucket_id = 'payment-proofs' and (owner = auth.uid() or public.is_admin()));
-
-drop policy if exists "payment proof owner upload" on storage.objects;
-create policy "payment proof owner upload" on storage.objects
-  for insert to authenticated
-  with check (bucket_id = 'payment-proofs' and owner = auth.uid());
-
-drop policy if exists "payment proof admin manage" on storage.objects;
-create policy "payment proof admin manage" on storage.objects
-  for delete to authenticated
-  using (bucket_id = 'payment-proofs' and public.is_admin());

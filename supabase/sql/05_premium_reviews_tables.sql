@@ -7,8 +7,6 @@
 --     premium_devices, reviews, review_photos, review_tags, complaints,
 --     complaint_messages, notifications, push_subscriptions, fcm_tokens,
 --     wishlist, recently_viewed.
---   Also adds the deferred foreign key payments.subscription_id →
---   user_subscriptions.id (that table is only created here).
 --
 -- WHEN TO RUN
 --   Fifth, after 04_orders_payments_tables.sql.
@@ -260,14 +258,6 @@ create table if not exists public.recently_viewed (
 -- --------------------------------------------- deferred FKs / late references --
 do $$
 begin
-  if not exists (
-    select 1 from pg_constraint where conname = 'payments_subscription_id_fkey'
-  ) then
-    alter table public.payments
-      add constraint payments_subscription_id_fkey
-      foreign key (subscription_id) references public.user_subscriptions (id) on delete set null;
-  end if;
-
   -- order_items.sub_order_id is filled by place_order() after sub_orders exist.
   if not exists (
     select 1 from pg_constraint where conname = 'order_items_sub_order_id_fkey'

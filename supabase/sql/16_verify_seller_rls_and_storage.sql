@@ -13,11 +13,11 @@
 -- ============================================================================
 
 select 'storage_buckets' as check_name,
-       case when count(*) >= 11 then 'PASS' else 'FAIL (' || count(*) || '/11)' end as status
+       case when count(*) >= 10 then 'PASS' else 'FAIL (' || count(*) || '/10)' end as status
   from storage.buckets
  where id in (
    'avatars', 'product-images', 'category-images', 'farm-images', 'logos',
-   'slides', 'team', 'review-photos', 'complaint-photos', 'blog-images', 'payment-proofs'
+   'slides', 'team', 'review-photos', 'complaint-photos', 'blog-images'
  );
 
 select 'seller_applications_table' as check_name,

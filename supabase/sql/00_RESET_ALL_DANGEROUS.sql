@@ -59,8 +59,8 @@ declare
     'product_images','products','cameras','camera_requests','camera_view_logs',
     'seller_payouts','seller_warnings','sellers','farms','categories',
     'coupons','delivery_charges',
-    'order_items','sub_orders','parcels','payments','payment_logs','orders',
-    'cart_items','payment_methods','payment_settings','custom_combos',
+    'order_items','sub_orders','parcels','orders',
+    'cart_items','payment_methods','custom_combos',
     'combo_items','combos','subscriptions','subscription_plans',
     'reviews','review_photos','review_tags','complaints','complaint_messages',
     'notifications','push_subscriptions','fcm_tokens','wishlist','recently_viewed',
@@ -123,9 +123,6 @@ drop policy if exists "public image read" on storage.objects;
 drop policy if exists "owners and admins upload images" on storage.objects;
 drop policy if exists "owners and admins update images" on storage.objects;
 drop policy if exists "owners and admins delete images" on storage.objects;
-drop policy if exists "payment proof owner read" on storage.objects;
-drop policy if exists "payment proof owner upload" on storage.objects;
-drop policy if exists "payment proof admin manage" on storage.objects;
 
 -- ---------------------------------------------------------------------------
 -- 6. Final confirmation

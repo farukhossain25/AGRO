@@ -14,7 +14,6 @@ export const STORAGE_BUCKETS = {
   REVIEW_PHOTOS: "review-photos",
   COMPLAINT_PHOTOS: "complaint-photos",
   BLOG_IMAGES: "blog-images",
-  PAYMENT_PROOFS: "payment-proofs",
 } as const;
 
 export type StorageBucket = (typeof STORAGE_BUCKETS)[keyof typeof STORAGE_BUCKETS];
@@ -35,5 +34,4 @@ export const PUBLIC_BUCKETS: readonly StorageBucket[] = [
 
 export const ALL_BUCKETS: readonly StorageBucket[] = [
   ...PUBLIC_BUCKETS,
-  STORAGE_BUCKETS.PAYMENT_PROOFS,
 ];

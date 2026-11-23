@@ -20,12 +20,9 @@
 --
 -- SAFE TO RUN TWICE: yes (every statement is guarded).
 -- ============================================================================
-
-
 -- ############################################################################
 -- ##  01_extensions_and_enums.sql
 -- ############################################################################
-
 -- ============================================================================
 -- 01_extensions_and_enums.sql
 -- ============================================================================
@@ -67,20 +64,11 @@ begin
   if not exists (select 1 from pg_type where typname = 'payment_status') then
     create type public.payment_status as enum ('pending', 'paid', 'failed', 'refunded');
   end if;
-  if not exists (select 1 from pg_type where typname = 'payment_review_status') then
-    create type public.payment_review_status as enum ('pending', 'verified', 'rejected', 'needs_info');
-  end if;
-  if not exists (select 1 from pg_type where typname = 'payment_purpose') then
-    create type public.payment_purpose as enum ('order', 'premium');
-  end if;
   if not exists (select 1 from pg_type where typname = 'payment_method_kind') then
     create type public.payment_method_kind as enum ('mfs', 'bank', 'cod', 'gateway', 'other');
   end if;
   if not exists (select 1 from pg_type where typname = 'payment_account_type') then
     create type public.payment_account_type as enum ('personal', 'agent', 'merchant', 'account');
-  end if;
-  if not exists (select 1 from pg_type where typname = 'payment_log_action') then
-    create type public.payment_log_action as enum ('submitted', 'resubmitted', 'approved', 'rejected', 'needs_info', 'reopened', 'bulk_approved', 'note');
   end if;
 
   -- catalog ------------------------------------------------------------------
@@ -167,11 +155,9 @@ $$;
 
 comment on function public.set_updated_at() is 'BEFORE UPDATE trigger that stamps updated_at = now().';
 
-
 -- ############################################################################
 -- ##  02_core_tables.sql
 -- ############################################################################
-
 -- ============================================================================
 -- 02_core_tables.sql
 -- ============================================================================
@@ -381,11 +367,9 @@ create table if not exists public.login_attempts (
   created_at  timestamptz not null default now()
 );
 
-
 -- ############################################################################
 -- ##  03_catalog_tables.sql
 -- ############################################################################
-
 -- ============================================================================
 -- 03_catalog_tables.sql
 -- ============================================================================
@@ -545,6 +529,7 @@ create table if not exists public.camera_requests (
   contact_name text,
   contact_phone text,
   note_bn      text,
+  camera_count integer not null default 1,
   status       text not null default 'pending' check (status in ('pending', 'contacted', 'scheduled', 'installed', 'cancelled')),
   admin_note   text,
   created_at   timestamptz not null default now(),
@@ -645,18 +630,16 @@ create table if not exists public.delivery_charges (
 
 comment on table public.delivery_charges is 'Per-district delivery price. Replaces the old delivery_zones table.';
 
-
 -- ############################################################################
 -- ##  04_orders_payments_tables.sql
 -- ############################################################################
-
 -- ============================================================================
 -- 04_orders_payments_tables.sql
 -- ============================================================================
 -- WHAT IT DOES
 --   Creates the money path: combos, subscription plans & subscriptions, cart,
 --   orders, order_items, sub_orders (per-seller splits), payment methods,
---   manual payments, payment logs, parcel labels and custom combos.
+--   parcel labels and custom combos.
 --
 -- WHEN TO RUN
 --   Fourth, after 03_catalog_tables.sql.
@@ -668,9 +651,8 @@ comment on table public.delivery_charges is 'Per-district delivery price. Replac
 --   • orders are written ONLY by the place_order() RPC (file 07), so a single
 --     transaction validates stock, price, coupon and delivery. No browser can
 --     insert an order directly.
---   • payments.subscription_id is a plain uuid here; the foreign key to
---     user_subscriptions is added at the end of 05 (that table is created
---     there).
+--   • the orders table carries only the payment method code and status; there
+--     is no payments table, so no subscription FK is needed here.
 --   • statuses are enum-typed, so a typo cannot reach the database.
 -- ============================================================================
 
@@ -851,56 +833,6 @@ create table if not exists public.payment_methods (
   updated_at      timestamptz not null default now()
 );
 
--- ------------------------------------------------------------------ payments --
-create table if not exists public.payments (
-  id                uuid primary key default gen_random_uuid(),
-  payment_no        text not null unique,
-  user_id           uuid references public.profiles (id) on delete set null,
-  purpose           public.payment_purpose not null default 'order',
-  order_id          uuid references public.orders (id) on delete set null,
-  subscription_id   uuid,
-  method_id         uuid references public.payment_methods (id) on delete set null,
-  method_code       text not null,
-  method_name_bn    text,
-  expected_amount   numeric(12, 2) not null default 0,
-  amount            numeric(12, 2) not null default 0,
-  sender_number     text,
-  trx_id            text,
-  trx_norm          text,
-  paid_at           timestamptz,
-  screenshot_url    text,
-  status            public.payment_review_status not null default 'pending',
-  reject_reason     text,
-  admin_note        text,
-  reviewed_by       uuid references public.profiles (id) on delete set null,
-  reviewed_at       timestamptz,
-  submitted_ip      text,
-  submitted_agent   text,
-  attempt_no        integer not null default 1,
-  meta              jsonb not null default '{}'::jsonb,
-  created_at        timestamptz not null default now(),
-  updated_at        timestamptz not null default now()
-);
--- One TrxID can settle exactly one payment. Partial unique index so the many
--- NULLs (COD / bank drafts) do not collide.
-create unique index if not exists payments_trx_norm_key
-  on public.payments (trx_norm)
-  where trx_norm is not null;
-
--- --------------------------------------------------------------- payment_logs --
-create table if not exists public.payment_logs (
-  id           uuid primary key default gen_random_uuid(),
-  payment_id   uuid not null references public.payments (id) on delete cascade,
-  actor_id     uuid references public.profiles (id) on delete set null,
-  actor_role   text,
-  action       public.payment_log_action not null default 'note',
-  from_status  text,
-  to_status    text,
-  note         text,
-  ip           text,
-  created_at   timestamptz not null default now()
-);
-
 -- ------------------------------------------------------------------- parcels --
 create table if not exists public.parcels (
   id              uuid primary key default gen_random_uuid(),
@@ -931,11 +863,9 @@ create table if not exists public.custom_combos (
   updated_at      timestamptz not null default now()
 );
 
-
 -- ############################################################################
 -- ##  05_premium_reviews_tables.sql
 -- ############################################################################
-
 -- ============================================================================
 -- 05_premium_reviews_tables.sql
 -- ============================================================================
@@ -945,8 +875,6 @@ create table if not exists public.custom_combos (
 --     premium_devices, reviews, review_photos, review_tags, complaints,
 --     complaint_messages, notifications, push_subscriptions, fcm_tokens,
 --     wishlist, recently_viewed.
---   Also adds the deferred foreign key payments.subscription_id →
---   user_subscriptions.id (that table is only created here).
 --
 -- WHEN TO RUN
 --   Fifth, after 04_orders_payments_tables.sql.
@@ -1198,14 +1126,6 @@ create table if not exists public.recently_viewed (
 -- --------------------------------------------- deferred FKs / late references --
 do $$
 begin
-  if not exists (
-    select 1 from pg_constraint where conname = 'payments_subscription_id_fkey'
-  ) then
-    alter table public.payments
-      add constraint payments_subscription_id_fkey
-      foreign key (subscription_id) references public.user_subscriptions (id) on delete set null;
-  end if;
-
   -- order_items.sub_order_id is filled by place_order() after sub_orders exist.
   if not exists (
     select 1 from pg_constraint where conname = 'order_items_sub_order_id_fkey'
@@ -1216,11 +1136,9 @@ begin
   end if;
 end $$;
 
-
 -- ############################################################################
 -- ##  06_homepage_cms_tables.sql
 -- ############################################################################
-
 -- ============================================================================
 -- 06_homepage_cms_tables.sql
 -- ============================================================================
@@ -1349,11 +1267,9 @@ create table if not exists public.faq_items (
   updated_at   timestamptz not null default now()
 );
 
-
 -- ############################################################################
 -- ##  07_functions_and_triggers.sql
 -- ############################################################################
-
 -- ============================================================================
 -- 07_functions_and_triggers.sql
 -- ============================================================================
@@ -1363,11 +1279,10 @@ create table if not exists public.faq_items (
 --     • handle_new_user(): creates the profile row on signup (cannot fail signup)
 --     • guard_profile_role(): a user can never promote themselves
 --     • set_updated_at() triggers on every table that has updated_at
---     • number generators: order, sub-order, payment, complaint ticket
+--     • number generators: order, sub-order, complaint ticket
 --     • place_order(): ONE transaction — validate, re-price, reserve stock,
---       create order + items + per-seller sub-orders + payment row + parcel +
+--       create order + items + per-seller sub-orders + parcel +
 --       notifications
---     • approve_payment(): admin-only, verifies a manual payment atomically
 --     • recalc_product_rating(): rating aggregate maintained by trigger
 --     • product_images / review_photos sync triggers
 --     • log_audit(): writes the admin audit trail
@@ -1516,7 +1431,7 @@ declare
     'static_pages', 'seo_meta', 'categories', 'farms', 'cameras', 'sellers',
     'seller_payouts', 'camera_requests', 'products', 'coupons', 'delivery_charges',
     'combos', 'subscription_plans', 'subscriptions', 'cart_items', 'orders',
-    'sub_orders', 'payment_methods', 'payments', 'parcels', 'custom_combos',
+    'sub_orders', 'payment_methods', 'parcels', 'custom_combos',
     'plans', 'user_subscriptions', 'reviews', 'complaints', 'hero_slides',
     'homepage_sections', 'banners', 'menus', 'menu_items', 'blog_posts', 'faq_items'
   ];
@@ -1542,19 +1457,6 @@ declare
 begin
   select count(*) + 1 into seq from public.orders where created_at::date = current_date;
   return 'BA-' || to_char(now(), 'YYMMDD') || '-' || lpad(seq::text, 4, '0');
-end;
-$$;
-
-create or replace function public.gen_payment_no()
-returns text
-language plpgsql
-volatile
-as $$
-declare
-  seq int;
-begin
-  select count(*) + 1 into seq from public.payments where created_at::date = current_date;
-  return 'PAY-' || to_char(now(), 'YYMMDD') || '-' || lpad(seq::text, 4, '0');
 end;
 $$;
 
@@ -1734,7 +1636,7 @@ $$;
 --   p_customer : {customer_name, phone, email, division, district, upazila, address, delivery_note}
 --   p_items    : [{id|product_id, kind, quantity}]
 --   returns    : {order_id, order_no, subtotal, delivery_charge, discount, total,
---                 payment_no, payment_id, eta_days, item_count}
+--                 method_code, eta_days, item_count}
 -- ---------------------------------------------------------------------------
 create or replace function public.place_order(
   p_user uuid,
@@ -1768,8 +1670,6 @@ declare
   v_sub_map jsonb := '{}'::jsonb;
   v_order_id uuid;
   v_order_no text;
-  v_payment_id uuid;
-  v_payment_no text;
   v_method public.payment_methods%rowtype;
   v_coupon public.coupons%rowtype;
   v_have_coupon boolean := false;
@@ -2005,19 +1905,6 @@ begin
     update public.coupons set used_count = used_count + 1, updated_at = now() where id = v_coupon.id;
   end if;
 
-  -- ---------------------------------------------------------------- payment --
-  if v_method.code <> 'cod' and v_method.kind <> 'cod' then
-    v_payment_no := public.gen_payment_no();
-    insert into public.payments (
-      payment_no, user_id, purpose, order_id, method_id, method_code, method_name_bn,
-      expected_amount, amount, status, meta
-    ) values (
-      v_payment_no, p_user, 'order', v_order_id, v_method.id, v_method.code, v_method.name_bn,
-      v_total, v_total, 'pending', jsonb_build_object('auto_created', true)
-    )
-    returning id into v_payment_id;
-  end if;
-
   -- ----------------------------------------------------------------- parcel --
   insert into public.parcels (order_id, order_no, qr_token)
   values (v_order_id, v_order_no, encode(extensions.gen_random_bytes(16), 'hex'))
@@ -2054,8 +1941,6 @@ begin
     'delivery_charge', v_delivery,
     'discount', v_discount,
     'total', v_total,
-    'payment_no', v_payment_no,
-    'payment_id', v_payment_id,
     'method_code', v_method.code,
     'eta_days', v_eta,
     'item_count', jsonb_array_length(v_lines)
@@ -2064,111 +1949,6 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
--- approve_payment() — admin only. Verifies one manual payment and applies all
--- side effects atomically (order paid / premium activated + access code).
--- Returns {status, effects: [...]}.
--- ---------------------------------------------------------------------------
-create or replace function public.approve_payment(
-  p_payment uuid,
-  p_actor uuid default null,
-  p_note text default null
-)
-returns jsonb
-language plpgsql
-security definer
-set search_path = public, extensions, pg_temp
-as $$
-declare
-  v_pay public.payments%rowtype;
-  v_sub public.user_subscriptions%rowtype;
-  v_plan public.plans%rowtype;
-  v_expires timestamptz;
-  v_code text;
-  v_effects jsonb := '[]'::jsonb;
-  v_actor uuid := coalesce(p_actor, auth.uid());
-begin
-  if auth.uid() is not null and not public.is_admin() then
-    raise exception 'ADMIN_ONLY';
-  end if;
-
-  select * into v_pay from public.payments where id = p_payment for update;
-  if not found then
-    raise exception 'PAYMENT_NOT_FOUND';
-  end if;
-
-  if v_pay.status = 'verified' then
-    return jsonb_build_object('status', 'verified', 'effects', jsonb_build_array('আগেই যাচাই করা হয়েছে'));
-  end if;
-
-  update public.payments
-     set status = 'verified',
-         reviewed_by = v_actor,
-         reviewed_at = now(),
-         admin_note = coalesce(p_note, admin_note)
-   where id = p_payment;
-
-  insert into public.payment_logs (payment_id, actor_id, actor_role, action, from_status, to_status, note)
-  values (p_payment, v_actor, 'admin', 'approved', v_pay.status::text, 'verified', p_note);
-
-  if v_pay.purpose = 'order' and v_pay.order_id is not null then
-    update public.orders
-       set payment_status = 'paid',
-           payment_ref = coalesce(v_pay.trx_norm, v_pay.trx_id),
-           updated_at = now()
-     where id = v_pay.order_id;
-    v_effects := v_effects || to_jsonb('অর্ডার পরিশোধিত হিসেবে চিহ্নিত'::text);
-  end if;
-
-  if v_pay.purpose = 'premium' and v_pay.subscription_id is not null then
-    select * into v_sub from public.user_subscriptions where id = v_pay.subscription_id;
-    if found then
-      select * into v_plan from public.plans where id = v_sub.plan_id;
-      v_expires := greatest(coalesce(v_sub.expires_at, now()), now())
-                   + make_interval(days => coalesce(v_plan.duration_days, 30));
-
-      update public.user_subscriptions
-         set status = 'active',
-             started_at = coalesce(started_at, now()),
-             expires_at = v_expires,
-             grace_until = null,
-             updated_at = now()
-       where id = v_sub.id;
-
-      update public.profiles
-         set premium_until = v_expires,
-             role = case when role = 'admin' then role else 'premium'::public.user_role end
-       where id = v_sub.user_id;
-
-      v_code := upper(substr(encode(extensions.gen_random_bytes(9), 'hex'), 1, 4) || '-' ||
-                      substr(encode(extensions.gen_random_bytes(9), 'hex'), 1, 4) || '-' ||
-                      substr(encode(extensions.gen_random_bytes(9), 'hex'), 1, 4));
-      insert into public.access_codes (code, plan_id, user_id, subscription_id, status, note, meta)
-      values (v_code, v_sub.plan_id, v_sub.user_id, v_sub.id, 'unused', 'পেমেন্ট অ্যাপ্রুভালে তৈরি',
-              jsonb_build_object('payment_no', v_pay.payment_no, 'sub_no', v_sub.sub_no));
-
-      insert into public.notifications (user_id, audience, kind, title_bn, body_bn, link, meta)
-      values (v_sub.user_id, 'user', 'premium', 'প্রিমিয়াম সক্রিয় হয়েছে',
-              'আপনার প্ল্যান চালু হয়েছে। লাইভ ক্যামেরা দেখতে পারবেন।', '/live/plans',
-              jsonb_build_object('sub_no', v_sub.sub_no, 'access_code', v_code));
-
-      v_effects := v_effects || to_jsonb('প্রিমিয়াম সক্রিয়'::text) || to_jsonb('অ্যাক্সেস কোড তৈরি'::text);
-    end if;
-  end if;
-
-  if v_pay.user_id is not null then
-    insert into public.notifications (user_id, audience, kind, title_bn, body_bn, link, meta)
-    values (v_pay.user_id, 'user', 'payment', 'পেমেন্ট যাচাই হয়েছে',
-            'আপনার পেমেন্ট (' || v_pay.payment_no || ') অনুমোদিত হয়েছে।',
-            case when v_pay.purpose = 'premium' then '/account/premium' else '/track?order=' || coalesce(v_pay.payment_no, '') end,
-            jsonb_build_object('payment_no', v_pay.payment_no));
-  end if;
-
-  perform public.log_audit(v_actor, 'payment.approved', 'payments', p_payment::text,
-                           jsonb_build_object('payment_no', v_pay.payment_no, 'amount', v_pay.amount), null);
-
-  return jsonb_build_object('status', 'verified', 'effects', v_effects);
-end;
-$$;
 
 -- ---------------------------------------------------------------------------
 -- login_help(): "why did my login fail?" — never leaks password hashes.
@@ -2216,17 +1996,12 @@ $$;
 revoke all on function public.place_order(uuid, jsonb, jsonb, text, text) from public, anon;
 grant execute on function public.place_order(uuid, jsonb, jsonb, text, text) to authenticated, service_role;
 
-revoke all on function public.approve_payment(uuid, uuid, text) from public, anon;
-grant execute on function public.approve_payment(uuid, uuid, text) to authenticated, service_role;
-
 revoke all on function public.login_help(text) from public, anon;
 grant execute on function public.login_help(text) to service_role;
-
 
 -- ############################################################################
 -- ##  08_rls_policies.sql
 -- ############################################################################
-
 -- ============================================================================
 -- 08_rls_policies.sql
 -- ============================================================================
@@ -2277,7 +2052,7 @@ declare
     'categories','farms','cameras','sellers','seller_payouts','seller_warnings','camera_requests',
     'camera_view_logs','products','product_images','coupons','delivery_charges',
     'combos','combo_items','subscription_plans','subscriptions','cart_items','orders','order_items',
-    'sub_orders','payment_methods','payments','payment_logs','parcels','custom_combos',
+    'sub_orders','payment_methods','parcels','custom_combos',
     'plans','user_subscriptions','access_codes','trials','stream_tokens','premium_devices',
     'reviews','review_photos','review_tags','complaints','complaint_messages','notifications',
     'push_subscriptions','fcm_tokens','wishlist','recently_viewed',
@@ -2532,16 +2307,6 @@ create policy "read own sub orders" on public.sub_orders
     or exists (select 1 from public.orders o where o.id = order_id and o.user_id = auth.uid())
   );
 
-drop policy if exists "read own payments" on public.payments;
-create policy "read own payments" on public.payments
-  for select to authenticated using (user_id = auth.uid());
-
-drop policy if exists "read own payment logs" on public.payment_logs;
-create policy "read own payment logs" on public.payment_logs
-  for select to authenticated using (
-    exists (select 1 from public.payments p where p.id = payment_id and p.user_id = auth.uid())
-  );
-
 drop policy if exists "read own parcels" on public.parcels;
 create policy "read own parcels" on public.parcels
   for select to authenticated using (
@@ -2639,7 +2404,7 @@ declare
     'categories','farms','cameras','sellers','seller_payouts','seller_warnings','camera_requests',
     'camera_view_logs','products','product_images','coupons','delivery_charges',
     'combos','combo_items','subscription_plans','subscriptions','cart_items','orders','order_items',
-    'sub_orders','payment_methods','payments','payment_logs','parcels','custom_combos',
+    'sub_orders','payment_methods','parcels','custom_combos',
     'plans','user_subscriptions','access_codes','trials','stream_tokens','premium_devices',
     'reviews','review_photos','review_tags','complaints','complaint_messages','notifications',
     'push_subscriptions','fcm_tokens','wishlist','recently_viewed',
@@ -2684,24 +2449,20 @@ alter default privileges in schema public grant select, insert, update, delete o
 alter default privileges in schema public grant all on tables to service_role;
 alter default privileges in schema public grant usage, select on sequences to authenticated, service_role;
 
-
 -- ############################################################################
 -- ##  09_storage_buckets_and_policies.sql
 -- ############################################################################
-
 -- ============================================================================
 -- 09_storage_buckets_and_policies.sql
 -- ============================================================================
 -- WHAT IT DOES
---   Creates the eleven Storage buckets the app uploads to and the access rules
+--   Creates the ten Storage buckets the app uploads to and the access rules
 --   for each one:
 --
 --     PUBLIC (anyone can view a file, only admins/owners can write)
 --       avatars, product-images, category-images, farm-images, logos,
 --       slides, team, review-photos, complaint-photos, blog-images
 --
---     PRIVATE (owner + admin only, served with short-lived signed URLs)
---       payment-proofs
 --
 --   Each bucket also enforces a file-size limit and an image-only MIME list,
 --   so a 40 MB PDF cannot be uploaded by mistake.
@@ -2711,7 +2472,7 @@ alter default privileges in schema public grant usage, select on sequences to au
 --
 -- WHAT YOU SHOULD SEE AFTER RUNNING
 --   "Success. No rows returned"
---   Storage → Buckets in the dashboard shows all 11 buckets.
+--   Storage → Buckets in the dashboard shows all 10 buckets.
 --
 -- SAFE TO RUN TWICE
 --   Yes — buckets are upserted on id and every policy is dropped first.
@@ -2731,8 +2492,7 @@ values
   ('team',             'team',             true,  3145728,  array['image/jpeg','image/png','image/webp','image/avif']),
   ('review-photos',    'review-photos',    true,  6291456,  array['image/jpeg','image/png','image/webp','image/avif']),
   ('complaint-photos', 'complaint-photos', true,  6291456,  array['image/jpeg','image/png','image/webp','image/avif']),
-  ('blog-images',      'blog-images',      true,  6291456,  array['image/jpeg','image/png','image/webp','image/avif']),
-  ('payment-proofs',   'payment-proofs',   false, 6291456,  array['image/jpeg','image/png','image/webp','image/avif'])
+  ('blog-images',      'blog-images',      true,  6291456,  array['image/jpeg','image/png','image/webp','image/avif'])
 on conflict (id) do update
   set public             = excluded.public,
       file_size_limit    = excluded.file_size_limit,
@@ -2784,27 +2544,9 @@ create policy "owners and admins delete images" on storage.objects
     and (owner = auth.uid() or public.is_admin())
   );
 
--- payment-proofs: uploader + admin can read; nobody anonymous
-drop policy if exists "payment proof owner read" on storage.objects;
-create policy "payment proof owner read" on storage.objects
-  for select to authenticated
-  using (bucket_id = 'payment-proofs' and (owner = auth.uid() or public.is_admin()));
-
-drop policy if exists "payment proof owner upload" on storage.objects;
-create policy "payment proof owner upload" on storage.objects
-  for insert to authenticated
-  with check (bucket_id = 'payment-proofs' and owner = auth.uid());
-
-drop policy if exists "payment proof admin manage" on storage.objects;
-create policy "payment proof admin manage" on storage.objects
-  for delete to authenticated
-  using (bucket_id = 'payment-proofs' and public.is_admin());
-
-
 -- ############################################################################
 -- ##  10_indexes_and_views.sql
 -- ############################################################################
-
 -- ============================================================================
 -- 10_indexes_and_views.sql
 -- ============================================================================
@@ -2817,7 +2559,7 @@ create policy "payment proof admin manage" on storage.objects
 --     v_product_rating_breakdown
 --     v_supplier_quality    seller scorecard for the quality board
 --     v_product_supplier    farm + seller card for a product page
---     v_farm_stats, v_payment_queue, v_payment_reconciliation,
+--     v_farm_stats,
 --     v_premium_revenue, v_seller_leaderboard
 --
 -- WHEN TO RUN
@@ -2873,12 +2615,6 @@ create index if not exists sub_orders_order_idx         on public.sub_orders (or
 create index if not exists sub_orders_seller_idx        on public.sub_orders (seller_id, created_at desc);
 create index if not exists sub_orders_status_idx        on public.sub_orders (status);
 
-create index if not exists payments_user_idx            on public.payments (user_id, created_at desc);
-create index if not exists payments_order_idx           on public.payments (order_id);
-create index if not exists payments_status_idx          on public.payments (status, created_at desc);
-create index if not exists payments_created_idx         on public.payments (created_at desc);
-create index if not exists payments_trx_idx             on public.payments (trx_norm);
-create index if not exists payment_logs_payment_idx     on public.payment_logs (payment_id, created_at desc);
 
 create index if not exists parcels_order_idx            on public.parcels (order_id);
 create index if not exists parcels_token_idx            on public.parcels (qr_token);
@@ -3118,39 +2854,6 @@ from public.farms f
 left join public.cameras c on c.farm_id = f.id and c.is_active
 group by f.id;
 
-create or replace view public.v_payment_queue
-with (security_invoker = false) as
-select
-  p.*,
-  round(p.amount - p.expected_amount, 2)                      as amount_delta,
-  (abs(p.amount - p.expected_amount) <= 0.5)                  as amount_matches,
-  exists (
-    select 1 from public.payments p2
-     where p2.trx_norm = p.trx_norm and p2.id <> p.id
-       and p2.status in ('verified', 'pending')
-  )                                                            as trx_collision,
-  o.order_no,
-  coalesce(o.customer_name, pr.full_name)                      as customer_name,
-  coalesce(o.customer_phone, pr.phone)                         as customer_phone,
-  us.sub_no,
-  us.plan_name_bn
-from public.payments p
-left join public.orders o               on o.id = p.order_id
-left join public.profiles pr            on pr.id = p.user_id
-left join public.user_subscriptions us  on us.id = p.subscription_id;
-
-create or replace view public.v_payment_reconciliation
-with (security_invoker = false) as
-select
-  (p.created_at at time zone 'Asia/Dhaka')::date              as day,
-  p.method_code,
-  count(*) filter (where p.status = 'verified')::int          as verified_count,
-  coalesce(sum(p.amount) filter (where p.status = 'verified'), 0) as verified_amount,
-  count(*) filter (where p.status = 'rejected')::int          as rejected_count,
-  count(*) filter (where p.status = 'pending')::int           as pending_count
-from public.payments p
-group by 1, 2;
-
 create or replace view public.v_premium_revenue
 with (security_invoker = false) as
 select
@@ -3183,13 +2886,10 @@ group by s.id, s.slug, s.name_bn;
 -- ---------------------------------------------------------------------------
 grant select on public.public_sellers, public.public_cameras to anon, authenticated;
 
-revoke all on public.v_payment_queue          from anon, authenticated;
-revoke all on public.v_payment_reconciliation from anon, authenticated;
 revoke all on public.v_team_members           from anon, authenticated;
 revoke all on public.v_premium_revenue        from anon, authenticated;
 revoke all on public.v_seller_leaderboard     from anon, authenticated;
-grant select on public.v_payment_queue, public.v_payment_reconciliation,
-                public.v_team_members, public.v_product_rating_breakdown,
+grant select on public.v_team_members, public.v_product_rating_breakdown,
                 public.v_supplier_quality, public.v_product_supplier,
                 public.v_farm_stats, public.v_premium_revenue,
                 public.v_seller_leaderboard

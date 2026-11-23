@@ -4,7 +4,7 @@
 -- WHAT IT DOES
 --   Creates the money path: combos, subscription plans & subscriptions, cart,
 --   orders, order_items, sub_orders (per-seller splits), payment methods,
---   manual payments, payment logs, parcel labels and custom combos.
+--   parcel labels and custom combos.
 --
 -- WHEN TO RUN
 --   Fourth, after 03_catalog_tables.sql.
@@ -16,9 +16,8 @@
 --   • orders are written ONLY by the place_order() RPC (file 07), so a single
 --     transaction validates stock, price, coupon and delivery. No browser can
 --     insert an order directly.
---   • payments.subscription_id is a plain uuid here; the foreign key to
---     user_subscriptions is added at the end of 05 (that table is created
---     there).
+--   • the orders table carries only the payment method code and status; there
+--     is no payments table, so no subscription FK is needed here.
 --   • statuses are enum-typed, so a typo cannot reach the database.
 -- ============================================================================
 
@@ -197,56 +196,6 @@ create table if not exists public.payment_methods (
   sort_order      integer not null default 0,
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now()
-);
-
--- ------------------------------------------------------------------ payments --
-create table if not exists public.payments (
-  id                uuid primary key default gen_random_uuid(),
-  payment_no        text not null unique,
-  user_id           uuid references public.profiles (id) on delete set null,
-  purpose           public.payment_purpose not null default 'order',
-  order_id          uuid references public.orders (id) on delete set null,
-  subscription_id   uuid,
-  method_id         uuid references public.payment_methods (id) on delete set null,
-  method_code       text not null,
-  method_name_bn    text,
-  expected_amount   numeric(12, 2) not null default 0,
-  amount            numeric(12, 2) not null default 0,
-  sender_number     text,
-  trx_id            text,
-  trx_norm          text,
-  paid_at           timestamptz,
-  screenshot_url    text,
-  status            public.payment_review_status not null default 'pending',
-  reject_reason     text,
-  admin_note        text,
-  reviewed_by       uuid references public.profiles (id) on delete set null,
-  reviewed_at       timestamptz,
-  submitted_ip      text,
-  submitted_agent   text,
-  attempt_no        integer not null default 1,
-  meta              jsonb not null default '{}'::jsonb,
-  created_at        timestamptz not null default now(),
-  updated_at        timestamptz not null default now()
-);
--- One TrxID can settle exactly one payment. Partial unique index so the many
--- NULLs (COD / bank drafts) do not collide.
-create unique index if not exists payments_trx_norm_key
-  on public.payments (trx_norm)
-  where trx_norm is not null;
-
--- --------------------------------------------------------------- payment_logs --
-create table if not exists public.payment_logs (
-  id           uuid primary key default gen_random_uuid(),
-  payment_id   uuid not null references public.payments (id) on delete cascade,
-  actor_id     uuid references public.profiles (id) on delete set null,
-  actor_role   text,
-  action       public.payment_log_action not null default 'note',
-  from_status  text,
-  to_status    text,
-  note         text,
-  ip           text,
-  created_at   timestamptz not null default now()
 );
 
 -- ------------------------------------------------------------------- parcels --

@@ -29,7 +29,7 @@ with expected_tables(name) as (
     ('product_images'),('coupons'),('delivery_charges'),
     ('combos'),('combo_items'),('subscription_plans'),('subscriptions'),
     ('cart_items'),('orders'),('order_items'),('sub_orders'),('payment_methods'),
-    ('payments'),('payment_logs'),('parcels'),('custom_combos'),
+    ('parcels'),('custom_combos'),
     ('plans'),('user_subscriptions'),('access_codes'),('trials'),('stream_tokens'),
     ('premium_devices'),('reviews'),('review_photos'),('review_tags'),('complaints'),
     ('complaint_messages'),('notifications'),('push_subscriptions'),('fcm_tokens'),
@@ -40,16 +40,16 @@ with expected_tables(name) as (
 expected_functions(name) as (
   values
     ('is_admin'),('is_staff'),('is_seller'),('has_role'),('handle_new_user'),
-    ('guard_profile_role'),('set_updated_at'),('place_order'),('approve_payment'),
+    ('guard_profile_role'),('set_updated_at'),('place_order'),
     ('recalc_product_rating'),('log_audit'),('login_help'),('gen_order_no'),
-    ('gen_payment_no'),('set_complaint_ticket'),('sync_product_images'),
+    ('set_complaint_ticket'),('sync_product_images'),
     ('is_my_seller')
 ),
 expected_views(name) as (
   values
     ('public_sellers'),('public_cameras'),('v_team_members'),
     ('v_product_rating_breakdown'),('v_supplier_quality'),('v_product_supplier'),
-    ('v_farm_stats'),('v_payment_queue'),('v_payment_reconciliation'),
+    ('v_farm_stats'),
     ('v_premium_revenue'),('v_seller_leaderboard')
 ),
 expected_triggers(name) as (
@@ -60,8 +60,7 @@ expected_triggers(name) as (
 expected_buckets(name) as (
   values
     ('avatars'),('product-images'),('category-images'),('farm-images'),('logos'),
-    ('slides'),('team'),('review-photos'),('complaint-photos'),('blog-images'),
-    ('payment-proofs')
+    ('slides'),('team'),('review-photos'),('complaint-photos'),('blog-images')
 )
 
 select * from (
@@ -148,10 +147,8 @@ select
   'STORAGE',
   e.name,
   case when b.id is null then 'FAIL'
-       when b.public and e.name = 'payment-proofs' then 'FAIL'
        else 'PASS' end,
   case when b.id is null then 'bucket নেই — 09_storage_buckets_and_policies.sql চালান'
-       when e.name = 'payment-proofs' then case when b.public then 'PRIVATE হওয়া উচিত!' else 'private' end
        else case when b.public then 'public' else 'PUBLIC হওয়া উচিত!' end end
 from expected_buckets e
 left join storage.buckets b on b.id = e.name

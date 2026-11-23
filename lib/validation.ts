@@ -63,7 +63,9 @@ export const checkoutSchema = z.object({
   upazila: z.string().trim().min(1, "উপজেলা নির্বাচন করুন"),
   address: z.string().trim().min(8, "সম্পূর্ণ ঠিকানা লিখুন").max(400),
   delivery_note: z.string().trim().max(300).optional().or(z.literal("")),
-  payment_method: z.enum(["cod", "bkash", "nagad", "sslcommerz"]),
+  /** any active payment_methods.code — the owner manages these from the
+   *  admin panel, so the list is open-ended, not a fixed enum. */
+  payment_method: z.string().trim().min(2).max(40),
   coupon_code: z.string().trim().max(24).optional().or(z.literal("")),
   items: z.array(cartItemSchema).min(1, "কার্ট খালি"),
 });
@@ -232,39 +234,8 @@ export const bannerSchema = z.object({
 });
 
 /* ==========================================================================
-   Manual payments + editable content (section A/E, migration 0009)
+   Payment methods (admin-managed receiving methods) + editable content
    ========================================================================== */
-
-/**
- * A TrxID exactly as the customer typed it. Shape validation happens in
- * lib/manual-payments.ts against the method's own `trx_pattern`, because
- * bKash and a bank transfer do not share a format.
- */
-export const trxId = z
-  .string()
-  .trim()
-  .min(4, "TrxID কমপক্ষে ৪ অক্ষরের")
-  .max(40, "TrxID অনেক বড়")
-  .regex(/^[A-Za-z0-9\s-]+$/, "TrxID-তে শুধু ইংরেজি অক্ষর ও সংখ্যা থাকবে");
-
-export const paymentSubmitSchema = z.object({
-  methodCode: z.string().trim().min(2, "পেমেন্ট মাধ্যম বেছে নিন").max(40),
-  orderNo: z.string().trim().min(3).max(40).optional(),
-  subNo: z.string().trim().min(3).max(40).optional(),
-  senderNumber: z.string().trim().max(20).optional().or(z.literal("")),
-  trxId: z.string().trim().max(40).optional().or(z.literal("")),
-  amount: z.coerce.number().positive("টাকার পরিমাণ দিন").max(1_000_000),
-  paidAt: z.string().trim().max(40).optional().or(z.literal("")),
-  /** storage path returned by /api/payments/upload-proof */
-  screenshotPath: z.string().trim().max(300).optional().or(z.literal("")),
-});
-
-export const paymentDecisionSchema = z.object({
-  ids: z.array(z.string().uuid()).min(1, "কোনো পেমেন্ট বাছাই করা হয়নি").max(100),
-  decision: z.enum(["verified", "rejected", "needs_info"]),
-  reason: z.string().trim().max(300).optional().or(z.literal("")),
-  adminNote: z.string().trim().max(300).optional().or(z.literal("")),
-});
 
 export const paymentMethodSchema = z.object({
   id: z.string().uuid().optional(),

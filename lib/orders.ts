@@ -44,8 +44,6 @@ type RpcResult = {
   delivery_charge: number;
   discount: number;
   total: number;
-  payment_no: string | null;
-  payment_id: string | null;
   method_code: string;
   eta_days: string;
   item_count: number;
