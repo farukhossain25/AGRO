@@ -1,10 +1,15 @@
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/api";
+import { getSellerByUser } from "@/lib/sellers";
 import { AccountNav } from "@/components/account-nav";
 
 export default async function AccountLayout({ children }: { children: React.ReactNode }) {
   const user = await currentUser();
   if (!user) redirect("/login?next=/account");
+
+  // The sellers table is the source of truth for "is a seller"; the profile
+  // flag is only a hint that survives a DB blip.
+  const seller = user.isSeller ? true : await getSellerByUser(user.id).catch(() => null);
 
   return (
     <div className="container-x py-8 sm:py-10">
@@ -24,7 +29,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
           sized to the widest child (the horizontal account menu), which made
           the whole page scroll sideways on a phone. */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[220px_1fr]">
-        <AccountNav />
+        <AccountNav isSeller={Boolean(seller)} />
         <div className="min-w-0">{children}</div>
       </div>
     </div>

@@ -99,6 +99,7 @@ type ProfileRow = {
   avatar_url: string | null;
   role: string | null;
   email: string | null;
+  is_seller?: boolean | null;
 };
 
 /**
@@ -126,7 +127,7 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
     const supabase = await createServerSupabaseClient();
     const { data } = await supabase
       .from("profiles")
-      .select("id, full_name, phone, avatar_url, role, email")
+      .select("id, full_name, phone, avatar_url, role, email, is_seller")
       .eq("id", user.id)
       .maybeSingle<ProfileRow>();
 
@@ -138,6 +139,7 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
         phone: data.phone ?? null,
         role: normalizeRole(data.role),
         avatarUrl: data.avatar_url ?? null,
+        isSeller: Boolean(data.is_seller) || data.role === "seller",
       };
     }
 
@@ -159,7 +161,7 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
           },
           { onConflict: "id", ignoreDuplicates: true }
         )
-        .select("id, full_name, phone, avatar_url, role, email")
+        .select("id, full_name, phone, avatar_url, role, email, is_seller")
         .maybeSingle<ProfileRow>();
 
       if (created) {
@@ -170,6 +172,7 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
           phone: created.phone ?? null,
           role: normalizeRole(created.role),
           avatarUrl: created.avatar_url ?? null,
+          isSeller: Boolean(created.is_seller) || created.role === "seller",
         };
       }
     }

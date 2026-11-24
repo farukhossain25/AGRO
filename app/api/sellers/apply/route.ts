@@ -2,7 +2,9 @@ import { db } from "@/lib/db";
 import type { TablesInsert } from "@/lib/database.types";
 import { created, fail, handleError, limitGuard, ok, requireUser } from "@/lib/api";
 import { sellerApplySchema } from "@/lib/validation";
+import type { Seller } from "@/lib/types";
 import { getSellerSettings, getSellerByUser } from "@/lib/sellers";
+import { ensureSellerFarm } from "@/lib/seller-farm";
 import { notify, notifyAdmins } from "@/lib/notify";
 import { ADMIN_BASE } from "@/lib/paths";
 
@@ -87,6 +89,9 @@ export async function POST(req: Request) {
     if (error) throw error;
 
     await client.from("profiles").update({ is_seller: true }).eq("id", user.id);
+
+    // auto_approve → the seller is live right away, so the farm must exist now.
+    if (seller.status === "approved") await ensureSellerFarm(seller as unknown as Seller).catch(() => null);
 
     await notify({
       userId: user.id,

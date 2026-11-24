@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, Heart, Layers, LifeBuoy, LogOut, MapPin, Package, Repeat, ShieldCheck, Sparkles, User } from "lucide-react";
+import { Bell, Heart, Layers, LifeBuoy, LogOut, MapPin, Package, Repeat, ShieldCheck, Sparkles, Store, User } from "lucide-react";
 import { useLocale } from "@/lib/locale";
 
 const links = [
@@ -19,10 +19,15 @@ const links = [
   { href: "/account/security", labelBn: "নিরাপত্তা", labelEn: "Security", Icon: ShieldCheck },
 ];
 
-export function AccountNav() {
+const SELLER_LINK = { href: "/seller", labelBn: "সেলার ড্যাশবোর্ড", labelEn: "Seller dashboard", Icon: Store };
+
+export function AccountNav({ isSeller = false }: { isSeller?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
   const { t } = useLocale();
+
+  // Sellers get a direct door to /seller — every other entry here is /account/*.
+  const items = isSeller ? [links[0], SELLER_LINK, ...links.slice(1)] : links;
 
   async function signOut() {
     await fetch("/auth/signout", { method: "POST" });
@@ -33,7 +38,7 @@ export function AccountNav() {
   return (
     <nav aria-label="অ্যাকাউন্ট মেনু" className="min-w-0 lg:sticky lg:top-24 lg:self-start">
       <ul className="no-scrollbar neu-raised flex w-full max-w-full gap-1.5 overflow-x-auto overscroll-x-contain rounded-[22px] p-1.5 lg:flex-col lg:gap-0.5">
-        {links.map(({ href, labelBn, labelEn, Icon }) => {
+        {items.map(({ href, labelBn, labelEn, Icon }) => {
           const active = pathname === href || (href !== "/account" && pathname.startsWith(`${href}/`));
           return (
             <li key={href} className="shrink-0 lg:w-full">

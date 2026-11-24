@@ -13,6 +13,7 @@ import {
   Settings,
   ShieldCheck,
   Sparkles,
+  Store,
   User as UserIcon,
 } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -150,6 +151,19 @@ export function UserMenu({ premium = false }: { premium?: boolean }) {
           </div>
 
           <div className="py-1">
+            {/* A seller's own dashboard — without this row the only way in was
+                typing /seller, which is why sellers reported "can't find my page". */}
+            {user.isSeller || user.role === "seller" ? (
+              <Link
+                href="/seller"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className="flex min-h-[38px] items-center gap-2.5 rounded-2xl px-3 py-2 text-[12.5px] font-semibold text-neu-accent-strong transition hover:bg-neu-accent-soft/70"
+              >
+                <Store className="h-3.5 w-3.5" />
+                {t("সেলার ড্যাশবোর্ড", "Seller dashboard")}
+              </Link>
+            ) : null}
             {ITEMS.map((item) => (
               <Link
                 key={item.href}

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { created, fail, handleError, limitGuard, ok, requireUser } from "@/lib/api";
 import { getSellerByUser } from "@/lib/sellers";
+import { ensureSellerFarm } from "@/lib/seller-farm";
 import { notifyAdmins } from "@/lib/notify";
 import { ADMIN_BASE } from "@/lib/paths";
 
@@ -33,11 +34,15 @@ export async function POST(req: Request) {
 
     if (open) return fail("আপনার একটি রিকোয়েস্ট আগেই অপেক্ষমাণ আছে", 409);
 
+    // Pin the request to the seller's farm so "installed" can put the cameras
+    // somewhere concrete. Never blocks the request if the farm can't be made.
+    const farm = await ensureSellerFarm(seller).catch(() => null);
+
     const { data: row, error } = await db()
       .from("camera_requests")
       .insert({
         seller_id: seller.id,
-        farm_id: seller.farm_id,
+        farm_id: seller.farm_id ?? farm?.id ?? null,
         camera_count: data.camera_count,
         note_bn: data.note_bn || null,
         status: "pending",

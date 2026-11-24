@@ -626,6 +626,7 @@ export type Seller = {
   farm_address_bn: string | null;
   division: string;
   district: string;
+  upazila: string | null;
   farm_photos: string[] | null;
   product_types: string[] | null;
   payout_method: "bkash" | "nagad" | "bank";
