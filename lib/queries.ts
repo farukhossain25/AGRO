@@ -24,7 +24,8 @@ export async function getCategories(activeOnly = true): Promise<Category[]> {
 }
 
 export async function getCategoryBySlug(slug: string): Promise<Category | null> {
-  const { data } = await db().from("categories").select("*").eq("slug", slug).maybeSingle();
+  const { data, error } = await db().from("categories").select("*").eq("slug", slug).maybeSingle();
+  if (error) throw error; // a failed read is NOT "category missing"
   return (data as Category) ?? null;
 }
 
@@ -85,7 +86,10 @@ export async function getProducts(filters: ProductFilters = {}): Promise<Product
 }
 
 export async function getProductBySlug(slug: string): Promise<Product | null> {
-  const { data } = await db().from("products").select("*").eq("slug", slug).maybeSingle();
+  const { data, error } = await db().from("products").select("*").eq("slug", slug).maybeSingle();
+  // Swallowing this error turned every product link into "পণ্য পাওয়া যায়নি"
+  // during a Supabase hiccup. Callers decide 404 vs retry via lookup().
+  if (error) throw error;
   return (data as Product) ?? null;
 }
 
@@ -144,7 +148,8 @@ export async function getCombos(kind?: "daily" | "weekly" | "monthly"): Promise<
 }
 
 export async function getComboBySlug(slug: string): Promise<Combo | null> {
-  const { data } = await db().from("combos").select("*").eq("slug", slug).maybeSingle();
+  const { data, error } = await db().from("combos").select("*").eq("slug", slug).maybeSingle();
+  if (error) throw error; // never let an outage look like "combo removed"
   if (!data) return null;
   return {
     ...data,
@@ -176,7 +181,8 @@ export async function getBlogPosts(limit = 12): Promise<BlogPost[]> {
 }
 
 export async function getBlogPost(slug: string): Promise<BlogPost | null> {
-  const { data } = await db().from("blog_posts").select("*").eq("slug", slug).maybeSingle();
+  const { data, error } = await db().from("blog_posts").select("*").eq("slug", slug).maybeSingle();
+  if (error) throw error;
   return (data as BlogPost) ?? null;
 }
 
@@ -267,11 +273,13 @@ export async function getDeliveryZones(): Promise<DeliveryZone[]> {
 }
 
 export async function getCouponByCode(code: string): Promise<Coupon | null> {
-  const { data } = await db()
+  const { data, error } = await db()
     .from("coupons")
     .select("*")
     .ilike("code", code.trim())
     .maybeSingle();
+  // "invalid coupon" and "database down" must not collapse into one message.
+  if (error) throw error;
   return (data as Coupon) ?? null;
 }
 
@@ -293,11 +301,12 @@ function shapeOrder(row: Record<string, unknown>): Order & { order_items: OrderI
 
 export async function getOrderByNo(orderNo: string): Promise<(Order & { order_items: OrderItem[] }) | null> {
   const token = orderNo.toUpperCase().trim();
-  const { data } = await db()
+  const { data, error } = await db()
     .from("orders")
     .select("*, order_items(*)")
     .eq("order_no", token)
     .maybeSingle();
+  if (error) throw error; // a lookup failure must not read as "no such order"
   return data ? shapeOrder(data as Record<string, unknown>) : null;
 }
 

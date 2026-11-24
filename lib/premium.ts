@@ -286,7 +286,7 @@ export async function listPlans(activeOnly = true): Promise<PremiumPlan[]> {
     return data as unknown as PremiumPlan[];
   } catch (error) {
     // Build-time / offline prerender must not fail on a pricing page.
-    markDbUnreachable();
+    markDbUnreachable(error);
     console.warn("[premium] plans read failed:", (error as Error).message);
     return [];
   }

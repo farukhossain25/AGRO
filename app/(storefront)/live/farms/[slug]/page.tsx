@@ -4,7 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CalendarDays, MapPin, Phone, ShieldCheck, Sprout, Users, Video } from "lucide-react";
 import { decodeRouteParam } from "@/lib/format";
-import { getFarmBySlug, farmTypeLabelBn } from "@/lib/farms";
+import { lookupFarmBySlug, farmTypeLabelBn } from "@/lib/farms";
 import { FarmCameras } from "@/components/live/farm-cameras";
 import { FarmDetailMap } from "@/components/live/farm-detail-map";
 import { breadcrumbLd, dynamicAlternates, jsonLdScript } from "@/lib/seo";
@@ -25,7 +25,8 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug: rawSlug } = await params;
   const slug = decodeRouteParam(rawSlug);
-  const farm = await getFarmBySlug(slug);
+  const found = await lookupFarmBySlug(slug);
+  const farm = found.state === "ok" ? found.value : null;
   if (!farm) return { title: "খামার পাওয়া যায়নি" };
 
   return {
@@ -44,7 +45,10 @@ export async function generateMetadata({
 export default async function FarmDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug: rawSlug } = await params;
   const slug = decodeRouteParam(rawSlug);
-  const farm = await getFarmBySlug(slug);
+  /* A database hiccup must not look like "this farm does not exist". */
+  const found = await lookupFarmBySlug(slug);
+  if (found.state === "error") throw new Error(`farm lookup failed for "${slug}"`);
+  const farm = found.value;
   if (!farm) notFound();
 
   const output = (farm.daily_output ?? {}) as Record<string, number | string>;

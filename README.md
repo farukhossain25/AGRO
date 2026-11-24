@@ -398,6 +398,7 @@ npm run dev                     # http://localhost:3000
   দেখুন `docs/live-camera-no-vps.md`।
 - **লাইভ ক্যামেরা (ভিপিএস পথ)**: MediaMTX/go2rtc নিজের VPS-এ চালান, `STREAM_PROXY_TARGET`
   দিন। Vercel ক্যামেরা রেকর্ড রাখে, স্ট্রিম প্রক্সি করে (`app/api/stream/*`)।
+  AWS Free Tier-এ ৫–৭ দিনের টেস্ট: `docs/live-camera-aws-test.md`।
   টোকেন স্বল্পমেয়াদি (`STREAM_TOKEN_SECRET`), প্রতি ইউজার ডিভাইস-লিমিট
   `premium_devices`-এ থাকে।
 - **PWA/Android**: `manifest.ts`, service worker, Capacitor (`npm run cap:sync`)।
