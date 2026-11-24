@@ -120,14 +120,8 @@ const GROUPS: Group[] = [
   {
     key: "reviews",
     title: "রিভিউ",
-    desc: "গ্রাহকের রিভিউ কীভাবে প্রকাশ হবে।",
+    desc: "গ্রাহকের রিভিউ সাথে সাথে প্রকাশিত হয় — অনুমোদনের দরকার নেই। চাইলে রিভিউ পেজ থেকে লুকানো বা মুছে ফেলা যায়।",
     fields: [
-      {
-        path: "reviews.auto_publish",
-        label: "রিভিউ নিজে থেকেই প্রকাশ হবে",
-        hint: "বন্ধ করলে আপনাকে অনুমোদন করতে হবে।",
-        type: "boolean",
-      },
       { path: "reviews.max_photos", label: "সর্বোচ্চ ছবি", type: "number" },
       { path: "reviews.edit_window_days", label: "রিভিউ সম্পাদনার সময়", type: "number", suffix: "দিন" },
       { path: "reviews.low_rating_threshold", label: "এই রেটিং হলে সতর্ক হোন", type: "number", suffix: "★" },

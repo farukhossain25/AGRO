@@ -43,7 +43,7 @@ export function ReviewForm({ productId }: { productId: string | null }) {
       setRating(5);
       toast.success(
         t("ধন্যবাদ! আপনার মতামত পেয়েছি", "Thanks! Your review was received"),
-        t("অ্যাপ্রুভালের পর দেখা যাবে।", "It will appear after moderation.")
+        t("আপনার মতামত এখনই প্রকাশিত হয়েছে।", "Your review is live now.")
       );
     } catch (err) {
       toast.error(t("মতামত পাঠানো যায়নি", "Could not submit review"), (err as Error).message);

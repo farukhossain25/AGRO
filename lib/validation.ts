@@ -177,6 +177,8 @@ export const sellerProductSchema = z.object({
   compare_price: z.coerce.number().min(0).optional().nullable(),
   stock: z.coerce.number().int().min(0),
   image: z.string().trim().optional().or(z.literal("")),
+  /** full gallery; [0] is the cover. Sellers upload these from their device. */
+  images: z.array(z.string().trim().min(1).max(600)).max(6).optional(),
   weight_grams: z.coerce.number().int().min(0).optional().nullable(),
 });
 

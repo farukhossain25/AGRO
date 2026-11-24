@@ -141,7 +141,7 @@ export async function getReviewTags(): Promise<ReviewTag[]> {
   }
 }
 
-const FALLBACK_TAGS: ReviewTag[] = [
+export const FALLBACK_TAGS: ReviewTag[] = [
   { slug: "fresh", label_bn: "তাজা", label_en: "Fresh", sentiment: "positive", sort_order: 1 },
   { slug: "packaging", label_bn: "ভালো প্যাকেজিং", label_en: "Good packaging", sentiment: "positive", sort_order: 2 },
   { slug: "right_weight", label_bn: "সঠিক ওজন", label_en: "Correct weight", sentiment: "positive", sort_order: 3 },

@@ -29,6 +29,7 @@ const EXTRA_FILES = [
   "19_payments_functions.sql",
   "20_payments_rls_storage.sql",
   "21_payments_seed.sql",
+  "22_seller_logo_banner.sql",
 ];
 
 async function run(file, round) {

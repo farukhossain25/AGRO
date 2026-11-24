@@ -631,6 +631,9 @@ export type Seller = {
   upazila: string | null;
   farm_photos: string[] | null;
   product_types: string[] | null;
+  /** store logo / banner uploaded by the seller from the dashboard (migration 22) */
+  logo: string | null;
+  banner: string | null;
   payout_method: "bkash" | "nagad" | "bank";
   payout_number: string | null;
   bank_name: string | null;

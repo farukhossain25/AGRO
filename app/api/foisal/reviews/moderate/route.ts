@@ -9,8 +9,8 @@ export const runtime = "nodejs";
 /* ==========================================================================
    PATCH /api/foisal/reviews/moderate — hide or restore a review
    --------------------------------------------------------------------------
-   Admin may hide (spam/abuse) and restore. Reviews are never hard-deleted, so
-   the quality history stays intact for the supplier score.
+   Admin may hide (spam/abuse) and restore — the reversible tool. A hard
+   delete lives at DELETE /api/foisal/reviews for what must really go.
    ========================================================================== */
 
 const schema = z.object({

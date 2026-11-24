@@ -30,11 +30,17 @@ export type ImageFieldProps = {
   value: string;
   onChange: (url: string) => void;
   label?: string;
-  bucket?: "product-images" | "hero-slides" | "payment-logos" | "cms-media" | "farm-images";
+  bucket?: "product-images" | "hero-slides" | "payment-logos" | "cms-media" | "farm-images" | "logos";
   hint?: string;
   /** aspect ratio of the preview */
   ratio?: "square" | "wide" | "banner";
   allowUrl?: boolean;
+  /**
+   * Upload endpoint. The panel uses /api/foisal/media (media.write); the
+   * seller dashboard uses /api/upload, which checks the caller is an approved
+   * seller before accepting a product-images / logos / farm-images upload.
+   */
+  endpoint?: "/api/foisal/media" | "/api/upload";
 };
 
 export function ImageField({
@@ -45,6 +51,7 @@ export function ImageField({
   hint,
   ratio = "wide",
   allowUrl = true,
+  endpoint = "/api/foisal/media",
 }: ImageFieldProps) {
   const inputId = useId();
   const input = useRef<HTMLInputElement>(null);
@@ -75,7 +82,7 @@ export function ImageField({
       body.append("file", prepared);
       body.append("bucket", bucket);
 
-      const res = await fetch("/api/foisal/media", { method: "POST", body });
+      const res = await fetch(endpoint, { method: "POST", body });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.message ?? "আপলোড ব্যর্থ");
       onChange(json.data.url);

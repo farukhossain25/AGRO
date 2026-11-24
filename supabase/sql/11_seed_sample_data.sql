@@ -35,7 +35,7 @@ insert into public.site_settings (key, value) values
   ('store', '{"name_bn":"বিশ্বাস এগ্রো","name_en":"Biswas Agro","tagline_bn":"বিশুদ্ধতার আস্থায়, খামার থেকে আপনার ঘরে","phone":"01700000000","whatsapp":"01700000000","email":"hello@bishwasagro.com","address_bn":"ঢাকা, বাংলাদেশ","logo_url":"","favicon_url":"/favicon.svg","currency":"BDT","primary_color":"#1f7a4d"}'::jsonb),
   ('delivery', '{"inside_dhaka":60,"outside_dhaka":120,"free_over":1200,"combo_free_delivery":true}'::jsonb),
   ('seller', '{"auto_approve":false,"default_commission_percent":10}'::jsonb),
-  ('reviews', '{"auto_publish":true,"max_photos":3,"edit_window_days":7,"low_rating_threshold":2}'::jsonb),
+  ('reviews', '{"max_photos":3,"edit_window_days":7,"low_rating_threshold":2}'::jsonb),
   ('premium', '{"trial_minutes":10,"grace_days":3,"default_device_limit":2,"max_viewers_per_camera":50}'::jsonb),
   ('announcement', '{"text_bn":"সকাল ১০টার আগে অর্ডার করলে আজই ডেলিভারি — ঢাকার ভেতরে ফ্রি ডেলিভারি ১২০০৳+ অর্ডারে","is_active":true}'::jsonb)
 on conflict (key) do nothing;

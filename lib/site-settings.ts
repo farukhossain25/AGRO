@@ -127,8 +127,8 @@ export const getSellerSettings = cache(async (): Promise<SellerSettings> => {
 
 /* -------------------------------------------------------------- reviews */
 
+/** Reviews always publish themselves; these only shape the form and alerts. */
 export type ReviewSettings = {
-  auto_publish: boolean;
   max_photos: number;
   edit_window_days: number;
   low_rating_threshold: number;
@@ -137,7 +137,6 @@ export type ReviewSettings = {
 export const getReviewSettings = cache(async (): Promise<ReviewSettings> => {
   const row = await readRow("reviews");
   return {
-    auto_publish: bool(row.auto_publish, true),
     max_photos: num(row.max_photos, 3),
     edit_window_days: num(row.edit_window_days, 7),
     low_rating_threshold: num(row.low_rating_threshold, 2),
