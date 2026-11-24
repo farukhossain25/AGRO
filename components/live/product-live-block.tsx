@@ -118,7 +118,7 @@ export function ProductLiveBlock({
             <Radio className="h-4 w-4 text-red-400" />
             {t("লাইভ ফুটেজ", "Live footage")}
           </h2>
-          <span className="text-[10.5px] text-sand-100/35">{farmName}</span>
+          <span className="text-[10.5px] text-white/35">{farmName}</span>
         </div>
 
         <div className="p-3 sm:p-4">
@@ -133,7 +133,7 @@ export function ProductLiveBlock({
                 unoptimized
               />
             ) : (
-              <div className="aspect-video w-full bg-gradient-to-br from-leaf-900/60 via-ink-900 to-ink-950" />
+              <div className="aspect-video w-full bg-gradient-to-br from-leaf-900/60 via-scrim to-scrim" />
             )}
 
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 px-6 text-center">
@@ -163,7 +163,7 @@ export function ProductLiveBlock({
             </div>
           </div>
 
-          <p className="mt-2 text-center text-[10.5px] text-sand-100/35">
+          <p className="mt-2 text-center text-[10.5px] text-white/35">
             {t(
               `${online.length}টি ক্যামেরা এই খামারে লাইভ আছে`,
               `${online.length} camera(s) live on this farm`
@@ -185,7 +185,7 @@ export function ProductLiveBlock({
             {reason === "trial" ? t("ট্রায়াল", "Trial") : t("লাইভ", "Live")}
           </span>
         </h2>
-        <span className="text-[10.5px] text-sand-100/35">{farmName}</span>
+        <span className="text-[10.5px] text-white/35">{farmName}</span>
       </div>
 
       <div className="p-3 sm:p-4">
@@ -237,7 +237,7 @@ export function ProductLiveBlock({
                   className={`flex shrink-0 items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-[11.5px] font-medium transition ${
                     isActive
                       ? "border-leaf-500 bg-leaf-600/20 text-leaf-100"
-                      : "border-white/10 text-sand-100/60 hover:border-white/25"
+                      : "border-white/10 text-white/60 hover:border-white/25"
                   }`}
                   aria-pressed={isActive}
                 >
@@ -248,7 +248,7 @@ export function ProductLiveBlock({
                   />
                   {cam.nameBn}
                   {cam.zoneBn ? (
-                    <span className="text-[9.5px] text-sand-100/35">· {cam.zoneBn}</span>
+                    <span className="text-[9.5px] text-white/35">· {cam.zoneBn}</span>
                   ) : null}
                 </button>
               );
@@ -257,7 +257,7 @@ export function ProductLiveBlock({
         ) : null}
 
         <div className="mt-2 flex items-center justify-between">
-          <p className="inline-flex items-center gap-1 text-[10.5px] text-sand-100/35">
+          <p className="inline-flex items-center gap-1 text-[10.5px] text-white/35">
             <Camera className="h-3 w-3" />
             {t("৫ মিনিটের নিরাপদ স্ট্রিম টোকেন", "5-minute signed stream token")}
           </p>
@@ -306,7 +306,7 @@ function StateCard({
           unoptimized
         />
       ) : (
-        <div className="aspect-video w-full bg-gradient-to-br from-leaf-900/40 via-ink-900 to-ink-950" />
+        <div className="aspect-video w-full bg-gradient-to-br from-leaf-900/40 via-scrim to-scrim" />
       )}
 
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-6 text-center">
@@ -314,7 +314,7 @@ function StateCard({
           className={`grid h-11 w-11 place-items-center rounded-full ${
             tone === "locked"
               ? "bg-black/55 text-white ring-1 ring-white/20"
-              : "bg-white/[0.06] text-sand-100/70 ring-1 ring-white/10"
+              : "bg-white/[0.06] text-white/70 ring-1 ring-white/10"
           }`}
         >
           {icon}
@@ -332,7 +332,7 @@ function StateCard({
     <section className="card overflow-hidden">
       <div className="border-b border-white/[0.07] px-4 py-3 sm:px-5">
         <h2 className="flex items-center gap-2 text-[14px] font-bold">
-          <Radio className="h-4 w-4 text-sand-100/40" />
+          <Radio className="h-4 w-4 text-white/40" />
           লাইভ ফুটেজ
         </h2>
       </div>

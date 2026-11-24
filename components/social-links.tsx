@@ -71,7 +71,7 @@ export async function SocialLinks({
               rel={link.url.startsWith("http") ? "noopener noreferrer me" : undefined}
               aria-label={label}
               title={label}
-              className={`grid ${box} place-items-center rounded-full bg-white/[0.06] text-sand-100/60 transition hover:bg-leaf-600/25 hover:text-leaf-200`}
+              className={`grid ${box} place-items-center rounded-full bg-white/[0.06] text-sand-100/60 transition hover:bg-leaf-600/25 hover:text-leaf-700`}
               style={link.color ? { color: link.color } : undefined}
             >
               <Icon className={icon} />

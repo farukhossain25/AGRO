@@ -145,7 +145,7 @@ export default async function CombosPage() {
         ) : null
       )}
 
-      <div className="card mt-12 flex flex-col items-start justify-between gap-4 border-leaf-600/30 bg-gradient-to-r from-leaf-800/40 to-ink-850 p-6 sm:flex-row sm:items-center">
+      <div className="card mt-12 flex flex-col items-start justify-between gap-4 border-neu-accent/25 bg-gradient-to-r from-neu-accent-soft to-neu-raised p-6 sm:flex-row sm:items-center">
         <div>
           <h2 className="text-lg font-bold">প্রতি সপ্তাহে অটোমেটিক বক্স চান?</h2>
           <p className="mt-1 text-[13px] text-sand-100/60">

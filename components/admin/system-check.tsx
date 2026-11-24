@@ -87,7 +87,7 @@ export function SystemCheck() {
 
         {report ? (
           <div className="ml-auto flex items-center gap-2 text-[12px]">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-leaf-500/30 bg-leaf-600/10 px-2.5 py-1 font-semibold text-leaf-200">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-leaf-500/30 bg-leaf-600/10 px-2.5 py-1 font-semibold text-leaf-700">
               <CheckCircle2 className="h-3.5 w-3.5" /> {report.passed} পাস
             </span>
             <span
@@ -118,7 +118,7 @@ export function SystemCheck() {
         if (!rows.length) return null;
         const failures = rows.filter((r) => r.status === "fail").length;
         return (
-          <section key={group} className="overflow-hidden rounded-2xl border border-white/[0.07] bg-ink-900/60">
+          <section key={group} className="overflow-hidden rounded-2xl border border-white/80 bg-neu-surface/70 shadow-neu-sm">
             <header className="flex items-center justify-between gap-3 border-b border-white/[0.06] px-4 py-2.5">
               <h2 className="text-[13px] font-bold text-sand-100">{GROUP_LABEL[group]}</h2>
               <span className={`text-[11px] font-semibold ${failures ? "text-red-300" : "text-leaf-300"}`}>

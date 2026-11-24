@@ -24,7 +24,7 @@ type Sub = {
 };
 
 const STATUS_TONE: Record<string, string> = {
-  active: "bg-leaf-600/20 text-leaf-200",
+  active: "bg-leaf-600/20 text-leaf-700",
   grace: "bg-amber-500/15 text-amber-300",
   pending: "bg-sky-500/15 text-sky-300",
   expired: "bg-white/[0.07] text-sand-100/45",

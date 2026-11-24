@@ -9,29 +9,103 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  :root {
-    color-scheme: dark;
-  }
+/* ==========================================================================
+   JapanLogue · Neumorphism design tokens
+   --------------------------------------------------------------------------
+   One source of truth for the entire application. The neutral / brand scales
+   are exposed as CSS channels so Tailwind's opacity modifiers, gradients,
+   rings and divide utilities all re-theme together.
+   ========================================================================== */
+:root {
+  color-scheme: light;
 
+  /* ── Reference palette ─────────────────────────────────────────────── */
+  --neu-bg: #e3e8f0;
+  --neu-surface: #e7ecf4;
+  --neu-raised: #eef2f8;
+  --neu-sunken: #d9dfe9;
+  --neu-line: #c7ceda;
+  --neu-highlight: #ffffff;
+  --neu-ink: #303943;
+  --neu-muted: #566270;
+  --neu-faint: #5A6572;
+  --neu-accent: #2f8f66;
+  --neu-accent-strong: #23724f;
+  --neu-accent-soft: #dcefe5;
+
+  /* ── Neumorphic elevation ──────────────────────────────────────────── */
+  --neu-shadow-raised: 10px 10px 24px rgba(163, 177, 198, 0.52), -10px -10px 24px rgba(255, 255, 255, 0.95);
+  --neu-shadow-raised-sm: 6px 6px 14px rgba(163, 177, 198, 0.48), -6px -6px 14px rgba(255, 255, 255, 0.92);
+  --neu-shadow-raised-xs: 3px 3px 8px rgba(163, 177, 198, 0.42), -3px -3px 8px rgba(255, 255, 255, 0.9);
+  --neu-inset: inset 6px 6px 12px rgba(163, 177, 198, 0.48), inset -6px -6px 12px rgba(255, 255, 255, 0.95);
+  --neu-inset-sm: inset 3px 3px 7px rgba(163, 177, 198, 0.42), inset -3px -3px 7px rgba(255, 255, 255, 0.95);
+  --neu-inset-xs: inset 2px 2px 5px rgba(163, 177, 198, 0.38), inset -2px -2px 5px rgba(255, 255, 255, 0.9);
+
+  /* ── Tailwind colour channels (light neumorphic values) ────────────── */
+  --ink-950: 30 36 44;
+  --ink-900: 227 232 240;
+  --ink-850: 231 236 244;
+  --ink-800: 221 227 237;
+  --ink-700: 199 206 218;
+  --ink-600: 152 163 179;
+  --ink: 48 57 67;
+
+  --sand-50: 255 255 255;
+  --sand-100: 48 57 67;
+  --sand-200: 112 123 137;
+  --sand-300: 152 163 179;
+  --sand: 231 236 244;
+
+  --leaf-50: 244 250 247;
+  --leaf-100: 35 118 82;
+  --leaf-200: 30 111 78;
+  --leaf-300: 30 111 78;
+  --leaf-400: 47 143 102;
+  --leaf-500: 47 143 102;
+  --leaf-600: 36 122 85;
+  --leaf-700: 28 98 68;
+  --leaf-800: 22 77 55;
+  --leaf-900: 16 58 42;
+  --leaf: 47 143 102;
+
+  /* status text channels (AA on the soft surface) */
+  --red-100: 192 57 43;
+  --red-200: 192 57 43;
+  --red-300: 192 57 43;
+  --red-400: 220 38 38;
+  --amber-100: 163 92 7;
+  --amber-200: 163 92 7;
+  --amber-300: 163 92 7;
+  --sky-300: 3 105 161;
+  --emerald-300: 3 96 71;
+  --emerald-400: 3 96 71;
+}
+
+@layer base {
   html {
     scroll-behavior: smooth;
     -webkit-text-size-adjust: 100%;
-    /* iOS Safari: stop the rubber-band from revealing a white gutter */
-    background-color: #111312;
+    /* No background here on purpose: with a transparent root the body's
+       background propagates to the canvas, which keeps `z-index: -10` photo
+       scrims painting *above* the page instead of behind it. iOS still never
+       shows a bare gutter, because the canvas is painted by the body. */
   }
 
   body {
-    @apply bg-ink-900 text-sand-100 font-bn antialiased;
+    @apply bg-neu-bg text-neu-ink font-bn antialiased;
     /* A single wide element must never turn the whole site into a sideways
        scroll on a phone. `clip` (not `hidden`) keeps `position: sticky` working. */
     overflow-x: clip;
-    background-image: radial-gradient(70% 45% at 50% -10%, rgba(31, 122, 77, 0.22), transparent 70%);
-    background-repeat: no-repeat;
+    background-image:
+      radial-gradient(60% 45% at 50% -10%, rgba(255, 255, 255, 0.9), rgba(227, 232, 240, 0) 65%),
+      radial-gradient(45% 35% at 100% 0%, rgba(199, 206, 218, 0.4), rgba(227, 232, 240, 0) 60%),
+      radial-gradient(50% 40% at 0% 100%, rgba(255, 255, 255, 0.55), rgba(227, 232, 240, 0) 60%);
+    background-attachment: fixed;
   }
 
   ::selection {
-    @apply bg-leaf-600/60 text-white;
+    background: rgba(47, 143, 102, 0.22);
+    color: var(--neu-ink);
   }
 
   /* Scrollbar */
@@ -40,25 +114,34 @@
     height: 10px;
   }
   ::-webkit-scrollbar-track {
-    @apply bg-ink-900;
+    background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    @apply bg-ink-600 rounded-full;
+    background: var(--neu-line);
+    border-radius: 999px;
+    border: 2px solid var(--neu-bg);
   }
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-leaf-700;
+    background: var(--neu-faint);
   }
 
-  h1, h2, h3, h4 {
+  h1,
+  h2,
+  h3,
+  h4 {
     @apply font-display tracking-tight;
+    /* Colour is inherited, never pinned: headings that sit on a photo scrim,
+       an accent gradient or an inverted chip take the surrounding tone. */
     text-wrap: balance;
   }
 
   :focus-visible {
-    @apply outline-none ring-2 ring-leaf-400 ring-offset-2 ring-offset-ink-900;
+    @apply outline-none ring-2 ring-neu-accent/50 ring-offset-2 ring-offset-neu-bg;
   }
 
-  input, select, textarea {
+  input,
+  select,
+  textarea {
     @apply font-bn;
     /*
      * iOS Safari zooms the page whenever a focused field is under 16px. Every
@@ -66,10 +149,20 @@
      * below opt back in from sm: upward, where zoom does not happen.
      */
     font-size: 16px;
+    color: var(--neu-ink);
   }
 
-  /* Native tap highlight looks accidental on a dark surface */
-  a, button, [role="button"], label, summary {
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--neu-faint);
+  }
+
+  /* Native tap highlight looks accidental on a soft surface */
+  a,
+  button,
+  [role="button"],
+  label,
+  summary {
     -webkit-tap-highlight-color: transparent;
   }
 
@@ -89,7 +182,14 @@
   }
 
   /* Long unbroken Bangla/English tokens must not blow out a 360px screen */
-  h1, h2, h3, p, li, dd, td, th {
+  h1,
+  h2,
+  h3,
+  p,
+  li,
+  dd,
+  td,
+  th {
     overflow-wrap: anywhere;
   }
 
@@ -107,7 +207,7 @@
   }
 
   input[type="date"]::-webkit-calendar-picker-indicator {
-    filter: invert(0.85);
+    opacity: 0.55;
   }
 
   /*
@@ -130,53 +230,242 @@
 }
 
 @layer components {
+  /* ------------------------------------------------------------------ */
+  /* Layout                                                              */
+  /* ------------------------------------------------------------------ */
   .container-x {
     @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
   }
 
+  /* ------------------------------------------------------------------ */
+  /* Neumorphic primitives                                               */
+  /* ------------------------------------------------------------------ */
+
+  /* Raised card — dual shadow + inner top highlight */
   .card {
-    @apply rounded-3xl border border-white/[0.06] bg-ink-850/80 shadow-card backdrop-blur-sm;
+    border-radius: 1.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    background-color: var(--neu-surface);
+    box-shadow: var(--neu-shadow-raised), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    color: var(--neu-ink);
+  }
+
+  /* the gradient only applies when the element does not set its own bg-* utility */
+  .card:not([class*="bg-"]) {
+    background-image: linear-gradient(145deg, #eef2f8 0%, #e3e8f0 100%);
   }
 
   .card-hover {
-    @apply transition-all duration-300 hover:-translate-y-1 hover:border-leaf-600/40 hover:shadow-glow;
+    transition:
+      transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 0.25s ease;
   }
 
+  @media (hover: hover) {
+    .card-hover:hover {
+      transform: translateY(-3px);
+      border-color: rgba(255, 255, 255, 0.95);
+      box-shadow:
+        16px 16px 36px rgba(163, 177, 198, 0.55),
+        -16px -16px 36px rgba(255, 255, 255, 1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    }
+  }
+
+  /* Generic raised surface (no colour assumptions) */
+  .neu-raised {
+    background-image: linear-gradient(145deg, #eef2f8 0%, #e3e8f0 100%);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    box-shadow: var(--neu-shadow-raised-sm), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  }
+
+  .neu-raised-xs {
+    background-image: linear-gradient(145deg, #f1f4f9 0%, #e6ebf3 100%);
+    border: 1px solid rgba(255, 255, 255, 0.85);
+    box-shadow: var(--neu-shadow-raised-xs), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  }
+
+  .neu-raised-lg {
+    background-image: linear-gradient(145deg, #eef2f8 0%, #e3e8f0 100%);
+    border: 1px solid rgba(255, 255, 255, 0.82);
+    box-shadow: var(--neu-shadow-raised), inset 0 1px 0 rgba(255, 255, 255, 0.92);
+  }
+
+  /* Inset well — inputs, search, progress tracks */
+  .neu-inset {
+    background-color: var(--neu-bg);
+    border: 1px solid rgba(199, 206, 218, 0.55);
+    box-shadow: var(--neu-inset);
+  }
+
+  .neu-inset-sm {
+    background-color: var(--neu-bg);
+    border: 1px solid rgba(199, 206, 218, 0.5);
+    box-shadow: var(--neu-inset-sm);
+  }
+
+  /* Floating navigation bar */
+  .neu-bar {
+    background-image: linear-gradient(145deg, rgba(238, 242, 248, 0.94) 0%, rgba(227, 232, 240, 0.94) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.85);
+    box-shadow:
+      10px 10px 26px rgba(163, 177, 198, 0.45),
+      -10px -10px 26px rgba(255, 255, 255, 0.95),
+      inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    -webkit-backdrop-filter: blur(18px);
+    backdrop-filter: blur(18px);
+  }
+
+  /* Circular raised icon button */
+  .neu-icon-btn {
+    @apply relative grid place-items-center rounded-full text-neu-muted transition-all duration-200;
+    background-image: linear-gradient(145deg, #eef2f8, #e3e8f0);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    box-shadow: var(--neu-shadow-raised-xs), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  }
+  .neu-icon-btn:hover {
+    color: var(--neu-accent-strong);
+    transform: translateY(-1px);
+    box-shadow: 5px 5px 12px rgba(163, 177, 198, 0.5), -5px -5px 12px rgba(255, 255, 255, 0.95);
+  }
+  .neu-icon-btn:active {
+    transform: scale(0.94);
+    box-shadow: var(--neu-inset-xs);
+  }
+
+  /* Small raised pill used for chips / tags */
+  .neu-pill {
+    @apply inline-flex items-center gap-1.5 rounded-full;
+    background-image: linear-gradient(145deg, #eef2f8, #e3e8f0);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    box-shadow: var(--neu-shadow-raised-xs), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Buttons                                                             */
+  /* ------------------------------------------------------------------ */
   .btn {
-    @apply inline-flex select-none items-center justify-center gap-2 rounded-full text-sm font-semibold transition-all duration-200 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
+    @apply inline-flex select-none items-center justify-center gap-2 rounded-full text-sm font-semibold transition-all duration-200 disabled:pointer-events-none disabled:opacity-50;
+    border: 1px solid transparent;
+  }
+
+  .btn:active:not(:disabled) {
+    transform: scale(0.97);
   }
 
   .btn-primary {
-    @apply btn bg-leaf-600 px-5 py-3 text-white shadow-[0_10px_30px_-12px_rgba(31,122,77,.9)] hover:bg-leaf-500;
+    @apply btn px-5 py-3 text-white;
+    background-image: linear-gradient(145deg, #3aa277 0%, #247a55 100%);
+    border-color: rgba(255, 255, 255, 0.24);
+    box-shadow:
+      7px 7px 16px rgba(163, 177, 198, 0.5),
+      -7px -7px 16px rgba(255, 255, 255, 0.9),
+      inset 0 1px 0 rgba(255, 255, 255, 0.32);
   }
 
-  .btn-mint {
-    @apply btn bg-leaf-200 px-5 py-3 text-ink-900 hover:bg-leaf-100;
+  @media (hover: hover) {
+    .btn-primary:hover:not(:disabled) {
+      filter: brightness(1.05);
+      transform: translateY(-1px);
+      box-shadow:
+        9px 9px 20px rgba(163, 177, 198, 0.55),
+        -9px -9px 20px rgba(255, 255, 255, 0.95),
+        inset 0 1px 0 rgba(255, 255, 255, 0.38);
+    }
+  }
+
+  .btn-primary:active:not(:disabled) {
+    box-shadow: var(--neu-inset-sm);
+    filter: brightness(0.98);
   }
 
   .btn-ghost {
-    @apply btn border border-white/10 bg-white/[0.03] px-5 py-3 text-sand-100 hover:border-leaf-500/50 hover:bg-white/[0.06];
+    @apply btn px-5 py-3 text-neu-ink;
+    background-image: linear-gradient(145deg, #eef2f8, #e3e8f0);
+    border-color: rgba(255, 255, 255, 0.78);
+    box-shadow: var(--neu-shadow-raised-sm), inset 0 1px 0 rgba(255, 255, 255, 0.92);
+  }
+
+  @media (hover: hover) {
+    .btn-ghost:hover:not(:disabled) {
+      color: var(--neu-accent-strong);
+      transform: translateY(-1px);
+      box-shadow: 8px 8px 18px rgba(163, 177, 198, 0.5), -8px -8px 18px rgba(255, 255, 255, 0.95);
+    }
+  }
+
+  .btn-ghost:active:not(:disabled) {
+    box-shadow: var(--neu-inset-sm);
+  }
+
+  .btn-mint {
+    @apply btn px-5 py-3;
+    color: #1c6245;
+    background-image: linear-gradient(145deg, #e9f6ef, #dcefe5);
+    border-color: rgba(255, 255, 255, 0.85);
+    box-shadow: var(--neu-shadow-raised-sm), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  }
+
+  @media (hover: hover) {
+    .btn-mint:hover:not(:disabled) {
+      filter: brightness(1.02);
+      transform: translateY(-1px);
+      box-shadow: 8px 8px 18px rgba(163, 177, 198, 0.48), -8px -8px 18px rgba(255, 255, 255, 0.95);
+    }
   }
 
   .btn-outline {
-    @apply btn border border-leaf-500/60 px-5 py-3 text-leaf-200 hover:bg-leaf-600/15;
+    @apply btn px-5 py-3;
+    color: var(--neu-accent-strong);
+    background-color: rgba(255, 255, 255, 0.32);
+    border-color: rgba(47, 143, 102, 0.32);
+    box-shadow: var(--neu-shadow-raised-xs);
+  }
+
+  @media (hover: hover) {
+    .btn-outline:hover:not(:disabled) {
+      background-color: rgba(47, 143, 102, 0.08);
+      border-color: rgba(47, 143, 102, 0.5);
+      transform: translateY(-1px);
+    }
   }
 
   .btn-sm {
     @apply px-3.5 py-2 text-[13px];
   }
 
+  /* ------------------------------------------------------------------ */
+  /* Forms                                                               */
+  /* ------------------------------------------------------------------ */
   .input {
-    @apply w-full rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 text-sm text-sand-100 placeholder:text-sand-100/35 transition focus:border-leaf-500 focus:bg-ink-800 focus:ring-0;
+    @apply w-full rounded-2xl px-4 py-3 text-sm text-neu-ink transition placeholder:text-neu-faint;
+    background-color: var(--neu-bg);
+    border: 1px solid rgba(199, 206, 218, 0.55);
+    box-shadow: var(--neu-inset);
+  }
+
+  .input:hover:not(:disabled) {
+    border-color: rgba(152, 163, 179, 0.65);
+  }
+
+  .input:focus {
+    border-color: rgba(47, 143, 102, 0.55);
+    box-shadow: var(--neu-inset), 0 0 0 3px rgba(47, 143, 102, 0.12);
+    outline: none;
+  }
+
+  .input:disabled {
+    opacity: 0.6;
   }
 
   .label {
-    @apply mb-1.5 block text-[13px] font-medium text-sand-100/70;
+    @apply mb-1.5 block text-[13px] font-medium text-neu-muted;
   }
 
-  /* ------------------------------------------------------------------
-     /login split-screen shell
-     ------------------------------------------------------------------ */
+  /* ------------------------------------------------------------------ */
+  /* /login split-screen shell                                           */
+  /* ------------------------------------------------------------------ */
   .auth-card {
     @apply relative w-full;
   }
@@ -194,16 +483,27 @@
     will-change: transform;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .auth-aurora {
-      animation: none;
-    }
-  }
-
   /* Compact variant for dense admin forms (payment methods, slides, layout).
      Same palette and focus ring as `.input`, just tighter. */
   .inp {
-    @apply w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[12.5px] text-sand-100 placeholder:text-sand-100/30 transition focus:border-leaf-500/60 focus:bg-white/[0.06] focus:outline-none;
+    @apply w-full rounded-xl px-3 py-2 text-[12.5px] text-neu-ink placeholder:text-neu-faint transition;
+    background-color: var(--neu-bg);
+    border: 1px solid rgba(199, 206, 218, 0.55);
+    box-shadow: var(--neu-inset-sm);
+  }
+
+  .inp:hover:not(:disabled) {
+    border-color: rgba(152, 163, 179, 0.65);
+  }
+
+  .inp:focus {
+    border-color: rgba(47, 143, 102, 0.55);
+    box-shadow: var(--neu-inset-sm), 0 0 0 3px rgba(47, 143, 102, 0.12);
+    outline: none;
+  }
+
+  .inp:disabled {
+    opacity: 0.6;
   }
 
   .inp-select {
@@ -211,15 +511,29 @@
   }
 
   .chip {
-    @apply inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-sand-100/80 transition hover:border-leaf-500/50 hover:text-leaf-200;
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-neu-muted transition-all duration-200;
+    background-image: linear-gradient(145deg, #eef2f8, #e3e8f0);
+    border: 1px solid rgba(255, 255, 255, 0.78);
+    box-shadow: var(--neu-shadow-raised-xs);
+  }
+
+  .chip:hover {
+    color: var(--neu-accent-strong);
+    border-color: rgba(47, 143, 102, 0.28);
   }
 
   .chip-active {
-    @apply border-leaf-500/70 bg-leaf-600/20 text-leaf-100;
+    color: var(--neu-accent-strong);
+    background-color: var(--neu-bg);
+    background-image: none;
+    border-color: rgba(47, 143, 102, 0.4);
+    box-shadow: var(--neu-inset-xs);
   }
 
   .badge {
     @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold;
+    background-color: rgba(48, 57, 67, 0.06);
+    color: var(--neu-muted);
   }
 
   .section {
@@ -227,46 +541,54 @@
   }
 
   .eyebrow {
-    @apply inline-flex items-center gap-2 rounded-full border border-leaf-500/25 bg-leaf-600/10 px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-leaf-200;
+    @apply inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em];
+    color: var(--neu-accent-strong);
+    background-image: linear-gradient(145deg, #f2f6fb, #e6ebf3);
+    border: 1px solid rgba(255, 255, 255, 0.85);
+    box-shadow: var(--neu-shadow-raised-xs), inset 0 1px 0 rgba(255, 255, 255, 0.9);
   }
 
   .h-section {
-    @apply text-[26px] font-bold leading-tight sm:text-4xl;
+    @apply text-[26px] font-bold leading-tight text-neu-ink sm:text-4xl;
   }
 
   .link-underline {
-    @apply relative after:absolute after:-bottom-0.5 after:left-0 after:h-px after:w-0 after:bg-leaf-300 after:transition-all hover:after:w-full;
+    @apply relative after:absolute after:-bottom-0.5 after:left-0 after:h-px after:w-0 after:bg-neu-accent after:transition-all hover:after:w-full;
   }
 
   .skeleton {
-    @apply relative overflow-hidden rounded-2xl bg-ink-700/70;
+    @apply relative overflow-hidden rounded-2xl;
+    background-color: var(--neu-sunken);
+    box-shadow: var(--neu-inset-xs);
   }
   .skeleton::after {
     content: "";
-    @apply absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/[0.07] to-transparent;
+    @apply absolute inset-0 -translate-x-full animate-shimmer;
+    background-image: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.65), transparent);
   }
 
   .divider {
-    @apply h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent;
+    @apply h-px w-full;
+    background-image: linear-gradient(90deg, transparent, rgba(199, 206, 218, 0.9), transparent);
   }
 
   .prose-bn {
-    @apply text-[15px] leading-8 text-sand-100/80;
+    @apply text-[15px] leading-8 text-neu-muted;
   }
   .prose-bn h2 {
-    @apply mt-8 mb-3 text-2xl font-bold text-sand-100;
+    @apply mt-8 mb-3 text-2xl font-bold text-neu-ink;
   }
   .prose-bn h3 {
-    @apply mt-6 mb-2 text-lg font-semibold text-sand-100;
+    @apply mt-6 mb-2 text-lg font-semibold text-neu-ink;
   }
   .prose-bn p {
     @apply mb-4;
   }
   .prose-bn ul {
-    @apply mb-4 list-disc space-y-1.5 pl-5 marker:text-leaf-400;
+    @apply mb-4 list-disc space-y-1.5 pl-5 marker:text-neu-accent;
   }
   .prose-bn strong {
-    @apply font-semibold text-leaf-200;
+    @apply font-semibold text-neu-accent-strong;
   }
 }
 
@@ -326,6 +648,9 @@
   .link-underline:hover::after {
     width: 0;
   }
+  .neu-icon-btn:hover {
+    transform: none;
+  }
 }
 
 /*
@@ -367,7 +692,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
@@ -376,18 +703,49 @@
 }
 
 /* ==========================================================================
-   Admin panel — denser, cooler surface, distinct from the storefront
+   Admin panel — denser surface, still the same neumorphic language
    ========================================================================== */
 .admin-surface {
-  --admin-line: rgba(255, 255, 255, 0.07);
+  --admin-line: rgba(199, 206, 218, 0.6);
 }
 
 .admin-surface ::selection {
-  background: rgba(96, 165, 250, 0.28);
+  background: rgba(47, 143, 102, 0.2);
 }
 
 .admin-surface table th {
   white-space: nowrap;
+}
+
+/* Every admin table inherits the same soft, inset header + hairline rows */
+.admin-surface table thead th {
+  color: var(--neu-muted);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 10.5px;
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid rgba(199, 206, 218, 0.75);
+  background-color: rgba(255, 255, 255, 0.35);
+}
+
+.admin-surface table tbody td {
+  padding: 0.7rem 0.85rem;
+  border-bottom: 1px solid rgba(199, 206, 218, 0.38);
+  color: var(--neu-ink);
+  vertical-align: middle;
+}
+
+.admin-surface table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.admin-surface table tbody tr {
+  transition: background-color 0.18s ease;
+}
+
+.admin-surface table tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.45);
 }
 
 /* Print: invoices only */
@@ -395,6 +753,7 @@
   body {
     background: #fff !important;
     color: #000 !important;
+    background-image: none !important;
   }
   header,
   aside,
@@ -407,99 +766,141 @@
   }
   .card {
     box-shadow: none !important;
+    border-color: #ddd !important;
+    background: #fff !important;
   }
 }
 
 /* ==========================================================================
-   Light theme (profile → সেটিংস → থিম)
+   Light-theme compatibility remap
    --------------------------------------------------------------------------
-   The app is dark-first. Rather than rewrite every utility class, the light
-   theme remaps the ink/sand tokens. Components keep using bg-ink-900 /
-   text-sand-100 and simply render light.
+   The codebase is written against the old dark palette (bg-ink-*, text-sand-*,
+   border-white/*). The token scales above already flip those to light, but a
+   handful of utilities are static white/black and need an explicit light
+   equivalent so hover states and dividers stay visible on the soft surface.
    ========================================================================== */
-[data-theme="light"] {
-  color-scheme: light;
-}
-
-[data-theme="light"] body {
-  background-color: #f6f7f5;
-  @apply text-ink-900;
-  background-image: radial-gradient(70% 45% at 50% -10%, rgba(31, 122, 77, 0.12), transparent 70%);
-}
-
-[data-theme="light"] .card {
-  background-color: #ffffff;
-  border-color: rgba(17, 19, 18, 0.09);
-  box-shadow: 0 1px 2px rgba(17, 19, 18, 0.06), 0 12px 32px -24px rgba(17, 19, 18, 0.35);
-  color: #111312;
-}
-
-/* invert the most common translucent surfaces */
-[data-theme="light"] .bg-ink-850\/70,
-[data-theme="light"] .bg-ink-850\/60,
-[data-theme="light"] .bg-ink-850\/98,
-[data-theme="light"] .bg-ink-850 {
-  background-color: #ffffff !important;
-}
-
-[data-theme="light"] .bg-ink-800,
-[data-theme="light"] .bg-ink-900 {
-  background-color: #f2f4f1 !important;
-}
-
+[data-theme="light"] .bg-white\/5,
 [data-theme="light"] .bg-white\/\[0\.02\],
+[data-theme="light"] .bg-white\/\[0\.015\],
+[data-theme="light"] .bg-white\/\[0\.01\] {
+  background-color: rgba(48, 57, 67, 0.03) !important;
+}
+[data-theme="light"] .bg-white\/8,
+[data-theme="light"] .bg-white\/10,
 [data-theme="light"] .bg-white\/\[0\.03\],
+[data-theme="light"] .bg-white\/\[0\.04\],
+[data-theme="light"] .bg-white\/\[0\.045\] {
+  background-color: rgba(48, 57, 67, 0.045) !important;
+}
+[data-theme="light"] .bg-white\/12,
+[data-theme="light"] .bg-white\/15,
 [data-theme="light"] .bg-white\/\[0\.05\],
-[data-theme="light"] .bg-white\/\[0\.06\] {
-  background-color: rgba(17, 19, 18, 0.04) !important;
+[data-theme="light"] .bg-white\/\[0\.06\],
+[data-theme="light"] .bg-white\/\[0\.07\] {
+  background-color: rgba(48, 57, 67, 0.06) !important;
+}
+[data-theme="light"] .bg-white\/20,
+[data-theme="light"] .bg-white\/25,
+[data-theme="light"] .bg-white\/\[0\.08\],
+[data-theme="light"] .bg-white\/\[0\.09\],
+[data-theme="light"] .bg-white\/\[0\.12\] {
+  background-color: rgba(48, 57, 67, 0.08) !important;
+}
+[data-theme="light"] .bg-white\/40 {
+  background-color: rgba(48, 57, 67, 0.12) !important;
 }
 
-/* text tokens */
-[data-theme="light"] .text-sand-100,
-[data-theme="light"] .text-sand-100\/80,
-[data-theme="light"] .text-sand-100\/75,
-[data-theme="light"] .text-sand-100\/70,
-[data-theme="light"] .text-sand-100\/65,
-[data-theme="light"] .text-sand-100\/60,
-[data-theme="light"] .text-sand-100\/55,
-[data-theme="light"] .text-sand-100\/50,
-[data-theme="light"] .text-sand-100\/45 {
-  color: #2b312e !important;
-}
-
-[data-theme="light"] .text-sand-100\/40,
-[data-theme="light"] .text-sand-100\/35,
-[data-theme="light"] .text-sand-100\/30,
-[data-theme="light"] .text-sand-100\/25 {
-  color: #6b7370 !important;
-}
-
-/* borders */
+/* borders + dividers + rings */
+[data-theme="light"] .border-white\/5,
+[data-theme="light"] .border-white\/8,
+[data-theme="light"] .border-white\/10,
+[data-theme="light"] .border-white\/12,
+[data-theme="light"] .border-white\/15,
+[data-theme="light"] .border-white\/20,
+[data-theme="light"] .border-white\/25,
+[data-theme="light"] .border-white\/\[0\.04\],
+[data-theme="light"] .border-white\/\[0\.05\],
 [data-theme="light"] .border-white\/\[0\.06\],
 [data-theme="light"] .border-white\/\[0\.07\],
-[data-theme="light"] .border-white\/10,
-[data-theme="light"] .border-white\/15 {
-  border-color: rgba(17, 19, 18, 0.12) !important;
+[data-theme="light"] .border-white\/\[0\.08\] {
+  border-color: rgba(199, 206, 218, 0.62) !important;
+}
+[data-theme="light"] .divide-white\/5,
+[data-theme="light"] .divide-white\/10,
+[data-theme="light"] .divide-white\/\[0\.04\],
+[data-theme="light"] .divide-white\/\[0\.05\],
+[data-theme="light"] .divide-white\/\[0\.06\] {
+  border-color: rgba(199, 206, 218, 0.45) !important;
+}
+[data-theme="light"] .ring-white\/10,
+[data-theme="light"] .ring-white\/20,
+[data-theme="light"] .ring-white\/30,
+[data-theme="light"] .ring-white\/\[0\.06\],
+[data-theme="light"] .ring-white\/\[0\.07\] {
+  --tw-ring-color: rgba(199, 206, 218, 0.6) !important;
 }
 
-/* keep the header legible */
+/* Muted meta text — the alpha steps were tuned for a dark canvas, where a
+   40% ink is perfectly readable. On the soft light surface the same alphas
+   fall to ~2:1, so every step is lifted while keeping the ramp monotonic. */
+[data-theme="light"] .text-sand-100\/25,
+[data-theme="light"] .text-sand-100\/30,
+[data-theme="light"] .text-sand-100\/35 {
+  color: rgba(48, 57, 67, 0.74) !important;
+}
+[data-theme="light"] .text-sand-100\/40,
+[data-theme="light"] .text-sand-100\/45 {
+  color: rgba(48, 57, 67, 0.86) !important;
+}
+[data-theme="light"] .text-sand-100\/50,
+[data-theme="light"] .text-sand-100\/55 {
+  color: rgba(48, 57, 67, 0.78) !important;
+}
+[data-theme="light"] .text-sand-100\/60,
+[data-theme="light"] .text-sand-100\/65 {
+  color: rgba(48, 57, 67, 0.86) !important;
+}
+[data-theme="light"] .text-sand-100\/70,
+[data-theme="light"] .text-sand-100\/75 {
+  color: rgba(48, 57, 67, 0.86) !important;
+}
+[data-theme="light"] .text-sand-100\/80,
+[data-theme="light"] .text-sand-100\/85 {
+  color: rgba(48, 57, 67, 0.9) !important;
+}
+[data-theme="light"] .text-sand-100\/90 {
+  color: rgba(48, 57, 67, 0.94) !important;
+}
+
+/* amber-400 is also a badge background, so its text step is set explicitly */
+[data-theme="light"] .text-amber-400 {
+  color: #a35c07 !important;
+}
+[data-theme="light"] .text-leaf-50,
+[data-theme="light"] .text-leaf-100 {
+  color: #2f8f66 !important;
+}
+
+/* the darkest neutral is used for text on coloured chips */
+[data-theme="light"] .text-ink-900,
+[data-theme="light"] .text-ink-950,
+[data-theme="light"] .text-sand-50 {
+  color: #303943 !important;
+}
+[data-theme="light"] .bg-sand-100 {
+  background-color: #303943 !important;
+  color: #ffffff;
+}
+
+/* old light-theme leftovers from the previous design */
 [data-theme="light"] header.bg-ink-900\/85 {
-  background-color: rgba(255, 255, 255, 0.9) !important;
-  border-color: rgba(17, 19, 18, 0.1) !important;
+  background-color: rgba(231, 236, 244, 0.85) !important;
+  border-color: rgba(199, 206, 218, 0.5) !important;
 }
 
-[data-theme="light"] .input {
-  background-color: #ffffff;
-  border-color: rgba(17, 19, 18, 0.14);
-  color: #111312;
-}
-
-[data-theme="light"] .input::placeholder {
-  color: #9aa19e;
-}
-
-/* Keyframes live outside @layer: Tailwind only emits them from the theme
-   otherwise. Used by the /login ambience (.auth-aurora). */
+/* ==========================================================================
+   Keyframes (outside @layer: Tailwind only emits these from the theme)
+   ========================================================================== */
 @keyframes auth-drift {
   0% {
     transform: translate3d(-2%, -1%, 0) scale(1.02);
@@ -513,12 +914,7 @@
 }
 
 /* ==========================================================================
-   /login · premium motion system
-   --------------------------------------------------------------------------
-   Hand-written CSS rather than an animation library: the whole login page adds
-   ~2 KB and nothing is JS-blocking. Every effect is decorative, driven by
-   transform/opacity only (compositor-friendly) and switched off under
-   prefers-reduced-motion at the bottom of this block.
+   /login · premium motion system (recoloured for the soft light surface)
    ========================================================================== */
 
 @property --auth-angle {
@@ -699,13 +1095,13 @@
 /* soft halo that repeats around a status dot */
 @keyframes auth-pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(95, 206, 150, 0.45);
+    box-shadow: 0 0 0 0 rgba(47, 143, 102, 0.35);
   }
   70% {
-    box-shadow: 0 0 0 10px rgba(95, 206, 150, 0);
+    box-shadow: 0 0 0 10px rgba(47, 143, 102, 0);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(95, 206, 150, 0);
+    box-shadow: 0 0 0 0 rgba(47, 143, 102, 0);
   }
 }
 
@@ -761,11 +1157,11 @@
   padding: 1px;
   background: conic-gradient(
     from var(--auth-angle),
-    rgba(95, 206, 150, 0.55),
-    rgba(31, 122, 77, 0) 26%,
-    rgba(95, 206, 150, 0.22) 52%,
-    rgba(31, 122, 77, 0) 78%,
-    rgba(95, 206, 150, 0.55)
+    rgba(47, 143, 102, 0.4),
+    rgba(47, 143, 102, 0) 26%,
+    rgba(47, 143, 102, 0.18) 52%,
+    rgba(47, 143, 102, 0) 78%,
+    rgba(47, 143, 102, 0.4)
   );
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
@@ -786,12 +1182,7 @@
 }
 
 .auth-shine {
-  background-image: linear-gradient(
-    100deg,
-    transparent 35%,
-    rgba(95, 206, 150, 0.18) 50%,
-    transparent 65%
-  );
+  background-image: linear-gradient(100deg, transparent 35%, rgba(47, 143, 102, 0.12) 50%, transparent 65%);
   background-size: 220% 100%;
   animation: auth-shine 6.5s ease-in-out infinite;
 }
@@ -806,7 +1197,7 @@
   transition: opacity 0.45s ease;
   background: radial-gradient(
     240px circle at var(--auth-mx, 50%) var(--auth-my, 0%),
-    rgba(95, 206, 150, 0.13),
+    rgba(47, 143, 102, 0.1),
     transparent 72%
   );
 }

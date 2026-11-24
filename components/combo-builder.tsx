@@ -212,7 +212,7 @@ export function ComboBuilder({
                     <div className="grid h-full place-items-center text-xl">🥬</div>
                   )}
                 </div>
-                <p className="line-clamp-2 min-h-[30px] text-[11.5px] leading-tight text-white/85">{p.name_bn}</p>
+                <p className="line-clamp-2 min-h-[30px] text-[11.5px] leading-tight text-neu-ink/90">{p.name_bn}</p>
                 <p className="mt-1 text-[11px] text-mint">
                   {money(p.price, true)}
                   <span className="text-sand-100/35">/{p.unit}</span>
@@ -251,7 +251,7 @@ export function ComboBuilder({
       <aside className="lg:sticky lg:top-24 lg:h-fit">
         <div className="card p-4">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="flex items-center gap-1.5 text-[13.5px] font-bold text-white">
+            <h2 className="flex items-center gap-1.5 text-[13.5px] font-bold text-neu-ink">
               <ShoppingBag className="h-3.5 w-3.5 text-mint" /> আপনার কম্বো
             </h2>
             {lines.length > 0 && (
@@ -295,7 +295,7 @@ export function ComboBuilder({
                     <span>−{money(priced.bundle_discount, true)}</span>
                   </div>
                 )}
-                <div className="flex justify-between border-t border-white/8 pt-1.5 text-[13px] font-bold text-white">
+                <div className="flex justify-between border-t border-white/8 pt-1.5 text-[13px] font-bold text-neu-ink">
                   <span>মোট</span>
                   <span>{money(priced.total, true)}</span>
                 </div>

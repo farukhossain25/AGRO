@@ -250,7 +250,7 @@ export function ProfileForm({
             <X className="h-4 w-4" />
           </button>
           <div className="flex items-start gap-3">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-leaf-600/25 text-leaf-200">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-leaf-600/25 text-leaf-700">
               <Sparkles className="h-4.5 w-4.5" />
             </span>
             <div className="min-w-0">

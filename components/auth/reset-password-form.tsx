@@ -77,7 +77,7 @@ export function ResetPasswordForm() {
 
   if (checking) {
     return (
-      <div className="grid h-52 place-items-center text-sand-100/50">
+      <div className="grid h-52 place-items-center text-neu-muted">
         <Loader2 className="h-6 w-6 animate-spin" />
       </div>
     );
@@ -87,8 +87,8 @@ export function ResetPasswordForm() {
     return (
       <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5 text-center">
         <ShieldAlert className="mx-auto h-6 w-6 text-amber-300" />
-        <p className="mt-2 text-[14px] font-bold text-white">লিঙ্কটি আর কাজ করছে না</p>
-        <p className="mt-1 text-[12.5px] leading-relaxed text-sand-100/60">
+        <p className="mt-2 text-[14px] font-bold text-neu-ink">লিঙ্কটি আর কাজ করছে না</p>
+        <p className="mt-1 text-[12.5px] leading-relaxed text-neu-muted">
           পাসওয়ার্ড রিসেট লিঙ্ক একবারই ব্যবহার করা যায় এবং সময়সীমা থাকে। নতুন লিঙ্ক নিতে নিচের বাটনে ক্লিক করুন।
         </p>
         <Link href="/login?mode=forgot" className="btn-primary mt-4 inline-flex min-h-[44px] items-center">
@@ -100,10 +100,10 @@ export function ResetPasswordForm() {
 
   if (done) {
     return (
-      <div className="rounded-2xl border border-leaf-500/30 bg-leaf-600/10 p-5 text-center">
-        <CheckCircle2 className="mx-auto h-6 w-6 text-leaf-300" />
-        <p className="mt-2 text-[14px] font-bold text-white">পাসওয়ার্ড বদলানো হয়েছে</p>
-        <p className="mt-1 text-[12.5px] text-sand-100/60">এখন নতুন পাসওয়ার্ড দিয়ে লগইন করুন।</p>
+      <div className="rounded-2xl border border-neu-accent/25 bg-neu-accent-soft/70 p-5 text-center">
+        <CheckCircle2 className="mx-auto h-6 w-6 text-neu-accent" />
+        <p className="mt-2 text-[14px] font-bold text-neu-ink">পাসওয়ার্ড বদলানো হয়েছে</p>
+        <p className="mt-1 text-[12.5px] text-neu-muted">এখন নতুন পাসওয়ার্ড দিয়ে লগইন করুন।</p>
         <Link href="/login" className="btn-primary mt-4 inline-flex min-h-[44px] items-center">
           লগইনে যান
         </Link>
@@ -116,7 +116,7 @@ export function ResetPasswordForm() {
       <label className="block">
         <span className="label">নতুন পাসওয়ার্ড</span>
         <div className="relative mt-1.5">
-          <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-sand-100/35" />
+          <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neu-faint" />
           <input
             type={show ? "text" : "password"}
             autoComplete="new-password"
@@ -132,7 +132,7 @@ export function ResetPasswordForm() {
             type="button"
             onClick={() => setShow((v) => !v)}
             aria-label={show ? "পাসওয়ার্ড লুকান" : "পাসওয়ার্ড দেখুন"}
-            className="absolute right-1.5 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-xl text-sand-100/50 hover:bg-white/[0.06]"
+            className="absolute right-1.5 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-xl text-neu-faint transition hover:bg-white/70 hover:text-neu-ink"
           >
             {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
@@ -142,7 +142,7 @@ export function ResetPasswordForm() {
       <label className="block">
         <span className="label">আবার একই পাসওয়ার্ড</span>
         <div className="relative mt-1.5">
-          <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-sand-100/35" />
+          <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neu-faint" />
           <input
             type={show ? "text" : "password"}
             autoComplete="new-password"

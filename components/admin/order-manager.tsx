@@ -13,7 +13,7 @@ const statuses = [
   { key: "received", label: "গৃহীত", tone: "bg-white/[0.07] text-sand-100/70" },
   { key: "packing", label: "প্যাকিং", tone: "bg-amber-500/15 text-amber-300" },
   { key: "shipped", label: "ডেলিভারির পথে", tone: "bg-sky-500/15 text-sky-300" },
-  { key: "delivered", label: "সম্পন্ন", tone: "bg-leaf-600/20 text-leaf-200" },
+  { key: "delivered", label: "সম্পন্ন", tone: "bg-leaf-600/20 text-leaf-700" },
   { key: "cancelled", label: "বাতিল", tone: "bg-red-500/15 text-red-300" },
 ];
 
@@ -193,7 +193,7 @@ export function OrderManager({ initial, dbReady }: { initial: Order[]; dbReady: 
                     <p className="text-[9.5px] text-sand-100/30">{o.upazila}</p>
                   </td>
                   <td className="px-2 py-2.5">
-                    <span className={`badge !text-[9px] ${o.payment_status === "paid" ? "bg-leaf-600/20 text-leaf-200" : "bg-amber-500/15 text-amber-300"}`}>
+                    <span className={`badge !text-[9px] ${o.payment_status === "paid" ? "bg-leaf-600/20 text-leaf-700" : "bg-amber-500/15 text-amber-300"}`}>
                       {o.payment_status === "paid" ? "পরিশোধিত" : "বাকি"}
                     </span>
                     <p className="mt-0.5 text-[9px] uppercase text-sand-100/30">{o.payment_method}</p>
@@ -261,7 +261,7 @@ export function OrderManager({ initial, dbReady }: { initial: Order[]; dbReady: 
             <div className="mt-3 rounded-xl border border-white/[0.08] bg-white/[0.02] p-3 print:border-black/15 print:bg-black/[0.02]">
               <div className="flex items-center justify-between">
                 <p className="text-[9.5px] uppercase tracking-wider opacity-50">পেমেন্ট যাচাই</p>
-                <span className={`badge !text-[9px] ${selected.payment_status === "paid" ? "bg-leaf-600/20 text-leaf-200" : "bg-amber-500/15 text-amber-300"}`}>
+                <span className={`badge !text-[9px] ${selected.payment_status === "paid" ? "bg-leaf-600/20 text-leaf-700" : "bg-amber-500/15 text-amber-300"}`}>
                   {selected.payment_status === "paid" ? "পরিশোধিত" : "বাকি"}
                 </span>
               </div>
@@ -339,7 +339,7 @@ export function OrderManager({ initial, dbReady }: { initial: Order[]; dbReady: 
                   <CheckCircle2 className="h-3.5 w-3.5" /> ভেরিফাই করুন (পরিশোধিত)
                 </button>
               ) : (
-                <span className="inline-flex items-center gap-1.5 rounded-lg bg-leaf-600/15 px-3 py-1.5 text-[11px] font-semibold text-leaf-200">
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-leaf-600/15 px-3 py-1.5 text-[11px] font-semibold text-leaf-700">
                   <CheckCircle2 className="h-3.5 w-3.5" /> পরিশোধিত
                 </span>
               )}

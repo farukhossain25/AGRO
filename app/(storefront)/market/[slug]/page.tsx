@@ -98,24 +98,24 @@ export default async function SellerStorePage({ params }: { params: Promise<{ sl
       {/* banner */}
       <section className="relative h-44 overflow-hidden sm:h-56">
         <Image src={cover} alt="" fill sizes="100vw" priority className="object-cover opacity-40" />
-        <div className="absolute inset-0 bg-gradient-to-t from-ink-900 via-ink-900/70 to-ink-900/20" />
+        <div className="absolute inset-0 bg-gradient-to-t from-scrim via-scrim/70 to-scrim/20" />
         <div className="container-x absolute inset-x-0 bottom-0 pb-5">
-          <nav className="mb-2 flex items-center gap-1.5 text-[11.5px] text-sand-100/40">
-            <Link href="/market" className="hover:text-mint">মার্কেটপ্লেস</Link>
+          <nav className="mb-2 flex items-center gap-1.5 text-[11.5px] text-white/55">
+            <Link href="/market" className="hover:text-[#7CE3B4]">মার্কেটপ্লেস</Link>
             <span>/</span>
-            <span className="text-sand-100/70">{seller.name_bn}</span>
+            <span className="text-white/85">{seller.name_bn}</span>
           </nav>
           <h1 className="flex items-center gap-2 text-[24px] font-bold text-white sm:text-3xl">
             {seller.name_bn}
             <BadgeCheck className="h-5 w-5 text-leaf-400" />
           </h1>
-          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-sand-100/55">
+          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-white/70">
             <span className="inline-flex items-center gap-1">
               <MapPin className="h-3 w-3" /> {seller.district}
             </span>
             {seller.farm_address_bn && <span>{seller.farm_address_bn}</span>}
             {seller.phone && (
-              <a href={`tel:${seller.phone}`} className="inline-flex items-center gap-1 text-mint">
+              <a href={`tel:${seller.phone}`} className="inline-flex items-center gap-1 text-leaf-400">
                 <Phone className="h-3 w-3" /> {seller.phone}
               </a>
             )}
@@ -135,7 +135,7 @@ export default async function SellerStorePage({ params }: { params: Promise<{ sl
           </span>
         </div>
 
-        <h2 className="mb-4 text-[16px] font-bold text-white">
+        <h2 className="mb-4 text-[16px] font-bold text-neu-ink">
           বিক্রেতার পণ্য{" "}
           <span className="text-[12px] font-normal text-sand-100/40">({products.length}টি)</span>
         </h2>

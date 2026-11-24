@@ -12,7 +12,7 @@ const statusTone: Record<string, string> = {
   received: "bg-white/[0.07] text-sand-100/70",
   packing: "bg-amber-500/15 text-amber-300",
   shipped: "bg-sky-500/15 text-sky-300",
-  delivered: "bg-leaf-600/20 text-leaf-200",
+  delivered: "bg-leaf-600/20 text-leaf-700",
   cancelled: "bg-red-500/15 text-red-300",
 };
 

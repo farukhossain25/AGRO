@@ -32,17 +32,17 @@ export function AccountNav() {
 
   return (
     <nav aria-label="অ্যাকাউন্ট মেনু" className="min-w-0 lg:sticky lg:top-24 lg:self-start">
-      <ul className="no-scrollbar flex w-full max-w-full gap-1.5 overflow-x-auto overscroll-x-contain rounded-2xl border border-white/[0.06] bg-ink-850/60 p-1.5 lg:flex-col lg:gap-0.5">
+      <ul className="no-scrollbar neu-raised flex w-full max-w-full gap-1.5 overflow-x-auto overscroll-x-contain rounded-[22px] p-1.5 lg:flex-col lg:gap-0.5">
         {links.map(({ href, labelBn, labelEn, Icon }) => {
           const active = pathname === href || (href !== "/account" && pathname.startsWith(`${href}/`));
           return (
             <li key={href} className="shrink-0 lg:w-full">
               <Link
                 href={href}
-                className={`flex items-center gap-2.5 whitespace-nowrap rounded-xl px-3 py-2.5 text-[12.5px] font-medium transition ${
+                className={`flex items-center gap-2.5 whitespace-nowrap rounded-2xl px-3 py-2.5 text-[12.5px] font-medium transition ${
                   active
-                    ? "bg-leaf-600/20 text-leaf-200"
-                    : "text-sand-100/65 hover:bg-white/[0.05] hover:text-sand-100"
+                    ? "neu-raised-xs bg-neu-raised text-neu-accent-strong"
+                    : "text-neu-muted hover:bg-white/60 hover:text-neu-ink"
                 }`}
               >
                 <Icon className="h-4 w-4 shrink-0" />
@@ -51,10 +51,10 @@ export function AccountNav() {
             </li>
           );
         })}
-        <li className="shrink-0 lg:mt-1 lg:w-full lg:border-t lg:border-white/[0.06] lg:pt-1">
+        <li className="shrink-0 lg:mt-1 lg:w-full lg:border-t lg:border-neu-line/50 lg:pt-1">
           <button
             onClick={signOut}
-            className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-[12.5px] font-medium text-red-300/80 transition hover:bg-red-500/10 hover:text-red-300"
+            className="flex w-full items-center gap-2.5 rounded-2xl px-3 py-2.5 text-[12.5px] font-medium text-[#c0392b]/80 transition hover:bg-red-500/10 hover:text-[#c0392b]"
           >
             <LogOut className="h-4 w-4 shrink-0" />
             {t("লগআউট", "Sign out")}

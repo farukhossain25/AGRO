@@ -117,7 +117,7 @@ export function SubscriptionForm({ packages }: { packages: Package[] }) {
               }}
               className={`card relative flex flex-col p-5 text-left transition ${
                 active
-                  ? "border-leaf-500/70 bg-gradient-to-b from-leaf-800/40 to-ink-850 shadow-glow"
+                  ? "border-neu-accent/40 bg-gradient-to-b from-neu-accent-soft to-neu-raised shadow-neu"
                   : "hover:border-white/20"
               }`}
               aria-pressed={active}

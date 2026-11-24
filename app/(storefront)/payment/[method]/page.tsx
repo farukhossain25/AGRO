@@ -124,7 +124,7 @@ export default async function PaymentPage({
           <>
             {/* ── method hero ─────────────────────────────────────────────── */}
             <div className="card mb-4 overflow-hidden">
-              <div className="flex items-center gap-4 bg-gradient-to-r from-ink-800 to-ink-700 px-6 py-5">
+              <div className="flex items-center gap-4 bg-gradient-to-r from-neu-sunken to-neu-line/60 px-6 py-5">
                 <span className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-2xl bg-white/10 text-2xl">
                   {method.logo_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -183,7 +183,7 @@ export default async function PaymentPage({
                       .filter((s) => s.trim())
                       .map((line, i) => (
                         <li key={i} className="flex gap-2 text-[12.5px] leading-relaxed text-sand-100/70">
-                          <span className="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full bg-leaf-600/20 text-[10px] font-bold text-leaf-200">
+                          <span className="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full bg-leaf-600/20 text-[10px] font-bold text-leaf-700">
                             {i + 1}
                           </span>
                           <span className="whitespace-pre-wrap">{line.replace(/^\d+[.、]\s*/, "")}</span>

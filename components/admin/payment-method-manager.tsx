@@ -317,7 +317,7 @@ export function PaymentMethodManager({
                         disabled={busyId === m.id}
                         className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold transition disabled:opacity-50 ${
                           m.is_active
-                            ? "bg-leaf-600/20 text-leaf-200 hover:bg-leaf-600/30"
+                            ? "bg-leaf-600/20 text-leaf-700 hover:bg-leaf-600/30"
                             : "bg-white/5 text-sand-100/40 hover:bg-white/10"
                         }`}
                       >
@@ -415,13 +415,13 @@ function MethodEditor({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink-950/70 p-0 backdrop-blur-sm sm:items-center sm:p-4">
-      <div className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-ink-900 shadow-2xl sm:rounded-3xl">
+      <div className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl neu-raised-lg border border-white/85 bg-neu-surface sm:rounded-3xl">
         {/* header */}
         <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-4">
           <h2 className="text-[16px] font-bold">
             {draft.id ? t("মেথড সম্পাদনা", "Edit method") : t("নতুন পেমেন্ট মেথড", "New payment method")}
           </h2>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-sand-100/50 hover:bg-white/10 hover:text-white">
+          <button onClick={onClose} className="neu-icon-btn h-8 w-8">
             <X className="h-4 w-4" />
           </button>
         </div>

@@ -14,7 +14,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
           <p className="mt-1 text-[12.5px] text-sand-100/50">
             স্বাগতম, {user.name ?? user.phone ?? user.email}
             {user.role === "admin" ? (
-              <span className="ml-2 rounded-full bg-leaf-600/20 px-2 py-0.5 text-[10px] font-bold text-leaf-200">অ্যাডমিন</span>
+              <span className="ml-2 rounded-full bg-leaf-600/20 px-2 py-0.5 text-[10px] font-bold text-leaf-700">অ্যাডমিন</span>
             ) : null}
           </p>
         </div>

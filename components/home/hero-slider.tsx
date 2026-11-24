@@ -106,7 +106,7 @@ export function HeroSlider({ slides, autoplayMs = 6000, showArrows = true, showD
       ref={container}
       aria-roledescription="carousel"
       aria-label="হোমপেজ স্লাইডার"
-      className="relative isolate overflow-hidden bg-ink-950"
+      className="relative isolate overflow-hidden px-2 pt-2 sm:px-4 sm:pt-4"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onFocusCapture={() => setPaused(true)}
@@ -128,6 +128,8 @@ export function HeroSlider({ slides, autoplayMs = 6000, showArrows = true, showD
       }}
       tabIndex={0}
     >
+      {/* the whole carousel is one raised, rounded card */}
+      <div className="relative overflow-hidden rounded-[28px] bg-neu-sunken shadow-neu-lg sm:rounded-[34px]">
       {/* ---- media ---- */}
       <div className="relative h-[clamp(320px,52vw,560px)] w-full">
         {slides.map((item, i) => {
@@ -218,7 +220,7 @@ export function HeroSlider({ slides, autoplayMs = 6000, showArrows = true, showD
                 {slide.secondary_label_bn && slide.secondary_href ? (
                   <Link
                     href={slide.secondary_href}
-                    className="btn min-h-[44px] border border-white/25 bg-white/10 px-5 text-[13.5px] text-white backdrop-blur-sm hover:bg-white/20"
+                    className="btn min-h-[44px] border border-white/40 bg-white/25 px-5 text-[13.5px] text-white backdrop-blur-md hover:bg-white/35"
                   >
                     {slide.secondary_label_bn}
                   </Link>
@@ -234,14 +236,14 @@ export function HeroSlider({ slides, autoplayMs = 6000, showArrows = true, showD
             <button
               onClick={prev}
               aria-label="আগের স্লাইড"
-              className="absolute left-2 top-1/2 z-[4] hidden -translate-y-1/2 rounded-full bg-ink-950/40 p-2.5 text-white/80 backdrop-blur transition hover:bg-ink-950/70 hover:text-white sm:block"
+              className="neu-icon-btn absolute left-3 top-1/2 z-[4] hidden h-10 w-10 -translate-y-1/2 !bg-neu-surface/80 sm:block"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
             <button
               onClick={next}
               aria-label="পরের স্লাইড"
-              className="absolute right-2 top-1/2 z-[4] hidden -translate-y-1/2 rounded-full bg-ink-950/40 p-2.5 text-white/80 backdrop-blur transition hover:bg-ink-950/70 hover:text-white sm:block"
+              className="neu-icon-btn absolute right-3 top-1/2 z-[4] hidden h-10 w-10 -translate-y-1/2 !bg-neu-surface/80 sm:block"
             >
               <ChevronRight className="h-5 w-5" />
             </button>
@@ -262,7 +264,7 @@ export function HeroSlider({ slides, autoplayMs = 6000, showArrows = true, showD
                       aria-label={`${i + 1} নম্বর স্লাইড`}
                       onClick={() => go(i)}
                       className={`h-1.5 rounded-full transition-all ${
-                        i === index ? "w-6 bg-leaf-300" : "w-1.5 bg-white/40 hover:bg-white/70"
+                        i === index ? "w-6 bg-neu-accent" : "w-1.5 bg-neu-ink/25 hover:bg-neu-ink/45"
                       }`}
                     />
                   ))}
@@ -274,13 +276,14 @@ export function HeroSlider({ slides, autoplayMs = 6000, showArrows = true, showD
               <button
                 onClick={() => setPaused((p) => !p)}
                 aria-label={paused ? "চালু করুন" : "বিরতি"}
-                className="rounded-full bg-ink-950/40 p-1.5 text-white/60 backdrop-blur transition hover:text-white"
+                className="neu-icon-btn h-8 w-8 !bg-neu-surface/80"
               >
                 {paused ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
               </button>
             </div>
           </div>
         ) : null}
+      </div>
       </div>
     </section>
   );

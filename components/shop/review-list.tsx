@@ -86,7 +86,7 @@ function ReviewCard({ review }: { review: ReviewWithProfile }) {
               className="h-9 w-9 rounded-full object-cover"
             />
           ) : (
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-leaf-600/20 text-[12px] font-bold text-leaf-200">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-leaf-600/20 text-[12px] font-bold text-leaf-700">
               {name.slice(0, 1)}
             </span>
           )}
@@ -99,7 +99,7 @@ function ReviewCard({ review }: { review: ReviewWithProfile }) {
         <div className="flex flex-col items-end gap-1">
           <StarRating value={review.rating} size={13} />
           {review.is_verified_purchase ? (
-            <span className="badge bg-leaf-600/15 text-[10px] text-leaf-200">
+            <span className="badge bg-leaf-600/15 text-[10px] text-leaf-700">
               ✓ ভেরিফাইড ক্রয়
             </span>
           ) : null}

@@ -209,7 +209,7 @@ export function SlideManager({ initial }: { initial: HeroSlide[] }) {
                     {row.text_position === "left" ? "বাঁয়ে" : row.text_position === "right" ? "ডানে" : "মাঝে"}
                   </span>
                   {row.image_mobile_url ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-leaf-600/15 px-1.5 py-0.5 text-leaf-200">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-leaf-600/15 px-1.5 py-0.5 text-leaf-700">
                       <Smartphone className="h-2.5 w-2.5" /> মোবাইল ছবি
                     </span>
                   ) : (
@@ -277,7 +277,7 @@ export function SlideManager({ initial }: { initial: HeroSlide[] }) {
       {draft ? (
         <div className="fixed inset-0 z-[96]">
           <button className="absolute inset-0 bg-ink-950/70 backdrop-blur-sm" onClick={() => setDraft(null)} aria-label="বন্ধ" />
-          <form onSubmit={save} className="absolute inset-y-0 right-0 flex w-full max-w-lg flex-col border-l border-white/10 bg-ink-900">
+          <form onSubmit={save} className="absolute inset-y-0 right-0 flex w-full max-w-lg flex-col border-l border-white/85 bg-neu-surface shadow-neu-lg">
             <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
               <h2 className="text-[14px] font-bold">{draft.id ? "স্লাইড সম্পাদনা" : "নতুন স্লাইড"}</h2>
               <button type="button" onClick={() => setDraft(null)} className="rounded-lg p-1.5 text-sand-100/50 hover:bg-white/10">

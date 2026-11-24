@@ -50,7 +50,7 @@ export function Testimonials({ reviews }: { reviews: Review[] }) {
               “{current.comment}”
             </blockquote>
             <figcaption className="mt-5 flex items-center gap-3">
-              <span className="grid h-10 w-10 place-items-center rounded-full bg-leaf-600/25 text-sm font-bold text-leaf-200">
+              <span className="grid h-10 w-10 place-items-center rounded-full bg-leaf-600/25 text-sm font-bold text-leaf-700">
                 {current.name_bn.slice(0, 1)}
               </span>
               <div>

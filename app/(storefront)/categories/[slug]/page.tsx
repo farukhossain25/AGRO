@@ -8,6 +8,12 @@ import { ProductBrowser } from "@/components/shop/product-browser";
 import { breadcrumbLd, dynamicAlternates, jsonLdScript } from "@/lib/seo";
 import { site } from "@/lib/site";
 
+/* Session-aware components on this page (wishlist, review form) read the
+   session cookie per request. In Next 15 an ISR render that touches
+   `cookies()` aborts with DYNAMIC_SERVER_USAGE, so any slug outside the
+   prerendered set answered 500. Rendering per request is the correct mode. */
+export const dynamic = "force-dynamic";
+
 export const revalidate = 120;
 
 export async function generateStaticParams() {
@@ -96,28 +102,28 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
           {category.image ? (
             <Image src={category.image} alt="" fill sizes="100vw" className="object-cover opacity-25" priority />
           ) : null}
-          <div className="absolute inset-0 bg-gradient-to-b from-ink-900/70 via-ink-900/85 to-ink-900" />
+          <div className="absolute inset-0 bg-gradient-to-b from-scrim/70 via-scrim/85 to-scrim" />
         </div>
 
         <div className="container-x py-10 sm:py-14">
-          <nav aria-label="ব্রেডক্রাম্ব" className="mb-4 flex items-center gap-1 text-[12px] text-sand-100/45">
-            <Link href="/" className="hover:text-leaf-200">হোম</Link>
+          <nav aria-label="ব্রেডক্রাম্ব" className="mb-4 flex items-center gap-1 text-[12px] text-white/55">
+            <Link href="/" className="hover:text-[#7CE3B4]">হোম</Link>
             <ChevronRight className="h-3 w-3" />
-            <Link href="/categories" className="hover:text-leaf-200">ক্যাটাগরি</Link>
+            <Link href="/categories" className="hover:text-[#7CE3B4]">ক্যাটাগরি</Link>
             <ChevronRight className="h-3 w-3" />
-            <span className="text-sand-100/80">{category.name_bn}</span>
+            <span className="text-white/85">{category.name_bn}</span>
           </nav>
 
           <span className="eyebrow mb-3">
             <span aria-hidden>{category.icon}</span> {category.name_en}
           </span>
-          <h1 className="text-[28px] font-bold sm:text-4xl">{category.name_bn}</h1>
+          <h1 className="text-[28px] font-bold text-white sm:text-4xl">{category.name_bn}</h1>
           {category.description_bn ? (
-            <p className="mt-2.5 max-w-2xl text-[14px] leading-relaxed text-sand-100/60">
+            <p className="mt-2.5 max-w-2xl text-[14px] leading-relaxed text-white/70">
               {category.description_bn}
             </p>
           ) : null}
-          <p className="mt-3 text-[12.5px] text-leaf-300/80">{products.length} টি পণ্য পাওয়া যাচ্ছে</p>
+          <p className="mt-3 text-[12.5px] text-[#7CE3B4]/90">{products.length} টি পণ্য পাওয়া যাচ্ছে</p>
         </div>
       </section>
 

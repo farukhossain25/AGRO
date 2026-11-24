@@ -15,16 +15,16 @@ export const metadata: Metadata = {
  */
 export default function ForbiddenPage() {
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center bg-ink-950 px-6 text-center">
-      <span className="grid h-16 w-16 place-items-center rounded-2xl bg-red-500/10 text-red-400 ring-1 ring-red-500/20">
+    <div className="flex min-h-dvh flex-col items-center justify-center bg-neu-bg px-6 text-center">
+      <span className="neu-raised grid h-16 w-16 place-items-center rounded-2xl bg-red-500/10 !text-[#c0392b]">
         <ShieldX className="h-7 w-7" />
       </span>
 
       <h1 className="mt-4 text-2xl font-bold">প্রবেশাধিকার নেই</h1>
-      <p className="mt-2 max-w-sm text-[13px] leading-relaxed text-sand-100/55">
+      <p className="mt-2 max-w-sm text-[13px] leading-relaxed text-neu-muted">
         এই পেজটি শুধুমাত্র অ্যাডমিনদের জন্য। আপনার অ্যাকাউন্টে অ্যাডমিন অনুমতি নেই।
       </p>
-      <p className="mt-1 text-[11px] uppercase tracking-widest text-sand-100/25">403 · Access denied</p>
+      <p className="mt-1 text-[11px] uppercase tracking-widest text-neu-faint">403 · Access denied</p>
 
       <div className="mt-6 flex flex-wrap justify-center gap-2">
         <Link href="/" className="btn-primary">

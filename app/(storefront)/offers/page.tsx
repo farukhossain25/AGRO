@@ -50,7 +50,7 @@ export default async function OffersPage() {
               <span className="grid h-10 w-10 place-items-center rounded-xl bg-leaf-600/15 text-leaf-300">
                 <Tag className="h-5 w-5" />
               </span>
-              <span className="badge bg-leaf-600/20 text-leaf-200">
+              <span className="badge bg-leaf-600/20 text-leaf-700">
                 {c.type === "percent" ? `${Number(c.value)}% ছাড়` : `${money(Number(c.value), true)} ছাড়`}
               </span>
             </div>
@@ -70,7 +70,7 @@ export default async function OffersPage() {
           </article>
         ))}
 
-        <article className="card flex flex-col justify-center border-leaf-600/30 bg-gradient-to-br from-leaf-800/40 to-ink-850 p-5">
+        <article className="card flex flex-col justify-center border-neu-accent/25 bg-gradient-to-br from-neu-accent-soft to-neu-raised p-5">
           <span className="grid h-10 w-10 place-items-center rounded-xl bg-leaf-500/25 text-leaf-200">
             <Truck className="h-5 w-5" />
           </span>

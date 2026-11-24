@@ -7,7 +7,7 @@ import type { Subscription } from "@/lib/types";
 
 const statusLabel: Record<string, string> = { active: "সক্রিয়", paused: "বিরতিতে", cancelled: "বাতিল" };
 const statusTone: Record<string, string> = {
-  active: "bg-leaf-600/20 text-leaf-200",
+  active: "bg-leaf-600/20 text-leaf-700",
   paused: "bg-amber-500/15 text-amber-300",
   cancelled: "bg-red-500/15 text-red-300",
 };

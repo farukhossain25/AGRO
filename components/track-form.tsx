@@ -131,7 +131,7 @@ export function TrackForm({ initialOrder }: { initialOrder: string }) {
                       <p className={`text-[13px] font-semibold ${done ? "text-sand-100" : "text-sand-100/45"}`}>
                         {s.bn}{" "}
                         {current ? (
-                          <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-leaf-600/20 px-2 py-0.5 text-[9.5px] font-bold text-leaf-200">
+                          <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-leaf-600/20 px-2 py-0.5 text-[9.5px] font-bold text-leaf-700">
                             <Clock className="h-2.5 w-2.5" /> চলমান
                           </span>
                         ) : null}

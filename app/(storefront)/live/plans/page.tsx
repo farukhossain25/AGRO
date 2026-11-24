@@ -87,17 +87,17 @@ export default async function PlansPage({
             key={plan.id}
             className={`relative flex flex-col rounded-2xl border p-6 ${
               plan.is_popular
-                ? "border-mint/50 bg-gradient-to-b from-leaf-900/40 to-ink-850 shadow-glow"
+                ? "border-neu-accent/40 bg-gradient-to-b from-neu-accent-soft to-neu-raised shadow-neu"
                 : "border-white/10 bg-white/[0.02]"
             }`}
           >
             {plan.is_popular && (
-              <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-mint px-3 py-0.5 text-[10.5px] font-bold text-green-950">
+              <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-mint px-3 py-0.5 text-[10.5px] font-bold text-white">
                 সবচেয়ে জনপ্রিয়
               </span>
             )}
             <p className="text-[11px] uppercase tracking-wide text-sand-100/40">{tierLabelBn[plan.tier]}</p>
-            <h2 className="mt-1 text-lg font-bold text-white">{plan.name_bn}</h2>
+            <h2 className="mt-1 text-lg font-bold text-neu-ink">{plan.name_bn}</h2>
 
             <div className="mt-4 flex items-end gap-2">
               <span className="text-3xl font-bold text-mint">৳{plan.price}</span>
@@ -124,7 +124,7 @@ export default async function PlansPage({
       </div>
 
       {/* long-term savings */}
-      <h2 className="mb-3 mt-12 text-center text-[15px] font-bold text-white">দীর্ঘমেয়াদে সাশ্রয় করুন</h2>
+      <h2 className="mb-3 mt-12 text-center text-[15px] font-bold text-neu-ink">দীর্ঘমেয়াদে সাশ্রয় করুন</h2>
       <div className="mx-auto grid max-w-3xl gap-3 sm:grid-cols-2">
         {longTerm.map((plan) => {
           const perMonth = Math.round(plan.price / (plan.duration_days / 30));
@@ -136,10 +136,10 @@ export default async function PlansPage({
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-[11px] text-sand-100/40">{intervalLabelBn[plan.interval]}</p>
-                  <h3 className="text-[14px] font-bold text-white">{plan.name_bn}</h3>
+                  <h3 className="text-[14px] font-bold text-neu-ink">{plan.name_bn}</h3>
                 </div>
                 {saving > 0 && (
-                  <span className="rounded-full bg-leaf-600/20 px-2 py-0.5 text-[10.5px] font-bold text-leaf-200">
+                  <span className="rounded-full bg-leaf-600/20 px-2 py-0.5 text-[10.5px] font-bold text-leaf-700">
                     {bn(saving)}% সাশ্রয়
                   </span>
                 )}
@@ -168,7 +168,7 @@ export default async function PlansPage({
 
       {/* faq */}
       <section className="mx-auto mt-14 max-w-2xl">
-        <h2 className="mb-4 flex items-center justify-center gap-2 text-[16px] font-bold text-white">
+        <h2 className="mb-4 flex items-center justify-center gap-2 text-[16px] font-bold text-neu-ink">
           <HelpCircle className="h-4 w-4 text-mint" /> সাধারণ প্রশ্ন
         </h2>
         <div className="space-y-2">
@@ -177,7 +177,7 @@ export default async function PlansPage({
               key={item.q}
               className="group rounded-xl border border-white/8 bg-white/[0.02] p-4 [&_summary::-webkit-details-marker]:hidden"
             >
-              <summary className="flex cursor-pointer items-center justify-between gap-3 text-[13px] font-semibold text-white">
+              <summary className="flex cursor-pointer items-center justify-between gap-3 text-[13px] font-semibold text-neu-ink">
                 {item.q}
                 <span className="text-mint transition group-open:rotate-45">+</span>
               </summary>

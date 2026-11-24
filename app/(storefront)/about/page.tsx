@@ -40,14 +40,14 @@ export default function AboutPage() {
       <section className="relative overflow-hidden border-b border-white/[0.06]">
         <div className="absolute inset-0 -z-10">
           <Image src="/images/cat/vegetables.jpg" alt="" fill priority sizes="100vw" className="object-cover opacity-20" />
-          <div className="absolute inset-0 bg-gradient-to-b from-ink-900/70 to-ink-900" />
+          <div className="absolute inset-0 bg-gradient-to-b from-scrim/70 to-scrim" />
         </div>
         <div className="container-x py-14 sm:py-20">
           <span className="eyebrow mb-4">আমাদের গল্প</span>
-          <h1 className="max-w-3xl text-[28px] font-bold leading-tight sm:text-[42px]">
+          <h1 className="max-w-3xl text-[28px] font-bold leading-tight text-white sm:text-[42px]">
             “{site.taglineBn}”
           </h1>
-          <p className="mt-4 max-w-2xl text-[14.5px] leading-relaxed text-sand-100/65">
+          <p className="mt-4 max-w-2xl text-[14.5px] leading-relaxed text-white/70">
             বিশ্বাস এগ্রো শুরু হয়েছিল একটি সহজ প্রশ্ন থেকে — ঢাকায় থাকা আমাদের পরিবারগুলোর
             কেন তাজা, নিরাপদ সবজি পাওয়া এত কঠিন? সুপারমার্কেটের প্লাস্টিক-মোড়া সবজি, বাজারের
             অজানা কেমিক্যাল আর মধ্যস্বত্বভোগীর দাপট — এর মধ্যে সত্যিই নিরাপদ খাবার কোথায়?
@@ -84,10 +84,10 @@ export default function AboutPage() {
             />
             <div className="absolute inset-0 bg-gradient-to-t from-ink-950/90 via-transparent to-transparent" />
             <div className="absolute inset-x-4 bottom-4 rounded-2xl border border-white/10 bg-ink-950/70 p-4 backdrop-blur">
-              <p className="text-[12px] leading-relaxed text-sand-100/80">
+              <p className="text-[12px] leading-relaxed text-white/85">
                 “আমরা বিশ্বাস করি — ভালো খাবার কোনো বিলাসিতা নয়, এটি প্রতিটি পরিবারের অধিকার।”
               </p>
-              <p className="mt-2 text-[11px] font-semibold text-leaf-300">— বিশ্বাস এগ্রো প্রতিষ্ঠাতা</p>
+              <p className="mt-2 text-[11px] font-semibold text-[#b7eed6]">— বিশ্বাস এগ্রো প্রতিষ্ঠাতা</p>
             </div>
           </div>
         </div>

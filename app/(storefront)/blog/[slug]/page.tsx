@@ -8,6 +8,12 @@ import { formatDateBn } from "@/lib/format";
 import { site } from "@/lib/site";
 import { breadcrumbLd, dynamicAlternates, jsonLdScript } from "@/lib/seo";
 
+/* Session-aware components on this page (wishlist, review form) read the
+   session cookie per request. In Next 15 an ISR render that touches
+   `cookies()` aborts with DYNAMIC_SERVER_USAGE, so any slug outside the
+   prerendered set answered 500. Rendering per request is the correct mode. */
+export const dynamic = "force-dynamic";
+
 export const revalidate = 600;
 
 export async function generateStaticParams() {

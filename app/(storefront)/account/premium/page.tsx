@@ -45,7 +45,7 @@ export default async function AccountPremiumPage() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-[11px] uppercase tracking-wide text-sand-100/40">বর্তমান প্ল্যান</p>
-              <p className="mt-0.5 text-[16px] font-bold text-white">
+              <p className="mt-0.5 text-[16px] font-bold text-neu-ink">
                 {tierLabelBn[state.subscription.tier] ?? state.subscription.tier} —{" "}
                 {state.subscription.plan_name_bn}
               </p>
@@ -67,7 +67,7 @@ export default async function AccountPremiumPage() {
           </div>
 
           {state.subscription.status === "grace" && (
-            <p className="mt-3 rounded-lg bg-amber-500/12 px-3 py-2 text-[11.5px] leading-relaxed text-amber-200">
+            <p className="mt-3 rounded-lg bg-amber-500/12 px-3 py-2 text-[11.5px] leading-relaxed text-[#a35c07]">
               ⚠️ মেয়াদ শেষ হয়েছে, গ্রেস পিরিয়ড চলছে। এখনই রিনিউ করলে ক্যামেরা বন্ধ হবে না।
             </p>
           )}
@@ -90,7 +90,7 @@ export default async function AccountPremiumPage() {
       ) : (
         <div className="card p-5 text-center">
           <p className="text-2xl">🎬</p>
-          <p className="mt-2 text-[14px] font-semibold text-white">আপনার কোনো প্রিমিয়াম প্ল্যান নেই</p>
+          <p className="mt-2 text-[14px] font-semibold text-neu-ink">আপনার কোনো প্রিমিয়াম প্ল্যান নেই</p>
           <p className="mx-auto mt-1 max-w-sm text-[12px] leading-relaxed text-sand-100/50">
             ১০ মিনিট ফ্রি ট্রায়াল নিয়ে দেখুন, তারপর মাসিক ৳১৪৯ থেকে প্ল্যান নিন।
           </p>
@@ -109,7 +109,7 @@ export default async function AccountPremiumPage() {
 
       {/* devices */}
       <div className="card p-5">
-        <p className="flex items-center gap-1.5 text-[13px] font-bold text-white">
+        <p className="flex items-center gap-1.5 text-[13px] font-bold text-neu-ink">
           <MonitorSmartphone className="h-4 w-4 text-mint" /> ডিভাইস
         </p>
         <p className="mt-1 text-[11.5px] text-sand-100/45">
@@ -120,7 +120,7 @@ export default async function AccountPremiumPage() {
             <li className="text-[11.5px] text-sand-100/35">এখনো কোনো ডিভাইস রেজিস্টার হয়নি</li>
           ) : (
             (devices ?? []).map((d) => (
-              <li key={d.id} className="flex items-center justify-between rounded-lg bg-white/[0.03] px-3 py-2">
+              <li key={d.id} className="neu-inset-sm flex items-center justify-between rounded-lg px-3 py-2">
                 <span className="min-w-0 truncate text-[11.5px] text-sand-100/70">{d.label ?? "অজানা ডিভাইস"}</span>
                 <span className="shrink-0 text-[10.5px] text-sand-100/35">
                   {d.last_seen ? new Date(d.last_seen).toLocaleDateString("bn-BD") : ""}
@@ -133,7 +133,7 @@ export default async function AccountPremiumPage() {
 
       {/* history */}
       <div className="card overflow-hidden">
-        <p className="border-b border-white/5 px-4 py-3 text-[13px] font-bold text-white">সাবস্ক্রিপশন ইতিহাস</p>
+        <p className="border-b border-neu-line/50 px-4 py-3 text-[13px] font-bold text-neu-ink">সাবস্ক্রিপশন ইতিহাস</p>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-[11.5px]">
             <thead className="bg-white/[0.02] text-[10px] uppercase tracking-wider text-sand-100/40">

@@ -2,29 +2,26 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
+import {
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight,
+  Flower2,
+  Hand,
+  LayoutGrid,
+  Sparkles,
+  Truck,
+} from "lucide-react";
 
 /* ==========================================================================
    LumenStudio — premium product-card carousel
    --------------------------------------------------------------------------
-   Apple-Shop-style commerce UI: light paper page, white surfaces, near-black
-   navy ink headings, slatey body, and a single cobalt-blue accent reserved
-   for chrome. The carousel is a horizontal scroll-snap track of tall product
-   cards — the first highlighted (New badge, cobalt ring, cardhi lift), the
-   fourth peeking from the right edge. Purely presentational; no data deps.
+   Rendered in the same soft-UI (neumorphic) language as the rest of AGRO so
+   the whole app reads as one designed product: pale blue-grey canvas, raised
+   cards with the dual highlight/shadow pair, and one green accent reserved
+   for primary actions. Purely presentational; no data deps. Icons are the
+   local lucide set (the strict CSP blocks every external icon CDN).
    ========================================================================== */
-
-/** Iconify Phosphor inline SVG (fill/bold weight), per spec. */
-function Icon({ name, className = "h-4 w-4" }: { name: string; className?: string }) {
-  return (
-    <img
-      src={`https://api.iconify.design/${name}.svg`}
-      alt=""
-      aria-hidden
-      className={className}
-      draggable={false}
-    />
-  );
-}
 
 type Kit = {
   name: string;
@@ -75,9 +72,9 @@ const KITS: Kit[] = [
   },
 ];
 
-const GRAIN_1 = "radial-gradient(120% 90% at 18% 8%, #ffffff 0%, #f4f8ff 42%, #eaf0fb 100%)";
-const GRAIN_2 = "radial-gradient(120% 90% at 82% 12%, #ffffff 0%, #f4f8ff 42%, #eaf0fb 100%)";
-const GRAIN_3 = "radial-gradient(120% 90% at 50% 6%, #ffffff 0%, #eef4ff 50%, #e3ecfd 100%)";
+const GRAIN_1 = "radial-gradient(120% 90% at 18% 8%, #ffffff 0%, #eef2f8 42%, #dfe5ef 100%)";
+const GRAIN_2 = "radial-gradient(120% 90% at 82% 12%, #ffffff 0%, #eef2f8 42%, #dfe5ef 100%)";
+const GRAIN_3 = "radial-gradient(120% 90% at 50% 6%, #ffffff 0%, #eef2f8 50%, #dde4ee 100%)";
 const GRAIN = { 1: GRAIN_1, 2: GRAIN_2, 3: GRAIN_3 } as const;
 
 export function KitsCarousel() {
@@ -91,16 +88,16 @@ export function KitsCarousel() {
   }
 
   return (
-    <div className="min-h-dvh bg-paper font-sans text-[#0b1220]" style={{ WebkitFontSmoothing: "antialiased" }}>
+    <div className="min-h-dvh bg-neu-bg font-sans text-neu-ink" style={{ WebkitFontSmoothing: "antialiased" }}>
       {/* ───────────────────────── sticky nav ───────────────────────── */}
-      <header className="sticky top-0 z-50 h-[60px] border-b border-slate-200 bg-paper/85 backdrop-blur-md shadow-navsh">
-        <div className="mx-auto flex h-full max-w-[1180px] items-center justify-between px-6">
+      <header className="sticky top-0 z-50 border-b border-neu-line/60 bg-neu-surface/85 backdrop-blur-md">
+        <div className="mx-auto flex h-[60px] max-w-[1180px] items-center justify-between px-6">
           <Link href="/" className="flex items-center gap-2.5">
-            <span className="grid h-7 w-7 place-items-center rounded-[9px] bg-cobalt-500 shadow-pill">
-              <Icon name="ph:sparkle-fill" className="h-4 w-4 text-white" />
+            <span className="neu-icon-btn h-7 w-7 rounded-[9px] bg-neu-accent-soft text-neu-accent-strong">
+              <Sparkles className="h-4 w-4" />
             </span>
-            <span className="text-[15px] font-extrabold tracking-tight">
-              Lumen<span className="text-cobalt-600">Studio</span>
+            <span className="text-[15px] font-extrabold tracking-tight text-neu-ink">
+              Lumen<span className="text-neu-accent-strong">Studio</span>
             </span>
           </Link>
           <nav className="hidden items-center gap-7 md:flex">
@@ -114,8 +111,8 @@ export function KitsCarousel() {
               <a
                 key={l.label}
                 href="#"
-                className={`text-[13.5px] font-medium transition-colors hover:text-[#0b1220] ${
-                  l.active ? "text-[#0b1220]" : "text-slatey"
+                className={`text-[13.5px] font-medium transition-colors hover:text-neu-ink ${
+                  l.active ? "text-neu-ink" : "text-neu-muted"
                 }`}
               >
                 {l.label}
@@ -125,14 +122,11 @@ export function KitsCarousel() {
           <div className="flex items-center gap-3">
             <a
               href="#"
-              className="hidden text-[13.5px] font-semibold text-slatey transition-colors hover:text-[#0b1220] sm:block"
+              className="hidden text-[13.5px] font-semibold text-neu-muted transition-colors hover:text-neu-ink sm:block"
             >
               Sign in
             </a>
-            <a
-              href="#"
-              className="rounded-full bg-cobalt-500 px-4 py-2 text-[13px] font-semibold text-white shadow-pill transition-colors hover:bg-cobalt-600"
-            >
+            <a href="#" className="btn-primary !px-4 !py-2 !text-[13px]">
               Start free
             </a>
           </div>
@@ -140,25 +134,25 @@ export function KitsCarousel() {
       </header>
 
       {/* ───────────────────────── hero strip ───────────────────────── */}
-      <section className="relative overflow-hidden border-b border-slate-200/70 bg-white">
+      <section className="relative overflow-hidden border-b border-neu-line/60 bg-neu-surface/60">
         <div
           className="pointer-events-none absolute inset-0 opacity-70"
           style={{ background: GRAIN_3 }}
           aria-hidden
         />
-        <div className="relative mx-auto max-w-[1180px] px-6 pt-12 pb-7">
-          <div className="flex items-center gap-2 text-cobalt-600">
-            <Icon name="ph:squares-four-fill" className="h-[14px] w-[14px]" />
+        <div className="relative mx-auto max-w-[1180px] px-6 pb-7 pt-12">
+          <div className="flex items-center gap-2 text-neu-accent-strong">
+            <LayoutGrid className="h-[14px] w-[14px]" />
             <span className="text-[11px] font-bold uppercase" style={{ letterSpacing: "0.16em" }}>
               Studio Kits 2026
             </span>
           </div>
           <div className="mt-3 flex flex-col items-start justify-between gap-4 md:flex-row md:items-end">
             <h1 className="max-w-[640px] text-[34px] font-extrabold leading-[1.05] tracking-[-0.02em] md:text-[44px]">
-              <span className="block text-[#0b1220]">All kits.</span>
-              <span className="block text-slatey">Take your pick.</span>
+              <span className="block text-neu-ink">All kits.</span>
+              <span className="block text-neu-muted">Take your pick.</span>
             </h1>
-            <p className="max-w-[360px] text-[14.5px] leading-relaxed text-slatey">
+            <p className="max-w-[360px] text-[14.5px] leading-relaxed text-neu-muted">
               Modular design hardware for the infinite canvas. Pick a kit, ship UI faster.
             </p>
           </div>
@@ -170,27 +164,27 @@ export function KitsCarousel() {
         {/* header row */}
         <div className="mb-6 flex items-end justify-between">
           <div>
-            <h2 className="text-[20px] font-bold tracking-tight">Featured kits</h2>
-            <p className="mt-1 text-[13px] text-slatey">Six builds, one canvas. Drag, or use the arrows.</p>
+            <h2 className="text-[20px] font-bold tracking-tight text-neu-ink">Featured kits</h2>
+            <p className="mt-1 text-[13px] text-neu-muted">Six builds, one canvas. Drag, or use the arrows.</p>
           </div>
           <div className="flex items-center gap-3">
-            <span className="hidden items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[13px] text-cobalt-500 sm:flex">
-              <Icon name="ph:hand-grabbing-fill" className="h-4 w-4" />
+            <span className="neu-pill hidden items-center gap-1.5 !py-1.5 text-[13px] text-neu-accent-strong sm:flex">
+              <Hand className="h-4 w-4" />
               drag to explore
             </span>
             <button
               onClick={() => scrollByCards(-1)}
               aria-label="Previous"
-              className="grid h-10 w-10 place-items-center rounded-full border border-slate-200 bg-white text-slate-400 shadow-sm transition-colors hover:text-[#0b1220]"
+              className="neu-icon-btn h-10 w-10 text-neu-muted hover:text-neu-ink"
             >
-              <Icon name="ph:caret-left-bold" className="h-5 w-5" />
+              <ChevronLeft className="h-5 w-5" />
             </button>
             <button
               onClick={() => scrollByCards(1)}
               aria-label="Next"
-              className="grid h-10 w-10 place-items-center rounded-full bg-cobalt-500 text-white shadow-pill transition-colors hover:bg-cobalt-600"
+              className="grid h-10 w-10 place-items-center rounded-full bg-neu-accent text-white shadow-neu-accent-sm transition hover:bg-neu-accent-strong active:scale-95"
             >
-              <Icon name="ph:caret-right-bold" className="h-5 w-5" />
+              <ChevronRight className="h-5 w-5" />
             </button>
           </div>
         </div>
@@ -204,25 +198,27 @@ export function KitsCarousel() {
               const idx = Math.round(el.scrollLeft / 320);
               setActive(Math.max(0, Math.min(KITS.length - 1, idx)));
             }}
-            className="flex gap-5 overflow-x-auto scroll-snap-type-x mandatory pb-2 pr-10 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className="flex gap-5 overflow-x-auto snap-x snap-mandatory pb-2 pr-10 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
             {KITS.map((kit, i) => (
               <article
                 key={kit.name}
-                className={`scroll-snap-start w-[300px] shrink-0 flex flex-col rounded-[26px] bg-white p-6 transition-shadow ${
-                  i === 0 ? "shadow-cardhi ring-1 ring-cobalt-100" : "shadow-lcard ring-1 ring-slate-200/60"
+                className={`card card-hover relative flex w-[300px] shrink-0 snap-start flex-col !rounded-[26px] p-6 ${
+                  i === 0 ? "ring-1 ring-neu-accent/25" : ""
                 }`}
               >
                 {i === 0 && (
-                  <span className="absolute right-5 top-5 rounded-full bg-cobalt-50 px-2.5 py-1 text-[10px] font-bold uppercase text-cobalt-600">
+                  <span className="badge absolute right-5 top-5 bg-neu-accent-soft text-[10px] font-bold uppercase text-neu-accent-strong">
                     New
                   </span>
                 )}
-                <h3 className="text-[21px] font-extrabold leading-[1.12] tracking-[-0.01em]">{kit.name}</h3>
+                <h3 className="text-[21px] font-extrabold leading-[1.12] tracking-[-0.01em] text-neu-ink">
+                  {kit.name}
+                </h3>
 
                 {/* device tile */}
                 <div
-                  className="mt-5 grid h-[200px] place-items-center rounded-[20px]"
+                  className="neu-inset-sm mt-5 grid h-[200px] place-items-center rounded-[20px]"
                   style={{ background: GRAIN[kit.grain] }}
                 >
                   <DeviceMock device={kit.device} />
@@ -234,25 +230,31 @@ export function KitsCarousel() {
                     <span
                       key={si}
                       className={`h-3 w-3 rounded-full ${si === kit.active ? "ring-2" : ""}`}
-                      style={{ background: c, boxShadow: si === kit.active ? `0 0 0 2px ${c === "#2563eb" ? "#dbe6ff" : c}33` : undefined }}
+                      style={{
+                        background: c,
+                        boxShadow:
+                          si === kit.active
+                            ? `0 0 0 2px ${c === "#2563eb" ? "#dbe6ff" : c}33`
+                            : "inset 1px 1px 2px rgba(48,57,67,.25)",
+                      }}
                     />
                   ))}
                 </div>
 
-                <p className="mt-3 text-[12px] leading-snug text-slatey">{kit.desc}</p>
+                <p className="mt-3 text-[12px] leading-snug text-neu-muted">{kit.desc}</p>
 
                 {/* footer */}
-                <div className="mt-4 flex items-end justify-between border-t border-slate-100 pt-5">
+                <div className="mt-4 flex items-end justify-between border-t border-neu-line/60 pt-5">
                   <div>
-                    <p className="text-[12px] text-slatey">From</p>
-                    <p className="text-[16px] font-bold">{kit.price}</p>
-                    <p className="text-[12px] font-medium text-slatey">/ kit</p>
+                    <p className="text-[12px] text-neu-muted">From</p>
+                    <p className="text-[16px] font-bold text-neu-ink">{kit.price}</p>
+                    <p className="text-[12px] font-medium text-neu-muted">/ kit</p>
                   </div>
                   <button
-                    className={`rounded-full px-5 py-2.5 text-[13px] font-semibold transition-colors ${
+                    className={`rounded-full px-5 py-2.5 text-[13px] font-semibold transition ${
                       i === 0
-                        ? "bg-cobalt-500 text-white shadow-pill hover:bg-cobalt-600"
-                        : "border-cobalt-500 text-cobalt-600 hover:bg-cobalt-50"
+                        ? "bg-neu-accent text-white shadow-neu-accent-sm hover:bg-neu-accent-strong active:scale-95"
+                        : "border border-neu-accent/40 text-neu-accent-strong hover:bg-neu-accent-soft"
                     }`}
                   >
                     Buy
@@ -265,34 +267,38 @@ export function KitsCarousel() {
 
         {/* progress bar */}
         <div className="mt-6 flex items-center gap-4">
-          <div className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200">
-            <div className="absolute inset-y-0 left-0 w-[42%] rounded-full bg-cobalt-500" />
+          <div className="neu-inset-xs relative h-1.5 flex-1 overflow-hidden rounded-full">
+            <div
+              className="absolute inset-y-0 left-0 rounded-full bg-neu-accent transition-[width] duration-300"
+              style={{ width: `${((active + 1) / KITS.length) * 100}%` }}
+            />
           </div>
-          <span className="text-[12px] font-medium text-slatey">
-            <span className="font-bold text-[#0b1220]">{String(active + 1).padStart(2, "0")}</span> / 06
+          <span className="text-[12px] font-medium text-neu-muted">
+            <span className="font-bold text-neu-ink">{String(active + 1).padStart(2, "0")}</span> /{" "}
+            {String(KITS.length).padStart(2, "0")}
           </span>
         </div>
       </section>
 
       {/* ───────────────────────── footer strip ───────────────────────── */}
-      <footer className="border-t border-slate-200 bg-white">
+      <footer className="border-t border-neu-line/60 bg-neu-surface/70">
         <div className="mx-auto flex max-w-[1180px] flex-col items-center justify-between gap-4 px-6 py-7 sm:flex-row">
-          <span className="flex items-center gap-2 text-[13px] text-slatey">
-            <Icon name="ph:truck-fill" className="h-4 w-4 text-cobalt-500" />
+          <span className="flex items-center gap-2 text-[13px] text-neu-muted">
+            <Truck className="h-4 w-4 text-neu-accent-strong" />
             Free 2-day shipping on every kit. 30-day returns.
           </span>
           <a
             href="#"
-            className="flex items-center gap-1 text-[13px] font-semibold text-cobalt-600 transition-colors hover:text-cobalt-700"
+            className="flex items-center gap-1 text-[13px] font-semibold text-neu-accent-strong transition-colors hover:text-neu-accent"
           >
             Compare all kits
-            <Icon name="ph:arrow-right-bold" className="h-[14px] w-[14px]" />
+            <ArrowRight className="h-[14px] w-[14px]" />
           </a>
         </div>
       </footer>
 
       <style>{`
-        .device-shadow { filter: drop-shadow(0 26px 30px rgba(15,23,42,.18)); }
+        .device-shadow { filter: drop-shadow(0 18px 22px rgba(112, 123, 137, .22)); }
       `}</style>
     </div>
   );
@@ -303,14 +309,14 @@ function DeviceMock({ device }: { device: Kit["device"] }) {
   if (device === "pro") {
     return (
       <div className="device-shadow flex items-center gap-2.5">
-        <div className="rounded-[18px] bg-gradient-to-b from-cobalt-500 to-cobalt-700 p-3">
+        <div className="rounded-[18px] bg-gradient-to-b from-[#2563eb] to-[#1e40af] p-3">
           <div className="flex flex-col gap-1.5">
             <span className="h-2 w-8 rounded-full bg-white/25" />
             <span className="h-2 w-10 rounded-full bg-white/25" />
             <span className="h-2 w-6 rounded-full bg-white/25" />
           </div>
         </div>
-        <div className="rounded-[9px] bg-gradient-to-b from-slate-900 to-slate-700 p-2.5">
+        <div className="rounded-[9px] bg-gradient-to-b from-[#334155] to-[#475569] p-2.5">
           <div className="flex flex-col gap-1">
             <span className="h-1.5 w-6 rounded-full bg-white/25" />
             <span className="h-1.5 w-5 rounded-full bg-white/25" />
@@ -333,7 +339,7 @@ function DeviceMock({ device }: { device: Kit["device"] }) {
   if (device === "core") {
     return (
       <div className="device-shadow grid h-[96px] w-[96px] place-items-center rounded-[18px] bg-gradient-to-b from-violet-200 to-cobalt-100">
-        <Icon name="ph:flower-lotus-fill" className="h-10 w-10 text-violet-500" />
+        <Flower2 className="h-10 w-10 text-violet-500" />
       </div>
     );
   }

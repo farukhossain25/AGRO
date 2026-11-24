@@ -107,7 +107,7 @@ export function SecurityPanel({ email }: { email: string | null }) {
           <p className="text-[11px] uppercase tracking-wider text-sand-100/40">লগইন ইমেইল</p>
           <p className="truncate text-[13px] font-semibold">{email ?? "—"}</p>
         </div>
-        <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-leaf-600/15 px-2.5 py-1 text-[10.5px] font-semibold text-leaf-200">
+        <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-leaf-600/15 px-2.5 py-1 text-[10.5px] font-semibold text-leaf-700">
           <ShieldCheck className="h-3 w-3" /> সুরক্ষিত
         </span>
       </div>

@@ -93,11 +93,11 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#111312",
+  themeColor: "#E3E8F0",
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
-  colorScheme: "dark",
+  colorScheme: "light",
 };
 
 /* Site-wide structured data ------------------------------------------------
@@ -161,7 +161,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const delivery = await getDeliverySettings();
 
   return (
-    <html lang="bn" suppressHydrationWarning>
+    <html lang="bn" data-theme="light" suppressHydrationWarning>
       <head>
         {/* Self-hosted fonts (app/fonts.css). Preload only the two weights the
             first screen actually needs — 400 body copy and 700 headlines — so
@@ -182,7 +182,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         />
         {SUPABASE_ORIGIN ? <link rel="preconnect" href={SUPABASE_ORIGIN} /> : null}
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-        <meta name="theme-color" content="#1f7a4d" />
+        <meta name="theme-color" content="#E3E8F0" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-title" content={site.nameBn} />
@@ -205,7 +205,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className="min-h-dvh">
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-xl focus:bg-leaf-600 focus:px-4 focus:py-2 focus:text-sm focus:text-white"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-xl focus:bg-neu-accent focus:px-4 focus:py-2 focus:text-sm focus:text-white"
         >
           মূল কন্টেন্টে যান
         </a>

@@ -35,20 +35,20 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
   return (
     <div className="fixed inset-0 z-[80]" role="dialog" aria-modal="true" aria-label={t("শপিং কার্ট", "Shopping cart")}>
       <button
-        className="absolute inset-0 bg-ink-950/70 backdrop-blur-sm animate-fade-in"
+        className="absolute inset-0 bg-neu-ink/35 backdrop-blur-sm animate-fade-in"
         onClick={onClose}
         aria-label={t("বন্ধ করুন", "Close")}
       />
-      <aside className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col border-l border-white/10 bg-ink-900 shadow-2xl animate-[fade-up_.3s_ease]">
-        <header className="flex items-center justify-between border-b border-white/[0.06] px-5 py-4">
+      <aside className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col rounded-l-[30px] border-l border-white/85 bg-neu-surface shadow-neu-lg animate-[fade-up_.3s_ease]">
+        <header className="flex items-center justify-between border-b border-neu-line/50 px-5 py-4">
           <div className="flex items-center gap-2">
-            <ShoppingBag className="h-5 w-5 text-leaf-300" />
+            <ShoppingBag className="h-5 w-5 text-neu-accent" />
             <h2 className="text-base font-bold">{t("আপনার কার্ট", "Your cart")}</h2>
-            <span className="badge bg-leaf-600/20 text-leaf-200">{cart.count}</span>
+            <span className="badge bg-neu-accent-soft text-neu-accent-strong">{cart.count}</span>
           </div>
           <button
             onClick={onClose}
-            className="rounded-full p-2 text-sand-100/60 transition hover:bg-white/10 hover:text-sand-100"
+            className="neu-icon-btn h-9 w-9"
             aria-label={t("বন্ধ করুন", "Close")}
           >
             <X className="h-5 w-5" />
@@ -73,9 +73,9 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
           </div>
         ) : (
           <>
-            <div className="border-b border-white/[0.06] px-5 py-3">
+            <div className="border-b border-neu-line/50 px-5 py-3">
               <div className="mb-1.5 flex items-center justify-between text-[11.5px]">
-                <span className="text-sand-100/55">
+                <span className="text-neu-muted">
                   {cart.subtotal >= freeDeliveryTarget
                     ? t("🎉 ফ্রি ডেলিভারি পেয়েছেন!", "🎉 You unlocked free delivery!")
                     : t(
@@ -83,11 +83,11 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
                         `${money(freeDeliveryTarget - cart.subtotal, false)} more for free delivery`
                       )}
                 </span>
-                <span className="font-semibold text-leaf-300">{Math.round(progress)}%</span>
+                <span className="font-semibold text-neu-accent-strong">{Math.round(progress)}%</span>
               </div>
-              <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+              <div className="neu-inset-xs h-1.5 overflow-hidden rounded-full">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-leaf-600 to-leaf-300 transition-all duration-500"
+                  className="h-full rounded-full bg-gradient-to-r from-leaf-600 to-leaf-400 transition-all duration-500"
                   style={{ width: `${progress}%` }}
                 />
               </div>
@@ -95,11 +95,11 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
 
             <ul className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
               {cart.items.map((line) => (
-                <li key={line.id} className="flex gap-3 rounded-2xl border border-white/[0.06] bg-ink-850/70 p-2.5">
+                <li key={line.id} className="neu-raised flex gap-3 rounded-2xl p-2.5">
                   <Link
                     href={line.kind === "combo" ? `/combos/${line.slug}` : `/products/${line.slug}`}
                     onClick={onClose}
-                    className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-ink-800"
+                    className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-neu-sunken"
                   >
                     {line.image ? (
                       <Image src={line.image} alt="" fill sizes="64px" className="object-cover" />
@@ -112,14 +112,14 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
                     <p className="line-clamp-2 text-[13px] font-semibold leading-snug">
                       {t(line.nameBn, line.nameEn)}
                     </p>
-                    <p className="mt-0.5 text-[11.5px] text-sand-100/45">
+                    <p className="mt-0.5 text-[11.5px] text-neu-muted">
                       {money(line.price, isBn)} / {line.unit}
                     </p>
                     <div className="mt-2 flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1 rounded-full border border-white/10 bg-ink-800 p-0.5">
+                      <div className="neu-inset-xs flex items-center gap-1 rounded-full p-0.5">
                         <button
                           onClick={() => cart.setQty(line.id, line.quantity - 1)}
-                          className="grid h-6 w-6 place-items-center rounded-full text-sand-100/70 hover:bg-white/10"
+                          className="grid h-6 w-6 place-items-center rounded-full text-neu-muted transition hover:bg-white/70 hover:text-neu-ink"
                           aria-label={t("কমান", "Decrease")}
                         >
                           <Minus className="h-3 w-3" />
@@ -127,19 +127,19 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
                         <span className="min-w-5 text-center text-xs font-bold">{line.quantity}</span>
                         <button
                           onClick={() => cart.setQty(line.id, line.quantity + 1)}
-                          className="grid h-6 w-6 place-items-center rounded-full text-sand-100/70 hover:bg-white/10"
+                          className="grid h-6 w-6 place-items-center rounded-full text-neu-muted transition hover:bg-white/70 hover:text-neu-ink"
                           aria-label={t("বাড়ান", "Increase")}
                         >
                           <Plus className="h-3 w-3" />
                         </button>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-[13px] font-bold text-leaf-200">
+                        <span className="text-[13px] font-bold text-neu-accent-strong">
                           {money(line.price * line.quantity, isBn)}
                         </span>
                         <button
                           onClick={() => cart.remove(line.id)}
-                          className="rounded-full p-1 text-sand-100/35 transition hover:bg-red-500/15 hover:text-red-300"
+                          className="rounded-full p-1 text-neu-faint transition hover:bg-red-500/10 hover:text-[#c0392b]"
                           aria-label={t("সরান", "Remove")}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -151,15 +151,15 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
               ))}
             </ul>
 
-            <footer className="border-t border-white/[0.06] bg-ink-850/60 px-5 py-4">
+            <footer className="border-t border-neu-line/50 bg-neu-raised/60 px-5 py-4">
               <div className="mb-3 flex items-center justify-between">
-                <span className="text-sm text-sand-100/60">{t("সাবটোটাল", "Subtotal")}</span>
-                <span className="text-lg font-bold text-leaf-200">{money(cart.subtotal, isBn)}</span>
+                <span className="text-sm text-neu-muted">{t("সাবটোটাল", "Subtotal")}</span>
+                <span className="text-lg font-bold text-neu-accent-strong">{money(cart.subtotal, isBn)}</span>
               </div>
               <Link href="/checkout" onClick={onClose} className="btn-primary w-full">
                 {t("চেকআউট করুন", "Proceed to checkout")}
               </Link>
-              <button onClick={onClose} className="mt-2 w-full text-center text-[12.5px] text-sand-100/50 hover:text-sand-100">
+              <button onClick={onClose} className="mt-2 w-full text-center text-[12.5px] text-neu-muted transition hover:text-neu-ink">
                 {t("আরও কিনুন", "Continue shopping")}
               </button>
             </footer>

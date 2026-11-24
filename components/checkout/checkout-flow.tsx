@@ -276,7 +276,7 @@ export function CheckoutFlow({ methods: initialMethods }: { methods: PublicPayme
             <button
               onClick={() => setStep(s.n as Step)}
               className={`flex items-center gap-1.5 rounded-full px-2.5 py-1.5 font-semibold transition ${
-                step >= s.n ? "bg-leaf-600/20 text-leaf-200" : "text-sand-100/40"
+                step >= s.n ? "bg-leaf-600/20 text-leaf-700" : "text-sand-100/40"
               }`}
             >
               <span
@@ -302,7 +302,7 @@ export function CheckoutFlow({ methods: initialMethods }: { methods: PublicPayme
           <section className={`card overflow-hidden ${step !== 1 ? "opacity-60" : ""}`}>
             <div className="flex items-center justify-between border-b border-white/[0.06] bg-white/[0.02] px-5 py-3.5">
               <h2 className="flex items-center gap-2 text-[15px] font-bold">
-                <span className="grid h-6 w-6 place-items-center rounded-full bg-leaf-600/20 text-[11px] text-leaf-200">1</span>
+                <span className="grid h-6 w-6 place-items-center rounded-full bg-leaf-600/20 text-[11px] text-leaf-700">1</span>
                 {t("ডেলিভারি ঠিকানা", "Delivery address")}
               </h2>
               {step !== 1 ? (
@@ -489,7 +489,7 @@ export function CheckoutFlow({ methods: initialMethods }: { methods: PublicPayme
                 <p className="mt-0.5">{form.address}</p>
                 {form.delivery_note ? <p className="mt-1 text-sand-100/50">📝 {form.delivery_note}</p> : null}
                 {appliedCoupon ? (
-                  <p className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-leaf-600/15 px-2.5 py-1 text-[11px] font-semibold text-leaf-200">
+                  <p className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-leaf-600/15 px-2.5 py-1 text-[11px] font-semibold text-leaf-700">
                     <Tag className="h-3 w-3" /> {appliedCoupon} — −{money(discount, isBn)}
                   </p>
                 ) : null}
@@ -501,7 +501,7 @@ export function CheckoutFlow({ methods: initialMethods }: { methods: PublicPayme
           <section className={`card overflow-hidden ${step !== 2 ? "opacity-60" : ""}`}>
             <div className="flex items-center justify-between border-b border-white/[0.06] bg-white/[0.02] px-5 py-3.5">
               <h2 className="flex items-center gap-2 text-[15px] font-bold">
-                <span className="grid h-6 w-6 place-items-center rounded-full bg-leaf-600/20 text-[11px] text-leaf-200">2</span>
+                <span className="grid h-6 w-6 place-items-center rounded-full bg-leaf-600/20 text-[11px] text-leaf-700">2</span>
                 {t("পেমেন্ট মাধ্যম", "Payment method")}
               </h2>
               {step !== 2 ? (
@@ -616,7 +616,7 @@ export function CheckoutFlow({ methods: initialMethods }: { methods: PublicPayme
             <section className="card overflow-hidden">
               <div className="flex items-center justify-between border-b border-white/[0.06] bg-white/[0.02] px-5 py-3.5">
                 <h2 className="flex items-center gap-2 text-[15px] font-bold">
-                  <span className="grid h-6 w-6 place-items-center rounded-full bg-leaf-600/20 text-[11px] text-leaf-200">3</span>
+                  <span className="grid h-6 w-6 place-items-center rounded-full bg-leaf-600/20 text-[11px] text-leaf-700">3</span>
                   {t("অর্ডার নিশ্চিত করুন", "Confirm your order")}
                 </h2>
               </div>
@@ -711,7 +711,7 @@ export function CheckoutFlow({ methods: initialMethods }: { methods: PublicPayme
                 </div>
               ) : null}
               {freeDelivery ? (
-                <p className="rounded-lg bg-leaf-600/10 px-2.5 py-1.5 text-[11px] font-semibold text-leaf-200">
+                <p className="rounded-lg bg-leaf-600/10 px-2.5 py-1.5 text-[11px] font-semibold text-leaf-700">
                   {t("ফ্রি ডেলিভারি পেয়েছেন", "You got free delivery")}
                 </p>
               ) : null}

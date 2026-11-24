@@ -114,7 +114,7 @@ export function TrialStarter() {
     return (
       <div className="card border-mint/25 bg-leaf-900/25 p-8 text-center">
         <CheckCircle2 className="mx-auto h-9 w-9 text-mint" />
-        <p className="mt-3 text-[15px] font-bold text-white">আপনার প্রিমিয়াম সক্রিয় আছে</p>
+        <p className="mt-3 text-[15px] font-bold text-neu-ink">আপনার প্রিমিয়াম সক্রিয় আছে</p>
         <p className="mt-1 text-[12.5px] text-sand-100/55">সব লাইভ ক্যামেরা দেখতে পারবেন।</p>
         <div className="mt-5 flex flex-wrap justify-center gap-2">
           <Link href="/live/farms" className="btn-primary btn-sm">
@@ -135,7 +135,7 @@ export function TrialStarter() {
     return (
       <div className="card border-mint/25 bg-leaf-900/25 p-8 text-center">
         <Timer className="mx-auto h-9 w-9 text-mint" />
-        <p className="mt-3 text-[15px] font-bold text-white">ট্রায়াল চলছে</p>
+        <p className="mt-3 text-[15px] font-bold text-neu-ink">ট্রায়াল চলছে</p>
         <p className="mt-2 font-mono text-3xl font-bold tabular-nums text-mint">
           {mm}:{ss}
         </p>
@@ -159,7 +159,7 @@ export function TrialStarter() {
     return (
       <div className="card border-amber-500/25 bg-amber-500/5 p-8 text-center">
         <p className="text-2xl">⏳</p>
-        <p className="mt-3 text-[15px] font-bold text-white">আপনার ফ্রি ট্রায়াল শেষ হয়েছে</p>
+        <p className="mt-3 text-[15px] font-bold text-neu-ink">আপনার ফ্রি ট্রায়াল শেষ হয়েছে</p>
         <p className="mt-1 text-[12.5px] leading-relaxed text-sand-100/55">
           চালিয়ে যেতে প্রিমিয়াম প্ল্যান নিন — মাসে মাত্র ৳১৪৯ থেকে।
         </p>
@@ -178,7 +178,7 @@ export function TrialStarter() {
   return (
     <div className="card p-8 text-center">
       <p className="text-2xl">🎬</p>
-      <p className="mt-2 text-[15px] font-bold text-white">
+      <p className="mt-2 text-[15px] font-bold text-neu-ink">
         আপনার {bn(state?.trial_minutes ?? 10)} মিনিট ফ্রি ট্রায়াল এখনো নেওয়া হয়নি
       </p>
       <p className="mt-1 text-[12.5px] text-sand-100/55">নিচের বাটনে চাপ দিন — সাথে সাথেই শুরু হবে।</p>

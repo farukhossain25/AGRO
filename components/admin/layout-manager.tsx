@@ -269,7 +269,7 @@ function ConfigDrawer({
   return (
     <div className="fixed inset-0 z-[96]">
       <button className="absolute inset-0 bg-ink-950/70 backdrop-blur-sm" onClick={onClose} aria-label="বন্ধ" />
-      <div className="absolute inset-y-0 right-0 flex w-full max-w-sm flex-col border-l border-white/10 bg-ink-900">
+      <div className="absolute inset-y-0 right-0 flex w-full max-w-sm flex-col border-l border-white/85 bg-neu-surface shadow-neu-lg">
         <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
           <h2 className="text-[13.5px] font-bold">{row.label_bn} — সেটিংস</h2>
           <button onClick={onClose} className="rounded-lg px-2 py-1 text-sand-100/45 hover:bg-white/10">

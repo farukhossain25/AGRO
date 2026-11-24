@@ -105,7 +105,7 @@ export default async function AccountDashboard() {
                 <span
                   className={`badge ${
                     s.status === "active"
-                      ? "bg-leaf-600/20 text-leaf-200"
+                      ? "bg-leaf-600/20 text-leaf-700"
                       : s.status === "paused"
                       ? "bg-amber-500/15 text-amber-300"
                       : "bg-red-500/15 text-red-300"

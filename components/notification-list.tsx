@@ -85,13 +85,13 @@ export function NotificationList({ initial }: { initial: Item[] }) {
               <span className="mt-0.5 text-base">{KIND_ICON[item.kind] ?? "🔔"}</span>
               <span className="min-w-0 flex-1">
                 <span className="flex items-start gap-2">
-                  <span className={`text-[12.5px] ${item.is_read ? "font-medium text-sand-100/70" : "font-semibold text-white"}`}>
+                  <span className={`text-[12.5px] ${item.is_read ? "font-medium text-neu-muted" : "font-semibold text-neu-ink"}`}>
                     {item.title_bn}
                   </span>
                   {!item.is_read && <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-mint" />}
                 </span>
                 {item.body_bn && (
-                  <span className="mt-0.5 block text-[11.5px] leading-relaxed text-sand-100/50">{item.body_bn}</span>
+                  <span className="mt-0.5 block text-[11.5px] leading-relaxed text-neu-muted">{item.body_bn}</span>
                 )}
                 <span className="mt-1 block text-[10px] text-sand-100/30">
                   {item.created_at

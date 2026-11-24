@@ -49,17 +49,17 @@ export function SiteHeader({
 
   return (
     <>
-      {/* ── Header */}
+      {/* ── Header — a floating neumorphic bar with the page scrolling behind */}
       <header
-        className="sticky top-0 z-50 border-b border-white/[0.06] bg-ink-900/85 backdrop-blur-xl"
-        style={{ paddingTop: "env(safe-area-inset-top)" }}
+        className="sticky top-0 z-50 px-2 pt-2 sm:px-4 sm:pt-3"
+        style={{ paddingTop: "max(0.5rem, env(safe-area-inset-top))" }}
       >
-        <div className="container-x">
-          <div className="flex h-[62px] items-center gap-1.5 min-[400px]:gap-2 sm:h-[72px] sm:gap-4">
+        <div className="container-x !px-0 sm:!px-0">
+          <div className="neu-bar flex h-[62px] items-center gap-1.5 rounded-[24px] px-2 min-[400px]:gap-2 sm:h-[70px] sm:gap-3 sm:rounded-[28px] sm:px-3.5">
             {/* Mobile menu button */}
             <button
               onClick={() => setMenuOpen(true)}
-              className="grid h-11 w-11 place-items-center rounded-xl border border-white/[0.07] bg-white/[0.03] text-sand-100/85 transition duration-300 hover:border-leaf-500/40 hover:bg-leaf-600/10 hover:text-white active:scale-95 lg:hidden"
+              className="neu-icon-btn h-11 w-11 shrink-0 lg:hidden"
               aria-label={t("মেনু খুলুন", "Open menu")}
               aria-expanded={menuOpen}
             >
@@ -74,24 +74,24 @@ export function SiteHeader({
             {socials ? <div className="ml-auto hidden items-center xl:flex">{socials}</div> : null}
 
             {/* Desktop nav */}
-            <nav className="ml-2 hidden items-center gap-0.5 lg:flex" aria-label={t("প্রধান মেনু", "Main navigation")}>
+            <nav className="ml-1 hidden items-center gap-0.5 lg:flex" aria-label={t("প্রধান মেনু", "Main navigation")}>
               <div className="relative">
                 <button
                   onClick={() => setCatOpen((v) => !v)}
                   onBlur={() => window.setTimeout(() => setCatOpen(false), 150)}
-                  className="flex items-center gap-1 rounded-xl px-3 py-2 text-[13.5px] font-medium text-sand-100/80 transition hover:bg-white/[0.06] hover:text-sand-100"
+                  className="flex items-center gap-1 rounded-full px-3.5 py-2 text-[13.5px] font-medium text-neu-muted transition hover:text-neu-ink"
                   aria-expanded={catOpen}
                 >
                   {t("ক্যাটাগরি", "Categories")}
                   <ChevronDown className={`h-3.5 w-3.5 transition ${catOpen ? "rotate-180" : ""}`} />
                 </button>
                 {catOpen ? (
-                  <div className="absolute left-0 top-full z-50 mt-2 grid w-[520px] grid-cols-2 gap-0.5 rounded-2xl border border-white/10 bg-ink-850 p-2 shadow-soft animate-pop">
+                  <div className="absolute left-0 top-full z-50 mt-3 grid w-[520px] grid-cols-2 gap-0.5 rounded-[26px] border border-white/80 bg-neu-surface p-2 shadow-neu animate-pop">
                     {categories.map((c) => (
                       <Link
                         key={c.slug}
                         href={`/categories/${c.slug}`}
-                        className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] transition hover:bg-leaf-600/15"
+                        className="flex items-center gap-2.5 rounded-2xl px-3 py-2.5 text-[13px] text-neu-ink transition hover:bg-white/70 hover:text-neu-accent-strong"
                       >
                         <span className="text-base" aria-hidden>{c.icon ?? "🌿"}</span>
                         <span className="font-medium">{t(c.name_bn, c.name_en)}</span>
@@ -99,7 +99,7 @@ export function SiteHeader({
                     ))}
                     <Link
                       href="/categories"
-                      className="col-span-2 mt-1 rounded-xl bg-leaf-600/15 px-3 py-2.5 text-center text-[12.5px] font-semibold text-leaf-200 hover:bg-leaf-600/25"
+                      className="col-span-2 mt-1 rounded-2xl bg-neu-accent-soft px-3 py-2.5 text-center text-[12.5px] font-semibold text-neu-accent-strong transition hover:bg-neu-accent hover:text-white"
                     >
                       {t("সব ক্যাটাগরি দেখুন →", "View all categories →")}
                     </Link>
@@ -113,8 +113,10 @@ export function SiteHeader({
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`rounded-xl px-3 py-2 text-[13.5px] font-medium transition hover:bg-white/[0.06] ${
-                      active ? "text-leaf-200" : "text-sand-100/80 hover:text-sand-100"
+                    className={`rounded-full px-3.5 py-2 text-[13.5px] font-medium transition ${
+                      active
+                        ? "bg-neu-raised text-neu-accent-strong shadow-neu-xs"
+                        : "text-neu-muted hover:bg-white/50 hover:text-neu-ink"
                     }`}
                   >
                     {t(item.labelBn, item.labelEn)}
@@ -129,19 +131,19 @@ export function SiteHeader({
             </div>
 
             {/* Actions */}
-            <div className="ml-auto flex shrink-0 items-center gap-0.5 xl:ml-0">
+            <div className="ml-auto flex shrink-0 items-center gap-1 xl:ml-0">
               <button
                 onClick={() => setSearchOpen((v) => !v)}
-                className="grid h-10 w-10 place-items-center rounded-xl text-sand-100/80 transition hover:bg-white/[0.06] xl:hidden"
+                className="neu-icon-btn h-10 w-10 xl:hidden"
                 aria-label={t("খুঁজুন", "Search")}
                 aria-expanded={searchOpen}
               >
-                <Search className="h-5 w-5" />
+                <Search className="h-[18px] w-[18px]" />
               </button>
 
               <button
                 onClick={toggle}
-                className="hidden items-center gap-1 rounded-xl px-2.5 py-2 text-[12px] font-semibold text-sand-100/70 transition hover:bg-white/[0.06] hover:text-sand-100 sm:flex"
+                className="hidden items-center gap-1 rounded-full px-2.5 py-2 text-[12px] font-semibold text-neu-muted transition hover:text-neu-ink sm:flex"
                 aria-label={t("ভাষা পরিবর্তন", "Change language")}
               >
                 <Globe className="h-4 w-4" />
@@ -150,10 +152,10 @@ export function SiteHeader({
 
               <Link
                 href="/account/wishlist"
-                className="hidden h-10 w-10 place-items-center rounded-xl text-sand-100/70 transition hover:bg-white/[0.06] hover:text-sand-100 sm:grid"
+                className="neu-icon-btn hidden h-10 w-10 sm:grid"
                 aria-label={t("পছন্দের তালিকা", "Wishlist")}
               >
-                <Heart className="h-5 w-5" />
+                <Heart className="h-[18px] w-[18px]" />
               </Link>
 
               {/* Identity comes from AuthProvider (Supabase session); the server
@@ -162,12 +164,12 @@ export function SiteHeader({
 
               <button
                 onClick={() => setCartOpen(true)}
-                className="relative grid h-10 w-10 place-items-center rounded-xl text-sand-100/80 transition hover:bg-white/[0.06] hover:text-sand-100"
+                className="neu-icon-btn relative h-10 w-10"
                 aria-label={t(`কার্ট, ${cart.count}টি পণ্য`, `Cart, ${cart.count} items`)}
               >
-                <ShoppingBag className="h-5 w-5" />
+                <ShoppingBag className="h-[18px] w-[18px]" />
                 {cart.count > 0 ? (
-                  <span className="absolute -right-0.5 -top-0.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-leaf-400 px-1 text-[10px] font-bold text-ink-900">
+                  <span className="absolute -right-0.5 -top-0.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-neu-accent px-1 text-[10px] font-bold text-white shadow-neu-xs">
                     {cart.count}
                   </span>
                 ) : null}
@@ -178,11 +180,10 @@ export function SiteHeader({
           {/* Mobile / tablet search row — same component, so the suggestions
               and the keyboard behaviour are identical on every screen size. */}
           {searchOpen ? (
-            <div className="pb-3 xl:hidden">
+            <div className="animate-fade-in px-1 pb-1 pt-2 xl:hidden">
               <SearchBox autoFocus onSubmitted={() => setSearchOpen(false)} />
             </div>
           ) : null}
-
         </div>
       </header>
 

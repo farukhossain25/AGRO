@@ -61,7 +61,7 @@ export default async function SellerCamerasPage() {
       {mine && (
         <div className="mb-5 rounded-xl border border-white/8 bg-white/[0.02] p-4">
           <p className="text-[11px] uppercase tracking-wide text-sand-100/40">যুক্ত খামার</p>
-          <p className="mt-0.5 text-[14px] font-semibold text-white">{mine.name_bn}</p>
+          <p className="mt-0.5 text-[14px] font-semibold text-neu-ink">{mine.name_bn}</p>
           <p className="text-[11.5px] text-sand-100/45">
             {mine.camera_count}টি ক্যামেরা · {mine.online_cameras}টি অনলাইন
           </p>
@@ -75,7 +75,7 @@ export default async function SellerCamerasPage() {
 
       {(requests ?? []).length > 0 && (
         <section className="mt-8">
-          <h2 className="mb-3 text-[14px] font-bold text-white">আগের রিকোয়েস্ট</h2>
+          <h2 className="mb-3 text-[14px] font-bold text-neu-ink">আগের রিকোয়েস্ট</h2>
           <ul className="space-y-2">
             {(requests ?? []).map((r) => {
               const meta = STATUS[r.status as keyof typeof STATUS] ?? STATUS.pending;
@@ -106,7 +106,7 @@ export default async function SellerCamerasPage() {
       )}
 
       <div className="mt-8 rounded-xl border border-mint/20 bg-leaf-900/20 p-4">
-        <p className="text-[12.5px] font-bold text-white">ক্যামেরা সম্পর্কে</p>
+        <p className="text-[12.5px] font-bold text-neu-ink">ক্যামেরা সম্পর্কে</p>
         <ul className="mt-2 space-y-1.5 text-[11.5px] leading-relaxed text-sand-100/55">
           <li>• ইনস্টলেশন ও যন্ত্রপাতি বিশ্বাস এগ্রো বহন করে — আপনার কোনো খরচ নেই।</li>
           <li>• শুধু খামার ও প্যাকিং এলাকার ক্যামেরা অনুমোদিত, ব্যক্তিগত স্থান নয়।</li>

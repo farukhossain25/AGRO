@@ -35,7 +35,7 @@ export function WhyChooseUs({ items }: { items: Item[] }) {
           </article>
         ))}
 
-        <article className="card flex flex-col justify-between gap-4 border-leaf-600/30 bg-gradient-to-br from-leaf-800/40 to-ink-850 p-5 sm:p-6">
+        <article className="card flex flex-col justify-between gap-4 border-neu-accent/25 bg-gradient-to-br from-neu-accent-soft to-neu-raised p-5 sm:p-6">
           <div>
             <span className="grid h-11 w-11 place-items-center rounded-2xl bg-leaf-500/25 text-xl" aria-hidden>
               🌾

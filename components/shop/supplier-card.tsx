@@ -56,7 +56,7 @@ export function SupplierCard({ supplier }: { supplier: SupplierInfo }) {
           {t("সরবরাহকারীর তথ্য", "Supplier details")}
         </h2>
         {supplier.certifications.length ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-leaf-600/15 px-2 py-0.5 text-[10px] font-semibold text-leaf-200">
+          <span className="inline-flex items-center gap-1 rounded-full bg-leaf-600/15 px-2 py-0.5 text-[10px] font-semibold text-leaf-700">
             <ShieldCheck className="h-3 w-3" />
             {t("যাচাইকৃত", "Verified")}
           </span>

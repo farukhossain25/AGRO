@@ -181,7 +181,7 @@ export function AddressManager({ initial }: { initial: Address[] }) {
               <div className="flex items-start justify-between gap-2">
                 <span className="badge bg-white/[0.06] text-sand-100/70">{a.label}</span>
                 {a.is_default ? (
-                  <span className="badge bg-leaf-600/20 text-leaf-200">
+                  <span className="badge bg-leaf-600/20 text-leaf-700">
                     <Star className="h-2.5 w-2.5 fill-current" /> ডিফল্ট
                   </span>
                 ) : null}

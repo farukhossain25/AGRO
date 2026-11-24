@@ -230,7 +230,7 @@ export default function CartPage() {
                   </dd>
                 </div>
                 {cart.subtotal < rules.free_over ? (
-                  <p className="rounded-xl bg-leaf-600/10 px-3 py-2 text-[11.5px] text-leaf-200">
+                  <p className="rounded-xl bg-leaf-600/10 px-3 py-2 text-[11.5px] text-leaf-700">
                     {t(
                       `আর ${money(rules.free_over - cart.subtotal, isBn)} কিনলে ডেলিভারি ফ্রি!`,
                       `Add ${money(rules.free_over - cart.subtotal, false)} more for free delivery!`

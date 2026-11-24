@@ -34,16 +34,16 @@ export function FloatingActions() {
               href={waLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2.5 rounded-full bg-[#25D366] px-4 py-2.5 text-[13px] font-semibold text-white shadow-soft transition hover:brightness-110"
+              className="neu-raised-xs flex items-center gap-2.5 rounded-full px-4 py-2.5 text-[13px] font-semibold text-neu-ink transition hover:text-neu-accent-strong"
             >
-              <MessageCircle className="h-4 w-4" />
+              <MessageCircle className="h-4 w-4 text-[#25D366]" />
               {t("হোয়াটসঅ্যাপ", "WhatsApp")}
             </a>
             <a
               href={`tel:${site.phone}`}
-              className="flex items-center gap-2.5 rounded-full bg-leaf-600 px-4 py-2.5 text-[13px] font-semibold text-white shadow-soft transition hover:bg-leaf-500"
+              className="neu-raised-xs flex items-center gap-2.5 rounded-full px-4 py-2.5 text-[13px] font-semibold text-neu-ink transition hover:text-neu-accent-strong"
             >
-              <Phone className="h-4 w-4" />
+              <Phone className="h-4 w-4 text-neu-accent" />
               {t("কল করুন", "Call us")}
             </a>
           </div>
@@ -53,7 +53,7 @@ export function FloatingActions() {
           onClick={() => setOpen((v) => !v)}
           aria-label={t("যোগাযোগের অপশন", "Contact options")}
           aria-expanded={open}
-          className="grid h-12 w-12 place-items-center rounded-full bg-[#25D366] text-white shadow-[0_10px_30px_-10px_rgba(37,211,102,.8)] transition hover:scale-105 active:scale-95"
+          className="neu-icon-btn h-12 w-12 !text-[#25D366]"
         >
           {open ? <X className="h-5 w-5" /> : <MessageCircle className="h-5 w-5" />}
         </button>

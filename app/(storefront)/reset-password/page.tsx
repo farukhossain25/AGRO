@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 /** /reset-password — same brand shell as /login, one job: set a new password. */
 export default function ResetPasswordPage() {
   return (
-    <div className="relative flex min-h-[calc(100dvh-64px)] items-center justify-center overflow-hidden bg-[#080b09] px-4 py-10 pb-[max(2rem,env(safe-area-inset-bottom))]">
+    <div className="relative flex min-h-[calc(100dvh-64px)] items-center justify-center overflow-hidden bg-neu-bg px-4 py-10 pb-[max(2rem,env(safe-area-inset-bottom))]">
       <div className="pointer-events-none absolute inset-0" aria-hidden>
         <div
           className="auth-orb absolute -left-20 -top-24 h-[380px] w-[380px] rounded-full bg-leaf-700/25 blur-[110px]"
@@ -25,20 +25,20 @@ export default function ResetPasswordPage() {
 
       <div className="relative w-full max-w-md">
         <Link href="/" className="auth-rise mb-4 flex items-center justify-center gap-2.5" style={{ ["--d" as string]: "30ms" }}>
-          <span className="auth-pulse grid h-10 w-10 place-items-center rounded-2xl bg-leaf-600/20 text-leaf-200 ring-1 ring-leaf-500/30">
+          <span className="auth-pulse grid h-10 w-10 place-items-center rounded-2xl bg-leaf-600/20 text-leaf-700 ring-1 ring-leaf-500/30">
             <Sprout className="h-5 w-5" />
           </span>
-          <span className="text-[16px] font-bold tracking-tight text-white">বিশ্বাস এগ্রো</span>
+          <span className="text-[16px] font-bold tracking-tight text-neu-ink">বিশ্বাস এগ্রো</span>
         </Link>
 
         <div
           className="auth-rise auth-frame rounded-[26px] border border-white/[0.07] bg-ink-900/85 p-6 shadow-[0_40px_100px_-50px_rgba(0,0,0,0.95)] backdrop-blur-xl sm:p-8"
           style={{ ["--d" as string]: "90ms" }}
         >
-          <span className="grid h-11 w-11 place-items-center rounded-2xl bg-leaf-600/15 text-leaf-200 ring-1 ring-leaf-500/25">
+          <span className="grid h-11 w-11 place-items-center rounded-2xl bg-leaf-600/15 text-leaf-700 ring-1 ring-leaf-500/25">
             <KeyRound className="h-5 w-5" />
           </span>
-          <h1 className="mt-3 text-[20px] font-bold text-white">নতুন পাসওয়ার্ড দিন</h1>
+          <h1 className="mt-3 text-[20px] font-bold text-neu-ink">নতুন পাসওয়ার্ড দিন</h1>
           <p className="mt-1 text-[12.5px] leading-relaxed text-sand-100/50">
             কমপক্ষে ৮ অক্ষরের একটি পাসওয়ার্ড দিন। এই পাসওয়ার্ড দিয়েই পরেরবার লগইন করবেন।
           </p>
