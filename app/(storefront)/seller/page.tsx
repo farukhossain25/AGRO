@@ -60,7 +60,7 @@ export default async function SellerDashboard() {
             <span
               className={`rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${
                 seller.status === "approved"
-                  ? "bg-leaf-600/20 text-leaf-200"
+                  ? "bg-leaf-600/20 text-leaf-700"
                   : seller.status === "pending"
                   ? "bg-amber-500/15 text-amber-300"
                   : "bg-red-500/15 text-red-300"
@@ -107,7 +107,7 @@ export default async function SellerDashboard() {
         {/* products */}
         <section>
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="flex items-center gap-2 text-[15px] font-bold text-white">
+            <h2 className="flex items-center gap-2 text-[15px] font-bold text-neu-ink">
               <Package className="h-4 w-4 text-mint" /> আমার পণ্য
               <span className="text-[11.5px] font-normal text-sand-100/40">
                 ({products?.length ?? 0}টি{pendingCount ? ` · ${pendingCount}টি অপেক্ষমাণ` : ""})
@@ -125,7 +125,7 @@ export default async function SellerDashboard() {
         {/* orders + payouts */}
         <aside className="space-y-5">
           <div className="card p-4">
-            <h2 className="mb-3 text-[13px] font-bold text-white">সাম্প্রতিক অর্ডার</h2>
+            <h2 className="mb-3 text-[13px] font-bold text-neu-ink">সাম্প্রতিক অর্ডার</h2>
             {orders.length === 0 ? (
               <p className="text-[11.5px] text-sand-100/40">এখনো কোনো অর্ডার আসেনি</p>
             ) : (
@@ -141,7 +141,7 @@ export default async function SellerDashboard() {
           </div>
 
           <div className="card p-4">
-            <h2 className="mb-3 text-[13px] font-bold text-white">পেমেন্ট</h2>
+            <h2 className="mb-3 text-[13px] font-bold text-neu-ink">পেমেন্ট</h2>
             {(payouts ?? []).length === 0 ? (
               <p className="text-[11.5px] leading-relaxed text-sand-100/40">
                 প্রতি সপ্তাহে অ্যাডমিন পেমেন্ট রিলিজ করেন। প্রথম পেমেন্ট অর্ডার ডেলিভারির ৭ দিন পর।
@@ -166,7 +166,7 @@ export default async function SellerDashboard() {
           </div>
 
           <div className="rounded-xl border border-mint/20 bg-leaf-900/20 p-4">
-            <p className="text-[12.5px] font-bold text-white">লাইভ ক্যামেরা চান?</p>
+            <p className="text-[12.5px] font-bold text-neu-ink">লাইভ ক্যামেরা চান?</p>
             <p className="mt-1 text-[11px] leading-relaxed text-sand-100/50">
               আপনার খামারে ক্যামেরা বসিয়ে গ্রাহককে সরাসরি দেখানোর সুযোগ নিন — বিক্রি গড়ে ৩৪% বাড়ে।
             </p>

@@ -99,7 +99,7 @@ export function PWAInstallPrompt() {
   return (
     <div className="fixed inset-x-3 bottom-3 z-[80] mx-auto max-w-md animate-fade-up sm:inset-x-auto sm:right-4">
       <div className="flex items-start gap-3 rounded-2xl border border-leaf-500/30 bg-ink-850/98 p-3.5 shadow-soft backdrop-blur-xl">
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-leaf-600/20 text-leaf-200">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-leaf-600/20 text-leaf-700">
           <Download className="h-4 w-4" />
         </span>
 

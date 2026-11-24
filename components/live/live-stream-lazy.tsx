@@ -27,7 +27,7 @@ const LiveStream = dynamic(() => import("./live-stream").then((m) => m.LiveStrea
       aria-busy="true"
       aria-live="polite"
     >
-      <span className="flex items-center gap-2 text-[12.5px] text-sand-100/50">
+      <span className="flex items-center gap-2 text-[12.5px] text-white/50">
         <Video className="h-4 w-4 animate-pulse" /> লাইভ প্লেয়ার লোড হচ্ছে…
       </span>
     </div>
@@ -74,7 +74,7 @@ export function LiveStreamLazy({ poster, cameraName, eager = false, ...rest }: L
         />
       ) : (
         <span className="grid h-full w-full place-items-center bg-ink-850">
-          <Video className="h-8 w-8 text-sand-100/25" />
+          <Video className="h-8 w-8 text-white/25" />
         </span>
       )}
 

@@ -20,6 +20,12 @@ import { SectionHeader, StarRating } from "@/components/ui";
 import { site } from "@/lib/site";
 import { dynamicAlternates } from "@/lib/seo";
 
+/* The page reads the session cookie (wishlist + premium state) on every
+   request, so it cannot be served from the static shell: in Next 15 a cached
+   ISR render that touches `cookies()` aborts with DYNAMIC_SERVER_USAGE and
+   answers 500 for every slug outside the prerendered set. */
+export const dynamic = "force-dynamic";
+
 export const revalidate = 120;
 
 export async function generateStaticParams() {

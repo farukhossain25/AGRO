@@ -133,7 +133,7 @@ export function VerifiedReviewModeration({ initial }: { initial: ModReviewRow[] 
                   {row.status === "hidden" ? (
                     <span className="badge bg-red-500/15 text-[10px] text-red-300">লুকানো</span>
                   ) : (
-                    <span className="badge bg-leaf-600/15 text-[10px] text-leaf-200">প্রকাশিত</span>
+                    <span className="badge bg-leaf-600/15 text-[10px] text-leaf-700">প্রকাশিত</span>
                   )}
                 </div>
               </div>

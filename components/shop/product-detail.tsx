@@ -112,7 +112,7 @@ export function ProductDetail({
 
           <button
             onClick={share}
-            className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-ink-950/70 text-sand-100/80 backdrop-blur transition hover:bg-ink-950 hover:text-sand-100"
+            className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-ink-950/70 text-white/80 backdrop-blur transition hover:bg-ink-950 hover:text-white"
             aria-label={t("শেয়ার করুন", "Share")}
           >
             <Share2 className="h-4 w-4" />

@@ -40,17 +40,17 @@ export default async function LiveHubPage() {
       <section className="relative overflow-hidden border-b border-white/5">
         <div className="absolute inset-0 -z-10">
           <Image src="/images/hero/farm.jpg" alt="" fill priority sizes="100vw" className="object-cover opacity-25" />
-          <div className="absolute inset-0 bg-gradient-to-b from-ink-900/50 via-ink-900/85 to-ink-900" />
+          <div className="absolute inset-0 bg-gradient-to-b from-scrim/50 via-scrim/85 to-scrim" />
         </div>
 
         <div className="container-x py-14 sm:py-20">
           <span className="eyebrow mb-4">
             <Radio className="h-3.5 w-3.5" /> লাইভ ফার্ম মনিটরিং
           </span>
-          <h1 className="max-w-3xl text-[28px] font-bold leading-tight sm:text-[42px]">
-            আপনার খাবার কোথা থেকে আসছে — <span className="text-leaf-400">নিজের চোখে দেখুন</span>
+          <h1 className="max-w-3xl text-[28px] font-bold leading-tight text-white sm:text-[42px]">
+            আপনার খাবার কোথা থেকে আসছে — <span className="text-[#7CE3B4]">নিজের চোখে দেখুন</span>
           </h1>
-          <p className="mt-4 max-w-2xl text-[14.5px] leading-relaxed text-sand-100/65">
+          <p className="mt-4 max-w-2xl text-[14.5px] leading-relaxed text-white/70">
             প্রতিটি খামারে বসানো ক্যামেরা দিয়ে আপনি সরাসরি দেখতে পারবেন সবজি তোলা, গাভীর দোহন, ডিম বাছাই ও
             প্যাকিং। কোনো সম্পাদনা নেই — যা হচ্ছে, তাই দেখছেন।
           </p>
@@ -63,7 +63,7 @@ export default async function LiveHubPage() {
               সব খামার দেখুন <ArrowRight className="h-4 w-4" />
             </Link>
             {featured && (
-              <Link href="/live/plans" className="text-[13px] text-mint/80 underline-offset-4 hover:underline">
+              <Link href="/live/plans" className="text-[13px] text-[#7CE3B4]/90 underline-offset-4 hover:underline">
                 প্রিমিয়াম {formatTaka(featured.price)}/মাস থেকে
               </Link>
             )}
@@ -77,10 +77,10 @@ export default async function LiveHubPage() {
               { label: "ফ্রি ট্রায়াল", value: 10, suffix: " মিনিট" },
             ].map((stat) => (
               <div key={stat.label} className="rounded-xl border border-white/8 bg-white/[0.03] p-4">
-                <dt className="text-[11px] uppercase tracking-wide text-sand-100/45">{stat.label}</dt>
-                <dd className="mt-1 text-xl font-bold text-mint">
+                <dt className="text-[11px] uppercase tracking-wide text-white/55">{stat.label}</dt>
+                <dd className="mt-1 text-xl font-bold text-[#7CE3B4]">
                   {toBn(stat.value)}
-                  <span className="text-sm font-medium text-sand-100/40">{stat.suffix}</span>
+                  <span className="text-sm font-medium text-white/50">{stat.suffix}</span>
                 </dd>
               </div>
             ))}
@@ -92,14 +92,14 @@ export default async function LiveHubPage() {
       <section className="container-x py-12">
         <Link
           href="/live/dairy"
-          className="group relative block overflow-hidden rounded-2xl border border-mint/20 bg-gradient-to-br from-leaf-900/45 via-ink-800 to-ink-900 p-6 transition hover:border-mint/40 sm:p-8"
+          className="group relative block overflow-hidden rounded-2xl border border-neu-accent/20 bg-gradient-to-br from-neu-accent-soft via-neu-raised to-neu-surface p-6 transition hover:border-mint/40 sm:p-8"
         >
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="max-w-xl">
-              <span className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-mint/12 px-2.5 py-1 text-[11px] font-semibold text-mint">
+              <span className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-mint/12 px-2.5 py-1 text-[11px] font-semibold text-[#1a6245]">
                 🐄 ডেইরি লাইভ
               </span>
-              <h2 className="text-xl font-bold text-white sm:text-2xl">
+              <h2 className="text-xl font-bold text-neu-ink sm:text-2xl">
                 আজ কত লিটার দুধ এসেছে — লাইভ দেখুন
               </h2>
               <p className="mt-2 text-[13.5px] leading-relaxed text-sand-100/60">
@@ -107,7 +107,7 @@ export default async function LiveHubPage() {
                 বিক্রির হিসাব।
               </p>
             </div>
-            <span className="inline-flex shrink-0 items-center gap-2 rounded-full bg-mint px-5 py-2.5 text-sm font-bold text-green-950 transition group-hover:gap-3">
+            <span className="inline-flex shrink-0 items-center gap-2 rounded-full bg-mint px-5 py-2.5 text-sm font-bold text-white transition group-hover:gap-3">
               ডেইরি লাইভ দেখুন <ArrowRight className="h-4 w-4" />
             </span>
           </div>
@@ -142,7 +142,7 @@ export default async function LiveHubPage() {
                   sizes="(max-width:768px) 100vw, 33vw"
                   className="object-cover transition duration-500 group-hover:scale-105"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-ink-900 via-ink-900/35 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-scrim via-scrim/35 to-transparent" />
                 <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-black/65 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur">
                   <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
                   {toBn(farm.online_cameras ?? 0)} লাইভ
@@ -153,7 +153,7 @@ export default async function LiveHubPage() {
               </div>
 
               <div className="p-4">
-                <h3 className="text-[15px] font-bold text-white group-hover:text-mint">{farm.name_bn}</h3>
+                <h3 className="text-[15px] font-bold text-neu-ink group-hover:text-neu-accent">{farm.name_bn}</h3>
                 <p className="mt-1 flex items-center gap-1 text-[12px] text-sand-100/50">
                   <MapPin className="h-3 w-3" /> {farm.upazila ? `${farm.upazila}, ` : ""}
                   {farm.district}
@@ -208,11 +208,11 @@ export default async function LiveHubPage() {
                 }`}
               >
                 {plan.is_popular && (
-                  <span className="absolute -top-2.5 left-4 rounded-full bg-mint px-2 py-0.5 text-[10px] font-bold text-green-950">
+                  <span className="absolute -top-2.5 left-4 rounded-full bg-mint px-2 py-0.5 text-[10px] font-bold text-white">
                     জনপ্রিয়
                   </span>
                 )}
-                <h3 className="text-sm font-bold text-white">{plan.name_bn}</h3>
+                <h3 className="text-sm font-bold text-neu-ink">{plan.name_bn}</h3>
                 <p className="mt-2 text-2xl font-bold text-mint">
                   {formatTaka(plan.price)}
                   <span className="text-[12px] font-medium text-sand-100/40">
@@ -247,7 +247,7 @@ export default async function LiveHubPage() {
           ].map((item) => (
             <div key={item.title} className="rounded-xl border border-white/8 bg-white/[0.02] p-4">
               <span className="text-lg">{item.icon}</span>
-              <h3 className="mt-2 text-[13px] font-bold text-white">{item.title}</h3>
+              <h3 className="mt-2 text-[13px] font-bold text-neu-ink">{item.title}</h3>
               <p className="mt-1 text-[12px] leading-relaxed text-sand-100/55">{item.body}</p>
             </div>
           ))}

@@ -182,7 +182,7 @@ export default async function HomePage() {
           layout wants it last. It can still be hidden with the `text_block`
           toggle if the owner prefers a shorter page. */}
       <section className="container-x pb-8 pt-2">
-        <div className="relative overflow-hidden rounded-[2rem] border border-leaf-600/30 bg-gradient-to-br from-leaf-800/60 via-ink-850 to-ink-850 p-8 text-center sm:p-14">
+        <div className="relative overflow-hidden rounded-[2rem] border border-neu-accent/25 bg-gradient-to-br from-neu-accent-soft via-neu-raised to-neu-surface p-8 text-center sm:p-14">
           <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-leaf-500/20 blur-3xl" />
           <div className="pointer-events-none absolute -bottom-20 -left-10 h-56 w-56 rounded-full bg-leaf-400/10 blur-3xl" />
           <div className="relative">
@@ -192,7 +192,7 @@ export default async function HomePage() {
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-[14px] leading-relaxed text-sand-100/60">
               কুপন কোড{" "}
-              <span className="rounded-md bg-leaf-600/25 px-2 py-0.5 font-mono font-bold text-leaf-200">
+              <span className="rounded-md bg-leaf-600/15 px-2 py-0.5 font-mono font-bold text-leaf-700">
                 BISWAS10
               </span>{" "}
               ব্যবহার করে প্রথম অর্ডারে ১০% ছাড় নিন। ঢাকায় আজকের মধ্যে ডেলিভারি।

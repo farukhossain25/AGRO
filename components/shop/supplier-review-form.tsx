@@ -181,7 +181,7 @@ export function SupplierReviewForm({
           <p className="text-[11px] uppercase tracking-wide text-sand-100/40">সেলার</p>
           <h3 className="text-[15px] font-bold text-sand-50">{sellerNameBn}</h3>
         </div>
-        <span className="badge bg-leaf-600/15 text-leaf-200">ভেরিফাইড ক্রয়</span>
+        <span className="badge bg-leaf-600/15 text-leaf-700">ভেরিফাইড ক্রয়</span>
       </header>
 
       <ul className="divide-y divide-white/10">
@@ -243,7 +243,7 @@ export function SupplierReviewForm({
               </div>
 
               {draft.open ? (
-                <div className="mt-3 space-y-3 rounded-xl border border-white/10 bg-black/20 p-3">
+                <div className="neu-inset-sm mt-3 space-y-3 rounded-xl p-3">
                   {/* product stars */}
                   <div>
                     <p className="mb-1 text-[11.5px] text-sand-100/55">পণ্যের মান</p>

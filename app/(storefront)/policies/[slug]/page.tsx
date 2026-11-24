@@ -60,7 +60,7 @@ export default async function PolicyPage({ params }: { params: Promise<{ slug: s
                     href={`/policies/${s}`}
                     className={`block rounded-lg px-2.5 py-2 text-[12.5px] transition ${
                       s === page.slug
-                        ? "bg-leaf-600/20 font-semibold text-leaf-200"
+                        ? "bg-leaf-600/20 font-semibold text-leaf-700"
                         : "text-sand-100/60 hover:bg-white/[0.04]"
                     }`}
                   >

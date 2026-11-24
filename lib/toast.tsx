@@ -22,9 +22,9 @@ const icons = {
 };
 
 const tones: Record<ToastKind, string> = {
-  success: "border-leaf-500/40 text-leaf-200",
-  error: "border-red-500/40 text-red-200",
-  info: "border-white/15 text-sand-100",
+  success: "border-neu-accent/30 text-neu-accent-strong",
+  error: "border-red-500/30 text-[#c0392b]",
+  info: "border-neu-line/70 text-neu-ink",
 };
 
 export function ToastProvider({ children }: { children: ReactNode }) {
@@ -67,18 +67,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <div
               key={t.id}
               role="status"
-              className={`pointer-events-auto flex w-full max-w-sm animate-fade-up items-start gap-3 rounded-2xl border bg-ink-850/95 p-4 shadow-soft backdrop-blur ${tones[t.kind]}`}
+              className={`neu-raised-lg pointer-events-auto flex w-full max-w-sm animate-fade-up items-start gap-3 rounded-2xl border p-4 ${tones[t.kind]}`}
             >
               <Icon className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold leading-snug">{t.title}</p>
                 {t.description ? (
-                  <p className="mt-0.5 text-xs leading-relaxed text-sand-100/60">{t.description}</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-neu-muted">{t.description}</p>
                 ) : null}
               </div>
               <button
                 onClick={() => dismiss(t.id)}
-                className="rounded-full p-1 text-sand-100/40 transition hover:bg-white/10 hover:text-sand-100"
+                className="rounded-full p-1 text-neu-faint transition hover:bg-white/70 hover:text-neu-ink"
                 aria-label="বন্ধ করুন"
               >
                 <X className="h-4 w-4" />

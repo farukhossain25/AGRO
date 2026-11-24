@@ -42,17 +42,17 @@ export default async function FarmPage() {
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 -z-10">
           <Image src="/images/hero/farm.jpg" alt="" fill priority sizes="100vw" className="object-cover opacity-30" />
-          <div className="absolute inset-0 bg-gradient-to-b from-ink-900/60 via-ink-900/85 to-ink-900" />
+          <div className="absolute inset-0 bg-gradient-to-b from-scrim/60 via-scrim/85 to-scrim" />
         </div>
 
         <div className="container-x py-14 sm:py-20">
           <span className="eyebrow mb-4">
             <Sprout className="h-3.5 w-3.5" /> খামার থেকে টেবিল
           </span>
-          <h1 className="max-w-3xl text-[28px] font-bold leading-tight sm:text-[42px]">
+          <h1 className="max-w-3xl text-[28px] font-bold leading-tight text-white sm:text-[42px]">
             যেখানে আপনার খাবারের যাত্রা শুরু হয়
           </h1>
-          <p className="mt-4 max-w-2xl text-[14.5px] leading-relaxed text-sand-100/65">
+          <p className="mt-4 max-w-2xl text-[14.5px] leading-relaxed text-white/70">
             বাংলাদেশের ২৩০+ কৃষক পরিবারের সাথে আমাদের সম্পর্ক শুধু কেনা-বেচা নয় — এটি একটি
             দীর্ঘমেয়াদি অংশীদারিত্ব। আমরা ন্যায্য দাম দিই, তাঁরা আমাদের দেন তাঁদের জীবনের সেরা ফসল।
           </p>
@@ -130,7 +130,7 @@ export default async function FarmPage() {
               <div className="grid sm:grid-cols-[160px_1fr]">
                 <div className="relative aspect-[4/3] sm:aspect-auto">
                   {f.image ? <Image src={f.image} alt={f.name_bn} fill sizes="200px" className="object-cover" /> : null}
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent to-ink-850/60 sm:to-ink-850" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent to-scrim/60 sm:to-scrim" />
                 </div>
                 <div className="p-4">
                   <div className="flex items-start justify-between gap-2">
@@ -170,14 +170,14 @@ export default async function FarmPage() {
           </div>
           <div className="flex flex-wrap gap-2 lg:flex-col">
             {["BFSA নির্দেশনা", "জৈব চাষ অনুশীলন", "কোল্ড-চেইন", "ট্রেসেবল ব্যাচ"].map((c) => (
-              <span key={c} className="badge bg-leaf-600/15 text-leaf-200">{c}</span>
+              <span key={c} className="badge bg-leaf-600/15 text-leaf-700">{c}</span>
             ))}
           </div>
         </div>
       </section>
 
       <section className="container-x pb-14">
-        <div className="flex flex-col items-center justify-between gap-4 rounded-3xl border border-leaf-600/30 bg-gradient-to-r from-leaf-800/40 to-ink-850 p-6 text-center sm:flex-row sm:text-left">
+        <div className="flex flex-col items-center justify-between gap-4 rounded-3xl border border-neu-accent/25 bg-gradient-to-r from-neu-accent-soft to-neu-raised p-6 text-center sm:flex-row sm:text-left">
           <div>
             <h2 className="text-lg font-bold">খামার নিজে দেখতে চান?</h2>
             <p className="mt-1 text-[12.5px] text-sand-100/60">

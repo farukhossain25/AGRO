@@ -37,7 +37,7 @@ export function CombosStrip({ combos }: { combos: Combo[] }) {
 
   return (
     <section className="section relative overflow-hidden" aria-labelledby="combos-heading">
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-ink-950/50 via-transparent to-transparent" />
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-leaf-radial" />
       <div className="container-x">
         <SectionHeader
           eyebrow="রেডিমেড কম্বো"

@@ -26,7 +26,7 @@ export function PackagesPreview({ packages }: { packages: Package[] }) {
             key={pkg.id}
             className={`card relative flex flex-col p-6 ${
               pkg.is_popular
-                ? "border-leaf-500/50 bg-gradient-to-b from-leaf-800/35 to-ink-850 shadow-glow"
+                ? "border-neu-accent/30 bg-gradient-to-b from-neu-accent-soft to-neu-raised shadow-neu"
                 : ""
             }`}
           >

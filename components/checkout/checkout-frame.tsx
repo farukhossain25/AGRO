@@ -3,41 +3,41 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import {
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  CreditCard,
+  Leaf,
+  Lock,
+  ShieldCheck,
+  ShoppingBag,
+  Truck,
+  Wallet,
+} from "lucide-react";
 import { useCart } from "@/lib/cart";
 import { useLocale } from "@/lib/locale";
 import { useToast } from "@/lib/toast";
 import { money } from "@/lib/format";
+import { Logo } from "@/components/icon-logo";
 
 /* ==========================================================================
-   CheckoutFrame — warm premium-artisanal checkout
+   CheckoutFrame — JapanLogue neumorphic checkout
    --------------------------------------------------------------------------
-   A single static desktop checkout frame in a sand + terracotta palette:
-   sticky nav, dot-grain hero strip, numbered billing + payment cards on the
-   left, and a sticky dark-ink order summary on the right. The real cart,
-   delivery rules, coupon and order API are wired through so the frame is
-   fully functional, not just a mockup.
+   A single static desktop checkout frame in the soft blue-grey palette:
+   floating nav, raised billing + payment cards on the left, and a sticky
+   raised order summary on the right. The real cart, delivery rules, coupon
+   and order API are wired through so the frame is fully functional, not just
+   a mockup.
    ========================================================================== */
-
-/** Iconify web-API inline SVG (ph:* + logos:*), per the design spec. */
-function Icon({ name, className = "h-4 w-4" }: { name: string; className?: string }) {
-  return (
-    <img
-      src={`https://api.iconify.design/${name}.svg`}
-      alt=""
-      aria-hidden
-      className={className}
-      draggable={false}
-    />
-  );
-}
 
 /** Stable pastel gradient per line item for the summary swatches. */
 const SWATCHES = [
-  "linear-gradient(135deg,#f0c9a8,#c4633f)",
-  "linear-gradient(135deg,#e7d3a8,#a64f30)",
-  "linear-gradient(135deg,#d7cbb0,#8a4127)",
-  "linear-gradient(135deg,#f0bca0,#b5552f)",
-  "linear-gradient(135deg,#e4cfa6,#9a5a32)",
+  "linear-gradient(135deg,#8eddb9,#1f7a4d)",
+  "linear-gradient(135deg,#b7ead2,#33ab7b)",
+  "linear-gradient(135deg,#5ac797,#186140)",
+  "linear-gradient(135deg,#d6f3e3,#1f7a4d)",
+  "linear-gradient(135deg,#8eddb9,#124a32)",
 ];
 
 export function CheckoutFrame() {
@@ -67,7 +67,7 @@ export function CheckoutFrame() {
   const [submitting, setSubmitting] = useState(false);
 
   const subtotal = cart.subtotal;
-  const delivery = 0; // combos ship free; the spec frame shows a flat shipping line
+  const delivery = 0; // combos ship free; the frame shows a flat shipping line
   const tax = Math.round(subtotal * 0.05 * 100) / 100;
   const total = Math.max(0, subtotal + delivery - discount);
 
@@ -159,18 +159,24 @@ export function CheckoutFrame() {
 
   if (!cart.ready) {
     return (
-      <div className="min-h-dvh bg-sand text-ink">
-        <div className="mx-auto max-w-[1180px] px-6 py-20 text-center text-inkmut">…</div>
+      <div className="grid min-h-dvh place-items-center bg-neu-bg p-6">
+        <div className="neu-inset grid h-16 w-16 place-items-center rounded-full">
+          <span className="h-6 w-6 animate-spin rounded-full border-2 border-neu-line border-t-neu-accent" />
+        </div>
       </div>
     );
   }
 
   if (cart.items.length === 0) {
     return (
-      <div className="min-h-dvh bg-sand text-ink">
-        <div className="mx-auto max-w-[1180px] px-6 py-20 text-center">
-          <p className="text-inkmut">কার্ট খালি। প্রথমে কিছু পণ্য কার্টে যোগ করুন।</p>
-          <Link href="/products" className="mt-4 inline-block rounded-full bg-terra px-6 py-2.5 font-semibold text-white shadow-prembutn">
+      <div className="grid min-h-dvh place-items-center bg-neu-bg p-6">
+        <div className="card max-w-md p-10 text-center">
+          <span className="neu-raised mx-auto grid h-16 w-16 place-items-center rounded-full text-3xl">🛒</span>
+          <h1 className="mt-5 text-2xl font-bold">কার্ট খালি</h1>
+          <p className="mt-2 text-sm leading-relaxed text-neu-muted">
+            প্রথমে কিছু পণ্য কার্টে যোগ করুন।
+          </p>
+          <Link href="/products" className="btn-primary mt-6">
             পণ্য দেখুন
           </Link>
         </div>
@@ -186,41 +192,35 @@ export function CheckoutFrame() {
   ];
 
   return (
-    <div className="min-h-dvh bg-sand font-sans text-ink" style={{ letterSpacing: "-0.011em" }}>
-      {/* ───────────────────────── sticky nav ───────────────────────── */}
-      <header className="sticky top-0 z-40 border-b border-sanddk/70 bg-sand/85 backdrop-blur">
-        <div className="mx-auto flex max-w-[1180px] items-center justify-between px-6 py-3.5">
+    <div className="min-h-dvh bg-neu-bg font-sans text-neu-ink">
+      {/* ───────────────────────── floating nav ───────────────────────── */}
+      <header className="sticky top-0 z-40 px-3 pt-3 sm:px-6" style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}>
+        <div className="neu-bar mx-auto flex max-w-[1180px] items-center justify-between rounded-[24px] px-4 py-3 sm:px-5">
           <Link href="/" className="flex items-center gap-2.5">
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-terra text-white shadow-prembutn">
-              <Icon name="ph:leaf-bold" className="h-4.5 w-4.5" />
-            </span>
-            <span className="leading-none">
-              <span className="block text-[15px] font-extrabold tracking-tight">Atelier</span>
-              <span className="block text-[10px] font-semibold uppercase tracking-[0.22em] text-terradk">Sand</span>
-            </span>
+            <Logo size={34} />
           </Link>
           <nav className="hidden items-center gap-7 md:flex">
             {navLinks.map((l) => (
               <Link
                 key={l.href}
                 href={l.href}
-                className="text-[13px] font-medium text-inkmut transition-colors hover:text-terra"
+                className="text-[13px] font-medium text-neu-muted transition-colors hover:text-neu-accent-strong"
               >
                 {l.label}
               </Link>
             ))}
           </nav>
           <div className="flex items-center gap-3">
-            <span className="hidden items-center gap-1.5 text-[12px] font-medium text-inkmut sm:flex">
-              <Icon name="ph:shield-check" className="h-4 w-4 text-terra" />
+            <span className="hidden items-center gap-1.5 text-[12px] font-medium text-neu-muted sm:flex">
+              <ShieldCheck className="h-4 w-4 text-neu-accent" />
               Secure
             </span>
             <Link
               href="/cart"
-              className="relative flex items-center gap-1.5 rounded-full border border-sanddk bg-sandlt px-3 py-1.5 text-[12px] font-semibold text-ink"
+              className="neu-pill flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold !text-neu-ink"
             >
-              <Icon name="ph:shopping-bag" className="h-4 w-4 text-terra" />
-              <span className="grid h-4 min-w-4 place-items-center rounded-full bg-terra px-1 text-[10px] font-bold text-white">
+              <ShoppingBag className="h-4 w-4 text-neu-accent" />
+              <span className="grid h-4 min-w-4 place-items-center rounded-full bg-neu-accent px-1 text-[10px] font-bold text-white">
                 {itemCount}
               </span>
             </Link>
@@ -228,39 +228,41 @@ export function CheckoutFrame() {
         </div>
       </header>
 
-      {/* ───────────────────────── grain hero strip ───────────────────────── */}
-      <section className="relative overflow-hidden border-b border-sanddk/70 bg-sandlt">
-        <div className="pointer-events-none absolute inset-0 bg-dot-grain [background-size:4px_4px]" aria-hidden />
-        <div className="relative mx-auto max-w-[1180px] px-6 py-9 sm:py-11">
-          <nav className="flex items-center gap-1.5 text-[12px] text-inkmut">
-            <Link href="/cart" className="transition-colors hover:text-terra">Cart</Link>
-            <Icon name="ph:chevron-right" className="h-3 w-3" />
-            <Link href="/checkout" className="transition-colors hover:text-terra">Checkout</Link>
-            <Icon name="ph:chevron-right" className="h-3 w-3" />
-            <span className="text-ink/70">Confirmation</span>
-          </nav>
-          <p className="mt-4 text-[12px] font-bold uppercase tracking-[0.22em] text-terradk">Almost yours</p>
-          <h1 className="mt-1.5 text-[30px] font-extrabold leading-[1.02] tracking-tight sm:text-[36px]">
-            Complete your checkout.
-          </h1>
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-sanddk bg-sand px-3 py-1.5 text-[12px] font-medium text-inkmut">
-              <Icon name="ph:lock-simple" className="h-3.5 w-3.5 text-terra" />
-              256-bit SSL · PCI DSS
-            </span>
+      {/* ───────────────────────── raised hero strip ───────────────────────── */}
+      <section className="px-3 pt-4 sm:px-6">
+        <div className="neu-raised-lg relative mx-auto max-w-[1180px] overflow-hidden rounded-[28px]">
+          <div className="pointer-events-none absolute inset-0 bg-dot-grain [background-size:5px_5px]" aria-hidden />
+          <div className="relative px-6 py-9 sm:px-8 sm:py-11">
+            <nav className="flex items-center gap-1.5 text-[12px] text-neu-muted">
+              <Link href="/cart" className="transition-colors hover:text-neu-accent-strong">Cart</Link>
+              <ChevronRight className="h-3 w-3" />
+              <Link href="/checkout" className="transition-colors hover:text-neu-accent-strong">Checkout</Link>
+              <ChevronRight className="h-3 w-3" />
+              <span className="text-neu-ink/70">Confirmation</span>
+            </nav>
+            <p className="mt-4 text-[12px] font-bold uppercase tracking-[0.22em] text-neu-accent-strong">Almost yours</p>
+            <h1 className="mt-1.5 text-[30px] font-extrabold leading-[1.05] tracking-tight text-neu-ink sm:text-[36px]">
+              Complete your checkout.
+            </h1>
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <span className="neu-pill px-3 py-1.5 text-[12px] font-medium !text-neu-muted">
+                <Lock className="h-3.5 w-3.5 text-neu-accent" />
+                256-bit SSL · PCI DSS
+              </span>
+            </div>
           </div>
         </div>
       </section>
 
       {/* ───────────────────────── two-column frame ───────────────────────── */}
-      <div className="mx-auto grid max-w-[1180px] grid-cols-1 gap-6 px-6 py-8 lg:grid-cols-[1fr_380px] lg:py-10">
+      <div className="mx-auto grid max-w-[1180px] grid-cols-1 gap-6 px-3 py-6 sm:px-6 lg:grid-cols-[1fr_380px] lg:py-8">
         {/* left: forms */}
         <div className="flex flex-col gap-6">
           {/* ── billing card ── */}
-          <section className="rounded-3xl border border-sanddk bg-sandlt shadow-prem">
+          <section className="card overflow-hidden">
             <SectionHeader n="1" title="Billing details" sub={t("আপনার ঠিকানা", "Your address")} />
             <div className="grid grid-cols-1 gap-4 p-6 sm:grid-cols-2">
-              <Field label="First name" error={errors.first_name} className="sm:col-span-1">
+              <Field label="First name" error={errors.first_name}>
                 <input
                   type="text"
                   value={form.first_name}
@@ -333,39 +335,39 @@ export function CheckoutFrame() {
                     <option>বাংলাদেশ</option>
                     <option>Bangladesh</option>
                   </select>
-                  <Icon name="ph:caret-down" className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-inkmut" />
+                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neu-faint" />
                 </div>
               </Field>
             </div>
           </section>
 
           {/* ── payment card ── */}
-          <section className="rounded-3xl border border-sanddk bg-sandlt shadow-prem">
+          <section className="card overflow-hidden">
             <SectionHeader n="2" title="Payment" sub={t("সুরক্ষিত পেমেন্ট", "Secure payment")} />
             <div className="p-6">
-              {/* brand logos */}
-              <div className="flex items-center gap-3">
-                {["logos:visa", "logos:mastercard", "logos:amex", "logos:paypal"].map((n) => (
+              {/* brand badges — local, no third-party requests */}
+              <div className="flex items-center gap-2.5">
+                {["VISA", "MC", "AMEX", "PayPal"].map((n) => (
                   <span
                     key={n}
-                    className="grid h-9 w-14 place-items-center rounded-lg border border-sanddk bg-sand"
+                    className="neu-pill grid h-9 w-14 place-items-center rounded-xl px-0 text-[10px] font-bold tracking-wide text-neu-muted"
                   >
-                    <Icon name={n} className="h-5 w-7.5" />
+                    {n}
                   </span>
                 ))}
               </div>
 
               {/* segmented toggle */}
-              <div className="mt-5 grid grid-cols-2 gap-1 rounded-xl bg-sand p-1">
+              <div className="neu-inset-sm mt-5 grid grid-cols-2 gap-1 rounded-xl p-1">
                 {(["card", "paypal"] as const).map((m) => (
                   <button
                     key={m}
                     onClick={() => setPayment(m)}
-                    className={`flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-[13px] font-semibold transition-colors ${
-                      payment === m ? "bg-white text-terradk shadow-premsoft" : "text-inkmut hover:text-ink"
+                    className={`flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-[13px] font-semibold transition-all ${
+                      payment === m ? "neu-raised-xs bg-neu-raised text-neu-accent-strong" : "text-neu-muted hover:text-neu-ink"
                     }`}
                   >
-                    <Icon name={m === "card" ? "ph:credit-card" : "ph:paypal-logo"} className="h-4 w-4" />
+                    {m === "card" ? <CreditCard className="h-4 w-4" /> : <Wallet className="h-4 w-4" />}
                     {m === "card" ? "Card" : "PayPal"}
                   </button>
                 ))}
@@ -375,7 +377,7 @@ export function CheckoutFrame() {
                 <div className="mt-5 grid grid-cols-1 gap-4">
                   <Field label="Card number" error={errors.card_number} className="sm:col-span-2">
                     <div className="relative">
-                      <Icon name="ph:credit-card" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-inkmut" />
+                      <CreditCard className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neu-faint" />
                       <input
                         type="text"
                         inputMode="numeric"
@@ -416,75 +418,75 @@ export function CheckoutFrame() {
                   </Field>
                 </div>
               ) : (
-                <div className="mt-5 rounded-xl border border-sanddk bg-sand px-4 py-4 text-[13px] text-inkmut">
+                <div className="neu-inset-sm mt-5 rounded-xl px-4 py-4 text-[13px] leading-relaxed text-neu-muted">
                   You'll be redirected to PayPal to complete your payment securely.
                 </div>
               )}
 
-              <label className="mt-5 flex cursor-pointer items-center gap-2.5 text-[13px] text-ink">
+              <label className="mt-5 flex cursor-pointer items-center gap-2.5 text-[13px] text-neu-ink">
                 <input
                   type="checkbox"
                   checked={sameAsShipping}
                   onChange={(e) => setSameAsShipping(e.target.checked)}
-                  className="h-4 w-4 accent-terra"
+                  className="h-4 w-4 accent-neu-accent"
                 />
                 <span className="font-medium">Same as shipping address</span>
-                <Icon name="ph:check-circle" className="h-4 w-4 text-terra" />
+                <CheckCircle2 className="h-4 w-4 text-neu-accent" />
               </label>
             </div>
           </section>
         </div>
 
-        {/* right: dark order summary */}
+        {/* right: raised order summary */}
         <aside className="lg:sticky lg:top-24 lg:self-start">
-          <div className="overflow-hidden rounded-3xl bg-ink text-sand shadow-prem">
-            <div className="flex items-center justify-between border-b border-white/10 px-6 py-5">
+          <div className="neu-raised-lg overflow-hidden rounded-3xl">
+            <div className="flex items-center justify-between border-b border-neu-line/50 px-6 py-5">
               <div>
-                <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-terra">Order summary</p>
-                <p className="mt-0.5 text-[13px] text-sand/70">{t("অর্ডার সারাংশ", "Summary")}</p>
+                <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-neu-accent-strong">Order summary</p>
+                <p className="mt-0.5 text-[13px] text-neu-muted">{t("অর্ডার সারাংশ", "Summary")}</p>
               </div>
-              <span className="rounded-full bg-white/10 px-3 py-1 text-[12px] font-semibold text-sand">
+              <span className="neu-pill px-3 py-1 text-[12px] font-semibold !text-neu-ink">
                 {itemCount} items
               </span>
             </div>
 
-            <ul className="divide-y divide-white/10">
+            <ul className="divide-y divide-neu-line/50">
               {cart.items.slice(0, 3).map((l, i) => (
                 <li key={l.id} className="flex items-center gap-3 px-6 py-4">
                   <span
-                    className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-[15px] font-bold text-white"
+                    className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-[15px] font-bold text-white shadow-neu-xs"
                     style={{ backgroundImage: SWATCHES[i % SWATCHES.length] }}
                   >
                     {isBn ? l.nameBn.charAt(0) : l.nameEn.charAt(0)}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-semibold text-sand">{isBn ? l.nameBn : l.nameEn}</p>
-                    <p className="text-[11px] text-sand/55">{money(l.price, isBn)} · {l.unit}</p>
+                    <p className="truncate text-[13px] font-semibold text-neu-ink">{isBn ? l.nameBn : l.nameEn}</p>
+                    <p className="text-[11px] text-neu-muted">{money(l.price, isBn)} · {l.unit}</p>
                   </div>
-                  <span className="grid h-6 min-w-6 place-items-center rounded-full bg-white/10 px-2 text-[11px] font-bold text-sand">
+                  <span className="neu-pill grid h-6 min-w-6 place-items-center px-2 text-[11px] font-bold !text-neu-ink">
                     {l.quantity}
                   </span>
                 </li>
               ))}
               {cart.items.length > 3 && (
-                <li className="px-6 py-3 text-[12px] text-sand/55">+{cart.items.length - 3} more items</li>
+                <li className="px-6 py-3 text-[12px] text-neu-muted">+{cart.items.length - 3} more items</li>
               )}
             </ul>
 
             {/* promo */}
-            <div className="border-t border-white/10 px-6 py-4">
+            <div className="border-t border-neu-line/50 px-6 py-4">
               <div className="flex gap-2">
                 <input
                   type="text"
                   value={coupon}
                   onChange={(e) => setCoupon(e.target.value)}
                   placeholder={t("কুপন কোড", "Promo code")}
-                  className="w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-[13px] text-sand placeholder:text-sand/40"
+                  className="neu-inset-sm w-full rounded-xl px-3 py-2 text-[13px] text-neu-ink outline-none transition placeholder:text-neu-faint focus:border-neu-accent/50"
                 />
                 <button
                   onClick={applyCoupon}
                   disabled={couponLoading || !coupon.trim()}
-                  className="rounded-lg bg-terra px-4 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-terraxd disabled:opacity-50"
+                  className="btn-primary px-4 py-2 text-[13px] disabled:opacity-50"
                 >
                   {couponLoading ? "…" : t("Apply", "Apply")}
                 </button>
@@ -492,31 +494,27 @@ export function CheckoutFrame() {
             </div>
 
             {/* totals */}
-            <dl className="space-y-2 border-t border-white/10 px-6 py-5 text-[13px]">
+            <dl className="space-y-2 border-t border-neu-line/50 px-6 py-5 text-[13px]">
               <Row label={t("সাবটোটাল", "Subtotal")} value={money(subtotal, isBn)} />
               <Row label={t("ডেলিভারি", "Shipping")} value={delivery === 0 ? t("বিনামূল্যে", "Free") : money(delivery, isBn)} />
               <Row label={t("ট্যাক্স", "Tax")} value={money(tax, isBn)} />
-              {appliedCoupon && (
-                <Row label={`${appliedCoupon}`} value={`− ${money(discount, isBn)}`} accent />
-              )}
-              <div className="mt-1 flex items-center justify-between border-t border-white/10 pt-3">
-                <span className="text-[14px] font-bold text-sand">{t("মোট", "Total")}</span>
-                <span className="text-[18px] font-extrabold text-white">{money(total, isBn)}</span>
+              {appliedCoupon && <Row label={`${appliedCoupon}`} value={`− ${money(discount, isBn)}`} accent />}
+              <div className="mt-1 flex items-center justify-between border-t border-neu-line/50 pt-3">
+                <span className="text-[14px] font-bold text-neu-ink">{t("মোট", "Total")}</span>
+                <span className="text-[18px] font-extrabold text-neu-accent-strong">{money(total, isBn)}</span>
               </div>
             </dl>
 
             {/* pay */}
             <div className="px-6 pb-6">
-              <button
-                onClick={pay}
-                disabled={submitting}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-terradk py-3.5 text-[15px] font-bold text-white shadow-prembutn transition-colors hover:bg-terraxd disabled:opacity-60"
-              >
-                <Icon name="ph:lock-key" className="h-4.5 w-4.5" />
-                {submitting ? t("প্রক্রিয়া হচ্ছে…", "Processing…") : `${t("পেমেন্ট করুন", "Pay")} ${money(total, isBn)}`}
+              <button onClick={pay} disabled={submitting} className="btn-primary w-full !py-3.5 !text-[15px]">
+                <Lock className="h-4 w-4" />
+                {submitting
+                  ? t("প্রক্রিয়া হচ্ছে…", "Processing…")
+                  : `${t("পেমেন্ট করুন", "Pay")} ${money(total, isBn)}`}
               </button>
-              <p className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-sand/55">
-                <Icon name="ph:shield-check" className="h-3.5 w-3.5 text-terra" />
+              <p className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-neu-muted">
+                <ShieldCheck className="h-3.5 w-3.5 text-neu-accent" />
                 {t("সম্পূর্ণ করা হলে আপনি পেমেন্ট সুরক্ষিত হবেন", "Your payment is encrypted and secure")}
               </p>
             </div>
@@ -525,46 +523,47 @@ export function CheckoutFrame() {
       </div>
 
       {/* ───────────────────────── trust row ───────────────────────── */}
-      <div className="mx-auto max-w-[1180px] px-6 pb-8">
-        <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-3 rounded-2xl border border-sanddk bg-sandlt py-4 text-inkmut">
+      <div className="mx-auto max-w-[1180px] px-3 pb-8 sm:px-6">
+        <div className="neu-raised flex flex-wrap items-center justify-center gap-x-10 gap-y-3 rounded-2xl py-4 text-neu-muted">
           <span className="flex items-center gap-2 text-[13px] font-medium">
-            <Icon name="ph:truck" className="h-4 w-4 text-terra" />
+            <Truck className="h-4 w-4 text-neu-accent" />
             Free returns
           </span>
           <span className="flex items-center gap-2 text-[13px] font-medium">
-            <Icon name="ph:leaf" className="h-4 w-4 text-terra" />
+            <Leaf className="h-4 w-4 text-neu-accent" />
             Carbon neutral
           </span>
         </div>
       </div>
 
       {/* ───────────────────────── slim footer ───────────────────────── */}
-      <footer className="border-t border-sanddk/70 bg-sand">
-        <div className="mx-auto flex max-w-[1180px] flex-col items-center justify-between gap-2 px-6 py-5 text-[12px] text-inkmut sm:flex-row">
-          <span className="flex items-center gap-2 font-semibold text-ink">
-            <Icon name="ph:leaf-bold" className="h-4 w-4 text-terra" />
-            Atelier · Sand
+      <footer className="border-t border-neu-line/50 bg-neu-surface/70">
+        <div className="mx-auto flex max-w-[1180px] flex-col items-center justify-between gap-2 px-6 py-5 text-[12px] text-neu-muted sm:flex-row">
+          <span className="flex items-center gap-2 font-semibold text-neu-ink">
+            <Leaf className="h-4 w-4 text-neu-accent" />
+            বিশ্বাস এগ্রো · Farm to Family
           </span>
-          <span>© {new Date().getFullYear()} AtelierSand. Crafted with care.</span>
+          <span>© {new Date().getFullYear()} Biswas Agro. Crafted with care.</span>
         </div>
       </footer>
 
       <style>{`
         .field {
           width: 100%;
-          border-radius: 0.75rem;
-          border: 1px solid #e0d6c2;
-          background: #ffffff;
-          padding: 0.625rem 0.75rem;
+          border-radius: 0.9rem;
+          border: 1px solid rgba(199, 206, 218, .55);
+          background: #E3E8F0;
+          padding: 0.7rem 0.85rem;
           font-size: 13px;
-          color: #2b251d;
+          color: #303943;
           outline: none;
-          transition: border-color .15s, box-shadow .15s;
+          box-shadow: inset 4px 4px 9px rgba(163,177,198,.35), inset -4px -4px 9px rgba(255,255,255,.9);
+          transition: border-color .18s, box-shadow .18s;
         }
-        .field::placeholder { color: #7c715d; }
+        .field::placeholder { color: #98a3b3; }
         .field:focus {
-          border-color: #c4633f;
-          box-shadow: 0 0 0 3px rgba(196,99,63,.14);
+          border-color: rgba(47,143,102,.55);
+          box-shadow: inset 4px 4px 9px rgba(163,177,198,.35), inset -4px -4px 9px rgba(255,255,255,.9), 0 0 0 3px rgba(47,143,102,.12);
         }
       `}</style>
     </div>
@@ -573,13 +572,13 @@ export function CheckoutFrame() {
 
 function SectionHeader({ n, title, sub }: { n: string; title: string; sub: string }) {
   return (
-    <div className="flex items-center gap-3 border-b border-sanddk/70 px-6 py-5">
-      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-terra text-[13px] font-extrabold text-white">
+    <div className="flex items-center gap-3 border-b border-neu-line/50 px-6 py-5">
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-leaf-400 to-leaf-600 text-[13px] font-extrabold text-white shadow-neu-accent-sm">
         {n}
       </span>
       <div>
-        <h2 className="text-[15px] font-extrabold tracking-tight leading-tight">{title}</h2>
-        <p className="text-[12px] text-inkmut">{sub}</p>
+        <h2 className="text-[15px] font-extrabold leading-tight tracking-tight text-neu-ink">{title}</h2>
+        <p className="text-[12px] text-neu-muted">{sub}</p>
       </div>
     </div>
   );
@@ -598,11 +597,9 @@ function Field({
 }) {
   return (
     <label className={`block ${className}`}>
-      <span className="mb-1.5 block text-[12px] font-semibold" style={{ color: "#5a5040" }}>
-        {label}
-      </span>
+      <span className="mb-1.5 block text-[12px] font-semibold text-neu-muted">{label}</span>
       {children}
-      {error && <span className="mt-1 block text-[12px] font-medium text-terradk">{error}</span>}
+      {error && <span className="mt-1 block text-[12px] font-medium text-[#c0392b]">{error}</span>}
     </label>
   );
 }
@@ -610,8 +607,8 @@ function Field({
 function Row({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
     <div className="flex items-center justify-between">
-      <dt className="text-sand/65">{label}</dt>
-      <dd className={`font-semibold ${accent ? "text-terra" : "text-sand"}`}>{value}</dd>
+      <dt className="text-neu-muted">{label}</dt>
+      <dd className={`font-semibold ${accent ? "text-neu-accent-strong" : "text-neu-ink"}`}>{value}</dd>
     </div>
   );
 }

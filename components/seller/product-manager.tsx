@@ -179,7 +179,7 @@ export function SellerProductManager({
 
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
-                  <p className="truncate text-[13px] font-semibold text-white">{row.name_bn}</p>
+                  <p className="truncate text-[13px] font-semibold text-neu-ink">{row.name_bn}</p>
                   {row.approval_status === "pending" && (
                     <span className="shrink-0 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9.5px] font-semibold text-amber-300">
                       যাচাই
@@ -237,7 +237,7 @@ export function SellerProductManager({
         <div className="fixed inset-0 z-[80] flex items-start justify-center overflow-y-auto bg-ink-950/80 p-3 backdrop-blur-sm sm:p-6">
           <form onSubmit={save} className="card my-6 w-full max-w-lg p-5">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-[15px] font-bold text-white">{editing ? "পণ্য এডিট" : "নতুন পণ্য"}</h3>
+              <h3 className="text-[15px] font-bold text-neu-ink">{editing ? "পণ্য এডিট" : "নতুন পণ্য"}</h3>
               <button type="button" onClick={() => setOpen(false)} aria-label="বন্ধ">
                 <X className="h-4 w-4 text-sand-100/50" />
               </button>

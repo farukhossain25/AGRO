@@ -142,7 +142,7 @@ export function MobileNav({
   return (
     <div className="fixed inset-0 z-[90] lg:hidden" role="dialog" aria-modal="true" aria-label={t("মেনু", "Menu")}>
       <button
-        className="mob-scrim absolute inset-0 bg-ink-950/70 backdrop-blur-[3px]"
+        className="mob-scrim absolute inset-0 bg-neu-ink/35 backdrop-blur-[3px]"
         onClick={onClose}
         aria-label={t("বন্ধ করুন", "Close menu")}
       />
@@ -150,21 +150,17 @@ export function MobileNav({
       <aside
         ref={panelRef}
         tabIndex={-1}
-        className="mob-drawer absolute inset-y-0 left-0 flex w-[88%] max-w-[392px] flex-col overflow-hidden rounded-r-[30px] border-r border-white/[0.08] shadow-[0_40px_120px_-40px_rgba(0,0,0,0.95)]"
+        className="mob-drawer absolute inset-y-0 left-0 flex w-[88%] max-w-[392px] flex-col overflow-hidden rounded-r-[30px] border-r border-white/80 shadow-neu-lg"
         style={{
-          background:
-            "linear-gradient(158deg, #0b1510 0%, #091009 42%, #0a1410 72%, #0c1a13 100%)",
+          background: "linear-gradient(158deg, #F2F5FA 0%, #E7ECF4 45%, #E3E8F0 100%)",
           paddingTop: "env(safe-area-inset-top)",
         }}
       >
         {/* decorative glow + right edge highlight */}
+        <div aria-hidden className="pointer-events-none absolute -left-16 -top-20 h-56 w-56 rounded-full bg-neu-accent/10 blur-[70px]" />
         <div
           aria-hidden
-          className="pointer-events-none absolute -left-16 -top-20 h-56 w-56 rounded-full bg-leaf-600/20 blur-[70px]"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-leaf-400/25 to-transparent"
+          className="pointer-events-none absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-white/70 to-transparent"
         />
 
         {/* ── header ─────────────────────────────────────────────── */}
@@ -173,7 +169,7 @@ export function MobileNav({
           <button
             data-autofocus
             onClick={onClose}
-            className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/[0.04] text-sand-100/70 transition duration-300 hover:rotate-90 hover:border-white/20 hover:bg-white/[0.08] hover:text-white active:scale-95"
+            className="neu-icon-btn h-11 w-11"
             aria-label={t("বন্ধ করুন", "Close menu")}
           >
             <X className="h-[18px] w-[18px]" />
@@ -189,10 +185,10 @@ export function MobileNav({
           ) : (
             <button
               onClick={() => setSearching(true)}
-              className="mob-item flex h-11 w-full items-center gap-2.5 rounded-2xl border border-white/10 bg-white/[0.04] px-3.5 text-left text-[13px] text-sand-100/45 transition hover:border-leaf-500/40 hover:bg-white/[0.06]"
+              className="mob-item neu-inset-sm flex h-11 w-full items-center gap-2.5 rounded-2xl px-3.5 text-left text-[13px] text-neu-muted transition hover:text-neu-ink"
               style={{ ["--d" as string]: delay() }}
             >
-              <Search className="h-4 w-4 shrink-0 text-sand-100/40" />
+              <Search className="h-4 w-4 shrink-0 text-neu-faint" />
               {t("পণ্য খুঁজুন…", "Search products…")}
             </button>
           )}
@@ -208,26 +204,26 @@ export function MobileNav({
               // one tick later: the menu unmounts on the same click otherwise
               window.setTimeout(onOpenCart, 60);
             }}
-            className="mob-item mb-1 flex w-full items-center gap-3 rounded-2xl border border-leaf-500/25 bg-leaf-600/[0.10] px-3 py-2.5 text-left transition hover:border-leaf-500/40 hover:bg-leaf-600/[0.16] active:scale-[0.99]"
+            className="mob-item mb-1 flex w-full items-center gap-3 rounded-2xl border border-white/80 bg-neu-accent-soft/70 px-3 py-2.5 text-left shadow-neu-xs transition hover:bg-neu-accent-soft active:scale-[0.99]"
             style={{ ["--d" as string]: delay() }}
           >
-            <span className="relative grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-leaf-600/25 text-leaf-100 ring-1 ring-inset ring-leaf-400/25">
+            <span className="relative grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-neu-accent text-white shadow-neu-accent-sm">
               <ShoppingBag className="h-[17px] w-[17px]" />
               {cart.count > 0 ? (
-                <span className="absolute -right-1 -top-1 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-sand-100 px-1 text-[10px] font-bold leading-none text-ink-900">
+                <span className="absolute -right-1 -top-1 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-neu-ink px-1 text-[10px] font-bold leading-none text-white">
                   {cart.count}
                 </span>
               ) : null}
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-[14px] font-semibold text-white">{t("আমার কার্ট", "My cart")}</span>
-              <span className="block text-[11px] text-sand-100/45">
+              <span className="block text-[14px] font-semibold text-neu-ink">{t("আমার কার্ট", "My cart")}</span>
+              <span className="block text-[11px] text-neu-muted">
                 {cart.count > 0
                   ? t(`${cart.count} টি পণ্য · ৳${cart.subtotal}`, `${cart.count} items · ৳${cart.subtotal}`)
                   : t("এখনো খালি", "Still empty")}
               </span>
             </span>
-            <ChevronRight className="h-4 w-4 shrink-0 text-leaf-200/60" />
+            <ChevronRight className="h-4 w-4 shrink-0 text-neu-accent" />
           </button>
 
           {/* categories accordion */}
@@ -235,21 +231,21 @@ export function MobileNav({
             onClick={() => setCatsOpen((v) => !v)}
             aria-expanded={catsOpen}
             className={`mob-item flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition ${
-              catsOpen ? "bg-white/[0.05]" : "hover:bg-white/[0.04]"
+              catsOpen ? "bg-white/70 shadow-neu-xs" : "hover:bg-white/50"
             }`}
             style={{ ["--d" as string]: delay() }}
           >
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-leaf-600/15 text-leaf-200 ring-1 ring-inset ring-white/[0.06]">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-neu-accent-soft text-neu-accent-strong">
               <ShoppingBag className="h-[17px] w-[17px]" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-[14px] font-semibold text-sand-100">{t("ক্যাটাগরি", "Categories")}</span>
-              <span className="block text-[11px] text-sand-100/40">
+              <span className="block text-[14px] font-semibold text-neu-ink">{t("ক্যাটাগরি", "Categories")}</span>
+              <span className="block text-[11px] text-neu-muted">
                 {t(`${categories.length} টি বিভাগ`, `${categories.length} departments`)}
               </span>
             </span>
             <ChevronRight
-              className={`h-4 w-4 shrink-0 text-sand-100/40 transition-transform duration-300 ${catsOpen ? "rotate-90" : ""}`}
+              className={`h-4 w-4 shrink-0 text-neu-faint transition-transform duration-300 ${catsOpen ? "rotate-90" : ""}`}
             />
           </button>
 
@@ -261,7 +257,7 @@ export function MobileNav({
                     key={c.slug}
                     href={`/categories/${c.slug}`}
                     onClick={onClose}
-                    className="group flex items-center gap-2 rounded-xl border border-white/[0.05] bg-white/[0.03] px-2.5 py-2 text-[12.5px] text-sand-100/80 transition hover:border-leaf-500/40 hover:bg-leaf-600/10 hover:text-white active:scale-[0.98]"
+                    className="flex items-center gap-2 rounded-xl border border-white/70 bg-white/45 px-2.5 py-2 text-[12.5px] text-neu-ink transition hover:border-neu-accent/40 hover:bg-white/80 hover:text-neu-accent-strong active:scale-[0.98]"
                   >
                     <span className="text-base leading-none" aria-hidden>
                       {c.icon ?? "🌿"}
@@ -272,7 +268,7 @@ export function MobileNav({
                 <Link
                   href="/categories"
                   onClick={onClose}
-                  className="col-span-2 mt-0.5 flex items-center justify-center gap-1.5 rounded-xl bg-leaf-600/15 px-2.5 py-2 text-[12px] font-semibold text-leaf-200 transition hover:bg-leaf-600/25"
+                  className="col-span-2 mt-0.5 flex items-center justify-center gap-1.5 rounded-xl bg-neu-accent-soft px-2.5 py-2 text-[12px] font-semibold text-neu-accent-strong transition hover:bg-neu-accent hover:text-white"
                 >
                   {t("সব ক্যাটাগরি দেখুন", "View all categories")}
                   <ChevronRight className="h-3.5 w-3.5" />
@@ -285,7 +281,7 @@ export function MobileNav({
           {GROUPS.filter((g) => g.items.length > 0).map((group) => (
             <section key={group.titleBn} className="mt-3">
               <p
-                className="mob-item px-3 pb-1.5 pt-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-sand-100/30"
+                className="mob-item px-3 pb-1.5 pt-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-neu-faint"
                 style={{ ["--d" as string]: delay() }}
               >
                 {t(group.titleBn, group.titleEn)}
@@ -300,27 +296,29 @@ export function MobileNav({
                       onClick={onClose}
                       aria-current={active ? "page" : undefined}
                       className={`mob-item group relative flex items-center gap-3 rounded-2xl px-3 py-2.5 transition active:scale-[0.99] ${
-                        active ? "bg-leaf-600/[0.14] text-white" : "text-sand-100/80 hover:bg-white/[0.04] hover:text-white"
+                        active
+                          ? "bg-neu-raised text-neu-accent-strong shadow-neu-xs"
+                          : "text-neu-ink/80 hover:bg-white/50 hover:text-neu-ink"
                       }`}
                       style={{ ["--d" as string]: delay() }}
                     >
                       {active ? (
                         <span
                           aria-hidden
-                          className="absolute inset-y-2 left-0 w-[3px] rounded-full bg-gradient-to-b from-leaf-300 to-leaf-500"
+                          className="absolute inset-y-2 left-0 w-[3px] rounded-full bg-gradient-to-b from-leaf-300 to-leaf-600"
                         />
                       ) : null}
                       <span
-                        className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ring-1 ring-inset transition-colors ${
+                        className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl transition-colors ${
                           active
-                            ? "bg-leaf-600/25 text-leaf-100 ring-leaf-400/25"
-                            : "bg-white/[0.04] text-leaf-200/80 ring-white/[0.06] group-hover:bg-leaf-600/15 group-hover:text-leaf-100"
+                            ? "bg-neu-accent-soft text-neu-accent-strong"
+                            : "bg-white/60 text-neu-accent/70 group-hover:bg-neu-accent-soft group-hover:text-neu-accent-strong"
                         }`}
                       >
                         <Icon className="h-[17px] w-[17px]" />
                       </span>
                       <span className="min-w-0 flex-1 truncate text-[14px] font-medium">{t(labelBn, labelEn)}</span>
-                      <ChevronRight className="h-3.5 w-3.5 shrink-0 text-sand-100/25 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:text-sand-100/50" />
+                      <ChevronRight className="h-3.5 w-3.5 shrink-0 text-neu-faint transition-transform duration-300 group-hover:translate-x-0.5 group-hover:text-neu-accent" />
                     </Link>
                   );
                 })}
@@ -331,7 +329,7 @@ export function MobileNav({
           {/* account */}
           <section className="mt-3">
             <p
-              className="mob-item px-3 pb-1.5 pt-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-sand-100/30"
+              className="mob-item px-3 pb-1.5 pt-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-neu-faint"
               style={{ ["--d" as string]: delay() }}
             >
               {t("আমার অ্যাকাউন্ট", "My account")}
@@ -342,28 +340,28 @@ export function MobileNav({
                 <Link
                   href="/account/orders"
                   onClick={onClose}
-                  className="mob-item flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[14px] font-medium text-sand-100/80 transition hover:bg-white/[0.04] hover:text-white"
+                  className="mob-item flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[14px] font-medium text-neu-ink/80 transition hover:bg-white/50 hover:text-neu-ink"
                   style={{ ["--d" as string]: delay() }}
                 >
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/[0.04] text-leaf-200/80 ring-1 ring-inset ring-white/[0.06]">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/60 text-neu-accent">
                     <Package className="h-[17px] w-[17px]" />
                   </span>
                   <span className="flex-1 truncate">{t("আমার অর্ডার", "My orders")}</span>
-                  <ChevronRight className="h-3.5 w-3.5 text-sand-100/25" />
+                  <ChevronRight className="h-3.5 w-3.5 text-neu-faint" />
                 </Link>
                 <Link
                   href="/account"
                   onClick={onClose}
-                  className="mob-item flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[14px] font-medium text-sand-100/80 transition hover:bg-white/[0.04] hover:text-white"
+                  className="mob-item flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[14px] font-medium text-neu-ink/80 transition hover:bg-white/50 hover:text-neu-ink"
                   style={{ ["--d" as string]: delay() }}
                 >
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/[0.04] text-leaf-200/80 ring-1 ring-inset ring-white/[0.06]">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/60 text-neu-accent">
                     <User className="h-[17px] w-[17px]" />
                   </span>
                   <span className="min-w-0 flex-1 truncate">
                     {user.name ?? t("আমার প্রোফাইল", "My profile")}
                   </span>
-                  <ChevronRight className="h-3.5 w-3.5 text-sand-100/25" />
+                  <ChevronRight className="h-3.5 w-3.5 text-neu-faint" />
                 </Link>
               </div>
             ) : (
@@ -371,14 +369,14 @@ export function MobileNav({
                 <Link
                   href="/login"
                   onClick={onClose}
-                  className="flex min-h-[44px] items-center justify-center rounded-2xl bg-gradient-to-b from-leaf-500 to-leaf-600 px-3 text-[13.5px] font-semibold text-white shadow-[0_14px_30px_-18px_rgba(31,122,77,1)] transition hover:from-leaf-400 hover:to-leaf-500 active:scale-[0.99]"
+                  className="btn-primary min-h-[44px] px-3 text-[13.5px]"
                 >
                   {t("লগইন করুন", "Sign in")}
                 </Link>
                 <Link
                   href="/login?mode=signup"
                   onClick={onClose}
-                  className="flex min-h-[44px] items-center justify-center rounded-2xl border border-leaf-500/40 px-3 text-[13.5px] font-semibold text-leaf-200 transition hover:bg-leaf-600/15 active:scale-[0.99]"
+                  className="btn-outline min-h-[44px] px-3 text-[13.5px]"
                 >
                   {t("সাইন আপ", "Sign up")}
                 </Link>
@@ -394,10 +392,10 @@ export function MobileNav({
         >
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-x-0 -top-10 h-10 bg-gradient-to-t from-[#0b1510] to-transparent"
+            className="pointer-events-none absolute inset-x-0 -top-10 h-10 bg-gradient-to-t from-neu-bg to-transparent"
           />
-          <div className="relative rounded-2xl border border-white/[0.07] bg-white/[0.03] p-2">
-            <div className="flex items-center gap-1 rounded-xl bg-black/25 p-1">
+          <div className="neu-raised relative rounded-2xl p-2">
+            <div className="neu-inset-sm flex items-center gap-1 rounded-xl p-1">
               {(
                 [
                   { key: "bn" as const, label: "বাংলা" },
@@ -413,7 +411,7 @@ export function MobileNav({
                     }}
                     aria-pressed={active}
                     className={`flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg text-[12px] font-semibold transition ${
-                      active ? "bg-white/[0.09] text-white shadow-inner" : "text-sand-100/45 hover:text-sand-100/80"
+                      active ? "bg-neu-raised text-neu-accent-strong shadow-neu-xs" : "text-neu-muted hover:text-neu-ink"
                     }`}
                   >
                     {option.key === "en" ? <Globe className="h-3.5 w-3.5" /> : null}
@@ -425,13 +423,13 @@ export function MobileNav({
 
             <a
               href={`tel:${site.phone}`}
-              className="mt-2 flex min-h-[46px] items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-leaf-500 to-leaf-600 text-[13.5px] font-semibold text-white shadow-[0_16px_34px_-20px_rgba(31,122,77,1)] transition hover:from-leaf-400 hover:to-leaf-500 active:scale-[0.99]"
+              className="btn-primary mt-2 min-h-[46px] w-full text-[13.5px]"
             >
               <Phone className="h-4 w-4" />
               <span className="tabular-nums">{site.phoneDisplay}</span>
             </a>
 
-            <p className="mt-1.5 flex items-center justify-center gap-1.5 text-[10px] text-sand-100/35">
+            <p className="mt-1.5 flex items-center justify-center gap-1.5 text-[10px] text-neu-faint">
               <Headset className="h-3 w-3" />
               {t("সকাল ৭টা – রাত ১০টা, প্রতিদিন", "7 am – 10 pm, every day")}
             </p>

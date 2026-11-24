@@ -56,9 +56,9 @@ export function Analytics() {
         <div
           role="dialog"
           aria-label="কুকি অনুমতি"
-          className="fixed inset-x-3 bottom-3 z-[70] rounded-2xl border border-white/10 bg-[#161a18]/95 p-4 shadow-2xl backdrop-blur md:inset-x-auto md:right-4 md:bottom-4 md:max-w-sm"
+          className="neu-raised-lg fixed inset-x-3 bottom-3 z-[70] rounded-2xl p-4 md:inset-x-auto md:right-4 md:bottom-4 md:max-w-sm"
         >
-          <p className="text-[13.5px] leading-relaxed text-white/80">
+          <p className="text-[13.5px] leading-relaxed text-neu-muted">
             সাইটটি কীভাবে ব্যবহার হচ্ছে তা বুঝতে আমরা অ্যানালিটিক্স কুকি ব্যবহার করি।
             ব্যক্তিগত তথ্য বিক্রি করা হয় না।
           </p>
@@ -73,7 +73,7 @@ export function Analytics() {
             <button
               type="button"
               onClick={() => choose("denied")}
-              className="min-h-[44px] flex-1 rounded-xl border border-white/15 px-4 text-[13.5px] font-medium text-white/70 transition hover:bg-white/5"
+              className="btn-ghost min-h-[44px] flex-1 rounded-xl px-4 text-[13.5px] font-medium"
             >
               না
             </button>

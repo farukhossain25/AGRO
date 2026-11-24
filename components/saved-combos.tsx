@@ -97,7 +97,7 @@ export function SavedCombos({ initial }: { initial: SavedCombo[] }) {
         <li key={combo.id} className="card p-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[13.5px] font-semibold text-white">{combo.name_bn}</p>
+              <p className="text-[13.5px] font-semibold text-neu-ink">{combo.name_bn}</p>
               <p className="mt-0.5 text-[11.5px] text-sand-100/45">
                 {toBn(combo.item_count)}টি পণ্য · {money(combo.price_cached, true)} ·{" "}
                 {REPEAT_BN[combo.repeat_interval] ?? "একবার"}

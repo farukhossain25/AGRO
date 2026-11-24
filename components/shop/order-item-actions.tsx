@@ -54,7 +54,7 @@ export function OrderItemActions({
                 }
                 className={`badge h-9 px-2.5 text-[11px] transition ${
                   done
-                    ? "bg-leaf-600/15 text-leaf-200"
+                    ? "bg-leaf-600/15 text-leaf-700"
                     : "bg-white/[0.05] text-sand-100/60 hover:bg-amber-500/15 hover:text-amber-200"
                 }`}
               >

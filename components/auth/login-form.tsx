@@ -135,7 +135,7 @@ function FloatField({
   return (
     <div>
       <div className="group relative">
-        <span className="pointer-events-none absolute left-3.5 top-1/2 z-[1] -translate-y-1/2 text-sand-100/35 transition group-focus-within:text-leaf-300">
+        <span className="pointer-events-none absolute left-3.5 top-1/2 z-[1] -translate-y-1/2 text-neu-faint transition group-focus-within:text-neu-accent">
           {icon}
         </span>
         <input
@@ -152,18 +152,18 @@ function FloatField({
           placeholder=" "
           aria-label={label}
           /* 16px text stops iOS from zooming the page on focus */
-          className="peer h-[52px] w-full rounded-2xl border border-white/10 bg-ink-800/70 pb-1.5 pl-10 pr-12 pt-6 text-[16px] text-sand-100 outline-none transition placeholder:text-transparent focus:border-leaf-500/70 focus:bg-ink-800 focus:ring-4 focus:ring-leaf-600/15"
+          className="peer h-[52px] w-full rounded-2xl border border-neu-line/60 bg-neu-bg pb-1.5 pl-10 pr-12 pt-6 text-[16px] text-neu-ink outline-none transition shadow-neu-inset-sm placeholder:text-transparent focus:border-neu-accent/60 focus:ring-4 focus:ring-neu-accent/10"
         />
         <label
           htmlFor={id}
-          className="pointer-events-none absolute left-10 top-1/2 -translate-y-1/2 text-[14px] text-sand-100/45 transition-all duration-200 peer-focus:top-[15px] peer-focus:text-[11px] peer-focus:font-semibold peer-focus:tracking-wide peer-focus:text-leaf-300 peer-[:not(:placeholder-shown)]:top-[15px] peer-[:not(:placeholder-shown)]:text-[11px] peer-[:not(:placeholder-shown)]:font-semibold peer-[:not(:placeholder-shown)]:tracking-wide"
+          className="pointer-events-none absolute left-10 top-1/2 -translate-y-1/2 text-[14px] text-neu-faint transition-all duration-200 peer-focus:top-[15px] peer-focus:text-[11px] peer-focus:font-semibold peer-focus:tracking-wide peer-focus:text-neu-accent-strong peer-[:not(:placeholder-shown)]:top-[15px] peer-[:not(:placeholder-shown)]:text-[11px] peer-[:not(:placeholder-shown)]:font-semibold peer-[:not(:placeholder-shown)]:tracking-wide"
         >
           {label}
         </label>
         {trailing ? <span className="absolute right-1.5 top-1/2 -translate-y-1/2">{trailing}</span> : null}
       </div>
       {capsOn ? (
-        <p className="mt-1.5 flex items-center gap-1 text-[11px] font-medium text-amber-300/90" role="status">
+        <p className="mt-1.5 flex items-center gap-1 text-[11px] font-medium text-[#a35c07]" role="status">
           <AlertTriangle className="h-3 w-3" /> Caps Lock চালু আছে
         </p>
       ) : null}
@@ -486,22 +486,22 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
 
   const tabClass = (active: boolean) =>
     `relative z-10 flex-1 whitespace-nowrap rounded-xl px-1.5 py-2.5 text-[11.5px] font-semibold leading-tight transition-colors duration-300 min-h-[44px] sm:px-2 sm:text-[13.5px] ${
-      active ? "text-white" : "text-sand-100/55 hover:text-sand-100"
+      active ? "text-white" : "text-neu-muted hover:text-neu-ink"
     }`;
 
   const actionButton =
-    "mt-2 inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-red-300/30 px-3 py-1 text-[11.5px] font-semibold text-red-100 transition hover:bg-red-500/10 disabled:opacity-60";
+    "mt-2 inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-red-500/25 px-3 py-1 text-[11.5px] font-semibold text-[#c0392b] transition hover:bg-red-500/10 disabled:opacity-60";
 
   return (
     <div className="auth-card auth-rise w-full max-w-[484px]" style={{ ["--d" as string]: "120ms" }}>
       {/* mobile brand header (the desktop split panel carries this on ≥lg) */}
       <div className="mb-5 flex items-center gap-2.5 lg:hidden">
-        <span className="auth-pulse grid h-10 w-10 place-items-center rounded-2xl bg-leaf-600/20 text-leaf-200 ring-1 ring-leaf-500/30">
+        <span className="auth-pulse neu-raised-xs grid h-10 w-10 place-items-center rounded-2xl bg-neu-accent-soft text-neu-accent-strong">
           <ShieldCheck className="h-5 w-5" />
         </span>
         <div>
-          <p className="text-[15px] font-bold leading-tight text-white">বিশ্বাস এগ্রো</p>
-          <p className="text-[11px] text-sand-100/45">বিশুদ্ধতার আস্থায়, খামার থেকে আপনার ঘরে</p>
+          <p className="text-[15px] font-bold leading-tight text-neu-ink">বিশ্বাস এগ্রো</p>
+          <p className="text-[11px] text-neu-muted">বিশুদ্ধতার আস্থায়, খামার থেকে আপনার ঘরে</p>
         </div>
       </div>
 
@@ -514,19 +514,19 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
           el.style.setProperty("--auth-mx", `${e.clientX - rect.left}px`);
           el.style.setProperty("--auth-my", `${e.clientY - rect.top}px`);
         }}
-        className="auth-spot-host auth-inner relative overflow-hidden rounded-[24px] border border-white/[0.07] bg-ink-900/60 p-4 shadow-[0_30px_80px_-50px_rgba(0,0,0,0.9)] backdrop-blur-md sm:p-6 lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none lg:backdrop-blur-none">
+        className="auth-spot-host auth-inner relative overflow-hidden rounded-[26px] border border-white/85 bg-neu-surface/95 p-4 shadow-neu-lg sm:p-6 lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
         {admin ? (
-          <span className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-leaf-400/30 bg-leaf-600/15 px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wider text-leaf-200">
+          <span className="neu-pill mb-2 gap-1.5 px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wider !text-neu-accent-strong">
             <ShieldCheck className="h-3.5 w-3.5" /> Secure admin access
           </span>
         ) : null}
         <h2
-          className="auth-rise text-[21px] font-bold tracking-tight text-white sm:text-[23px]"
+          className="auth-rise text-[21px] font-bold tracking-tight text-neu-ink sm:text-[23px]"
           style={{ ["--d" as string]: "60ms" }}
         >
           {mode === "signup" ? "নতুন অ্যাকাউন্ট" : mode === "forgot" ? "পাসওয়ার্ড রিসেট" : admin ? "অ্যাডমিন প্যানেল" : "আবার স্বাগতম"}
         </h2>
-        <p className="auth-rise mt-1 text-[12.5px] leading-relaxed text-sand-100/50" style={{ ["--d" as string]: "90ms" }}>
+        <p className="auth-rise mt-1 text-[12.5px] leading-relaxed text-neu-muted" style={{ ["--d" as string]: "90ms" }}>
           {mode === "signup"
             ? "মাত্র ৩টি তথ্য দিয়ে অ্যাকাউন্ট খুলুন — অর্ডার, ঠিকানা আর স্ট্যাটাস এক জায়গায়।"
             : mode === "forgot"
@@ -540,7 +540,7 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
         <div
           role="tablist"
           aria-label="লগইন, সাইন আপ বা পাসওয়ার্ড রিসেট"
-          className="auth-rise relative mt-5 flex gap-1 overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.03] p-1"
+          className="auth-rise neu-inset-sm relative mt-5 flex gap-1 overflow-hidden rounded-2xl p-1"
           style={{ ["--d" as string]: "120ms" }}
         >
           {/* the pill slides between tabs instead of blinking on/off */}
@@ -572,9 +572,9 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
           <div
             role="alert"
             key={error.bn}
-            className="auth-shake mt-4 flex gap-2 rounded-2xl border border-red-500/30 bg-red-500/10 px-3.5 py-3 text-[12.5px] leading-relaxed text-red-200"
+            className="auth-shake mt-4 flex gap-2 rounded-2xl border border-red-500/25 bg-red-500/8 px-3.5 py-3 text-[12.5px] leading-relaxed text-[#c0392b]"
           >
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-300" aria-hidden />
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#c0392b]" aria-hidden />
             <div className="min-w-0 flex-1">
             <p>{error.bn}</p>
             {error.resend ? (
@@ -605,7 +605,7 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
         ) : null}
 
         {notice ? (
-          <div role="status" className="auth-enter mt-4 rounded-2xl border border-leaf-500/30 bg-leaf-600/10 px-3.5 py-3 text-[12.5px] leading-relaxed text-leaf-100">
+          <div role="status" className="auth-enter mt-4 rounded-2xl border border-neu-accent/25 bg-neu-accent-soft/70 px-3.5 py-3 text-[12.5px] leading-relaxed text-neu-accent-strong">
             <p className="flex items-center gap-1.5 font-semibold">
               <span className="grid h-5 w-5 place-items-center rounded-full bg-leaf-500/25">
                 <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" aria-hidden>
@@ -621,7 +621,7 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
               </span>
               {notice.title}
             </p>
-            <p className="mt-1 text-leaf-100/80">{notice.body}</p>
+            <p className="mt-1 text-neu-accent-strong/80">{notice.body}</p>
           </div>
         ) : null}
 
@@ -632,7 +632,7 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
               type="button"
               onClick={continueWithGoogle}
               disabled={busy}
-              className="btn-sheen auth-rise mt-5 flex min-h-[50px] w-full items-center justify-center gap-2.5 rounded-2xl bg-white px-4 text-[14.5px] font-semibold text-gray-800 shadow-[0_14px_34px_-18px_rgba(0,0,0,0.95)] transition duration-300 hover:-translate-y-0.5 hover:bg-gray-50 hover:shadow-[0_20px_40px_-20px_rgba(0,0,0,1)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/30 active:translate-y-0 disabled:opacity-60"
+              className="btn-sheen neu-raised auth-rise mt-5 flex min-h-[50px] w-full items-center justify-center gap-2.5 rounded-2xl px-4 text-[14.5px] font-semibold text-neu-ink transition duration-300 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60"
               style={{ ["--d" as string]: "150ms" }}
             >
               {busy ? (
@@ -649,9 +649,9 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
             </button>
 
             <div className="auth-rise my-4 flex items-center gap-3" style={{ ["--d" as string]: "200ms" }}>
-              <span className="h-px flex-1 bg-gradient-to-r from-transparent to-white/15" />
-              <span className="text-[11px] font-medium tracking-wider text-sand-100/35">অথবা ইমেইল দিয়ে</span>
-              <span className="h-px flex-1 bg-white/10" />
+              <span className="h-px flex-1 bg-gradient-to-r from-transparent to-neu-line/70" />
+              <span className="text-[11px] font-medium tracking-wider text-neu-faint">অথবা ইমেইল দিয়ে</span>
+              <span className="h-px flex-1 bg-neu-line/50" />
             </div>
           </>
         ) : null}
@@ -681,7 +681,7 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
                   aria-label={showPassword ? "পাসওয়ার্ড লুকান" : "পাসওয়ার্ড দেখুন"}
-                  className="grid h-10 w-10 place-items-center rounded-xl text-sand-100/50 transition hover:bg-white/[0.06] hover:text-sand-100"
+                  className="grid h-10 w-10 place-items-center rounded-xl text-neu-faint transition hover:bg-white/70 hover:text-neu-ink"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -689,19 +689,19 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
             />
 
             <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-              <label className="flex cursor-pointer select-none items-center gap-2 text-[11.5px] text-sand-100/60 sm:text-[12px]">
+              <label className="flex cursor-pointer select-none items-center gap-2 text-[11.5px] text-neu-muted sm:text-[12px]">
                 <input
                   type="checkbox"
                   checked={remember}
                   onChange={(e) => setRemember(e.target.checked)}
-                  className="h-4 w-4 rounded border-white/20 bg-ink-800 accent-leaf-500"
+                  className="h-4 w-4 rounded border-neu-line bg-neu-bg accent-neu-accent"
                 />
                 এই ডিভাইসে লগইন রাখুন
               </label>
               <button
                 type="button"
                 onClick={() => setMode("forgot")}
-                className="whitespace-nowrap text-[11.5px] font-semibold text-leaf-300 hover:underline sm:text-[12px]"
+                className="whitespace-nowrap text-[11.5px] font-semibold text-neu-accent-strong hover:underline sm:text-[12px]"
               >
                 পাসওয়ার্ড ভুলে গেছেন?
               </button>
@@ -748,7 +748,7 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
                   aria-label={showPassword ? "পাসওয়ার্ড লুকান" : "পাসওয়ার্ড দেখুন"}
-                  className="grid h-10 w-10 place-items-center rounded-xl text-sand-100/50 transition hover:bg-white/[0.06] hover:text-sand-100"
+                  className="grid h-10 w-10 place-items-center rounded-xl text-neu-faint transition hover:bg-white/70 hover:text-neu-ink"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -760,33 +760,33 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
                       <span
                         key={i}
                         className={`h-1.5 flex-1 origin-left rounded-full transition-colors duration-500 ${
-                          password && strength.score > i ? `${strength.tone} auth-bar` : "bg-white/10"
+                          password && strength.score > i ? `${strength.tone} auth-bar` : "bg-neu-sunken"
                         }`}
                       />
                     ))}
                   </div>
-                  <p className="mt-1.5 flex items-center justify-between text-[11px] text-sand-100/40">
+                  <p className="mt-1.5 flex items-center justify-between text-[11px] text-neu-faint">
                     <span>কমপক্ষে ৮ অক্ষর, অক্ষর + সংখ্যা মিশিয়ে দিন</span>
-                    {password ? <span className="font-semibold text-sand-100/60">{strength.label}</span> : null}
+                    {password ? <span className="font-semibold text-neu-muted">{strength.label}</span> : null}
                   </p>
                 </div>
               }
             />
 
-            <label className="flex cursor-pointer select-none items-start gap-2.5 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-3 text-[12px] leading-relaxed text-sand-100/60">
+            <label className="flex cursor-pointer select-none items-start gap-2.5 rounded-2xl border border-white/80 bg-white/40 p-3 text-[12px] leading-relaxed text-neu-muted">
               <input
                 type="checkbox"
                 checked={acceptedTerms}
                 onChange={(e) => setAcceptedTerms(e.target.checked)}
-                className="mt-0.5 h-4 w-4 shrink-0 rounded border-white/20 bg-ink-800 accent-leaf-500"
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-neu-line bg-neu-bg accent-neu-accent"
               />
               <span>
                 আমি{" "}
-                <Link href="/policies/terms" className="font-semibold text-leaf-300 hover:underline">
+                <Link href="/policies/terms" className="font-semibold text-neu-accent-strong hover:underline">
                   শর্তাবলী
                 </Link>{" "}
                 ও{" "}
-                <Link href="/policies/privacy" className="font-semibold text-leaf-300 hover:underline">
+                <Link href="/policies/privacy" className="font-semibold text-neu-accent-strong hover:underline">
                   গোপনীয়তা নীতি
                 </Link>{" "}
                 পড়েছি এবং সম্মতি দিচ্ছি।
@@ -803,13 +803,13 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
         {/* ── FORGOT */}
         {mode === "forgot" ? (
           resetSentTo ? (
-            <div className="mt-5 rounded-2xl border border-leaf-500/25 bg-leaf-600/10 p-4 text-center">
-              <span className="mx-auto grid h-11 w-11 place-items-center rounded-xl bg-leaf-600/20 text-leaf-200">
+            <div className="mt-5 rounded-2xl border border-neu-accent/25 bg-neu-accent-soft/70 p-4 text-center">
+              <span className="neu-raised-xs mx-auto grid h-11 w-11 place-items-center rounded-xl bg-neu-accent-soft text-neu-accent-strong">
                 <Mail className="h-5 w-5" />
               </span>
-              <p className="mt-2 text-[13px] font-bold text-white">রিসেট লিঙ্ক পাঠানো হয়েছে</p>
-              <p className="mt-1 text-[12px] leading-relaxed text-sand-100/60">
-                <strong className="text-sand-100">{resetSentTo}</strong> এ একটি লিঙ্ক পাঠানো হয়েছে। ইনবক্সে (স্প্যাম ফোল্ডারেও)
+              <p className="mt-2 text-[13px] font-bold text-neu-ink">রিসেট লিঙ্ক পাঠানো হয়েছে</p>
+              <p className="mt-1 text-[12px] leading-relaxed text-neu-muted">
+                <strong className="text-neu-ink">{resetSentTo}</strong> এ একটি লিঙ্ক পাঠানো হয়েছে। ইনবক্সে (স্প্যাম ফোল্ডারেও)
                 দেখুন, তারপর নতুন পাসওয়ার্ড দিন।
               </p>
               <button
@@ -838,7 +838,7 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
                 {busy ? "পাঠানো হচ্ছে…" : "রিসেট লিঙ্ক পাঠান"}
               </button>
-              <button type="button" onClick={() => setMode("login")} className="w-full text-center text-[12px] text-sand-100/50 transition hover:text-sand-100">
+              <button type="button" onClick={() => setMode("login")} className="w-full text-center text-[12px] text-neu-muted transition hover:text-neu-ink">
                 লগইনে ফিরে যান
               </button>
             </form>
@@ -846,27 +846,27 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
         ) : null}
 
         {admin ? (
-          <p className="mt-5 rounded-2xl border border-white/[0.07] bg-white/[0.02] px-3 py-2.5 text-[11px] leading-relaxed text-sand-100/45">
+          <p className="mt-5 rounded-2xl border border-white/80 bg-white/40 px-3 py-2.5 text-[11px] leading-relaxed text-neu-muted">
             এই পেজে Google লগইন বন্ধ। শুধু ইমেইল+পাসওয়ার্ড, এবং অ্যাকাউন্টের রোল{" "}
-            <span className="font-semibold text-sand-100/70">admin</span> হতে হবে — নাহলে প্যানেল খুলবে না।
+            <span className="font-semibold text-neu-ink">admin</span> হতে হবে — নাহলে প্যানেল খুলবে না।
           </p>
         ) : null}
 
         {capsLock && mode !== "forgot" ? (
-          <p className="mt-3 flex items-center justify-center gap-1.5 rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-1.5 text-[11px] font-medium text-amber-200">
-            <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-400" />
+          <p className="mt-3 flex items-center justify-center gap-1.5 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-[11px] font-medium text-[#a35c07]">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-[#a35c07]" />
             Caps Lock চালু আছে — পাসওয়ার্ডে বড় হাতের অক্ষর টাইপ হচ্ছে
           </p>
         ) : null}
 
-        <div className="mt-5 flex flex-col items-center gap-2 text-center text-[11px] leading-relaxed text-sand-100/35">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/15 bg-emerald-500/[0.06] px-2.5 py-0.5 text-[10.5px] font-medium text-emerald-300/80">
-            <ShieldCheck className="h-3 w-3 text-emerald-400" />
+        <div className="mt-5 flex flex-col items-center gap-2 text-center text-[11px] leading-relaxed text-neu-faint">
+          <span className="neu-pill px-2.5 py-0.5 text-[10.5px] font-medium !text-neu-accent-strong">
+            <ShieldCheck className="h-3 w-3 text-neu-accent" />
             ২৫৬-বিট SSL এনক্রিপ্টেড নিরাপদ সংযোগ
           </span>
           <p>
             সমস্যা হচ্ছে?{" "}
-            <Link href="/contact" className="underline transition hover:text-sand-100/70">
+            <Link href="/contact" className="underline transition hover:text-neu-ink">
               আমাদের জানান
             </Link>{" "}
             — অথবা হটলাইনে কল করুন।

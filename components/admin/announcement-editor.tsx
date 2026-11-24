@@ -186,7 +186,7 @@ export function AnnouncementEditor({ initial }: { initial?: Record<string, unkno
             সাইটের একদম উপরে চলমান লেখা — লেখা, গতি ও লিঙ্ক এখান থেকেই বদলাবে।
           </p>
         </div>
-        <span className="badge ml-auto bg-leaf-600/20 text-leaf-200">
+        <span className="badge ml-auto bg-leaf-600/20 text-leaf-700">
           {draft.enabled ? "চালু" : "বন্ধ"}
         </span>
       </header>

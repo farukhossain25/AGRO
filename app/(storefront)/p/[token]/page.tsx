@@ -37,7 +37,7 @@ export default async function ParcelScanPage({ params }: { params: Promise<{ tok
           <p className="mt-1.5 text-[11px] uppercase tracking-wide text-sand-100/45">বিশ্বাস এগ্রো পার্সেল</p>
           <h1 className="mt-0.5 font-mono text-lg font-bold text-mint">{parcel.order_no}</h1>
           {delivered && (
-            <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-leaf-600/25 px-2.5 py-0.5 text-[11px] font-semibold text-leaf-200">
+            <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-leaf-600/25 px-2.5 py-0.5 text-[11px] font-semibold text-leaf-700">
               <CheckCircle2 className="h-3 w-3" /> ডেলিভারি সম্পন্ন
             </span>
           )}
@@ -46,7 +46,7 @@ export default async function ParcelScanPage({ params }: { params: Promise<{ tok
         <div className="space-y-3 p-5">
           <div>
             <p className="text-[10.5px] uppercase tracking-wide text-sand-100/40">গ্রাহক</p>
-            <p className="text-[14px] font-semibold text-white">{label.customer_name}</p>
+            <p className="text-[14px] font-semibold text-neu-ink">{label.customer_name}</p>
             <a href={`tel:${label.phone}`} className="mt-1 inline-flex items-center gap-1 text-[12.5px] text-mint">
               <Phone className="h-3 w-3" /> {label.phone}
             </a>
@@ -74,7 +74,7 @@ export default async function ParcelScanPage({ params }: { params: Promise<{ tok
           <div className="grid grid-cols-2 gap-2">
             <div className="rounded-lg bg-white/[0.03] p-2.5">
               <p className="text-[10px] text-sand-100/40">পণ্য</p>
-              <p className="text-[13px] font-bold text-white">{label.item_count ?? 0}টি</p>
+              <p className="text-[13px] font-bold text-neu-ink">{label.item_count ?? 0}টি</p>
             </div>
             <div className="rounded-lg bg-white/[0.03] p-2.5">
               <p className="text-[10px] text-sand-100/40">সংগ্রহযোগ্য</p>
@@ -93,7 +93,7 @@ export default async function ParcelScanPage({ params }: { params: Promise<{ tok
             <div className="flex flex-wrap gap-1">
               <span className="text-[10.5px] text-sand-100/35">সোর্স:</span>
               {(label.sources ?? []).map((s) => (
-                <span key={s} className="rounded-full bg-leaf-600/15 px-2 py-0.5 text-[10.5px] text-leaf-200">
+                <span key={s} className="rounded-full bg-leaf-600/15 px-2 py-0.5 text-[10.5px] text-leaf-700">
                   {s}
                 </span>
               ))}

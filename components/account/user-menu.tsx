@@ -95,7 +95,7 @@ export function UserMenu({ premium = false }: { premium?: boolean }) {
       <Link
         href="/login"
         aria-label={t("লগইন / সাইন আপ", "Login / Sign up")}
-        className="flex min-h-[40px] items-center gap-1.5 rounded-xl px-2.5 py-2 text-[12px] font-semibold text-sand-100/80 transition hover:bg-white/[0.06] hover:text-sand-100 sm:px-3"
+        className="neu-pill flex min-h-[40px] items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-neu-ink sm:px-3.5"
       >
         <UserIcon className="h-4 w-4" />
         <span className="hidden sm:inline">{t("লগইন / সাইন আপ", "Login / Sign up")}</span>
@@ -112,7 +112,7 @@ export function UserMenu({ premium = false }: { premium?: boolean }) {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="relative grid h-10 w-10 place-items-center rounded-full ring-1 ring-white/10 transition hover:ring-leaf-400/50"
+        className="relative grid h-10 w-10 place-items-center rounded-full transition hover:ring-2 hover:ring-neu-accent/40"
         aria-label={t("অ্যাকাউন্ট মেনু", "Account menu")}
         aria-expanded={open}
         aria-haspopup="menu"
@@ -127,23 +127,23 @@ export function UserMenu({ premium = false }: { premium?: boolean }) {
             unoptimized
           />
         ) : (
-          <span className="grid h-10 w-10 place-items-center rounded-full bg-leaf-700 text-[13px] font-bold text-leaf-50">
+          <span className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-leaf-400 to-leaf-600 text-[13px] font-bold text-white shadow-neu-accent-sm">
             {initial}
           </span>
         )}
         {premium ? (
-          <BadgeCheck className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full bg-ink-900 text-amber-400" />
+          <BadgeCheck className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full bg-neu-highlight text-amber-500 ring-1 ring-neu-line" />
         ) : null}
       </button>
 
       {open ? (
         <div
           role="menu"
-          className="absolute right-0 top-[46px] z-[70] w-60 overflow-hidden rounded-2xl border border-white/10 bg-ink-850/98 shadow-soft backdrop-blur-xl animate-fade-up"
+          className="absolute right-0 top-[52px] z-[70] w-60 overflow-hidden rounded-3xl border border-white/85 bg-neu-surface p-1.5 shadow-neu-lg animate-fade-up"
         >
-          <div className="border-b border-white/[0.07] px-4 py-3">
+          <div className="border-b border-neu-line/50 px-3 py-3">
             <p className="truncate text-[13px] font-semibold">{user.name ?? t("গ্রাহক", "Customer")}</p>
-            <p className="mt-0.5 truncate text-[11px] text-sand-100/45">
+            <p className="mt-0.5 truncate text-[11px] text-neu-muted">
               {user.email ??
                 (premium ? t("প্রিমিয়াম সদস্য", "Premium member") : t("গ্রাহক", "Customer"))}
             </p>
@@ -156,9 +156,9 @@ export function UserMenu({ premium = false }: { premium?: boolean }) {
                 href={item.href}
                 role="menuitem"
                 onClick={() => setOpen(false)}
-                className="flex min-h-[38px] items-center gap-2.5 px-4 py-2 text-[12.5px] text-sand-100/75 transition hover:bg-white/[0.06] hover:text-sand-100"
+                className="flex min-h-[38px] items-center gap-2.5 rounded-2xl px-3 py-2 text-[12.5px] text-neu-ink/75 transition hover:bg-white/70 hover:text-neu-ink"
               >
-                <item.Icon className="h-3.5 w-3.5 text-sand-100/40" />
+                <item.Icon className="h-3.5 w-3.5 text-neu-faint" />
                 {t(item.labelBn, item.labelEn)}
               </Link>
             ))}
@@ -167,12 +167,12 @@ export function UserMenu({ premium = false }: { premium?: boolean }) {
           {/* Admin-only shortcut. Ordinary customers never see this row, so the
               panel URL is still not advertised anywhere public. */}
           {user.role === "admin" ? (
-            <div className="border-t border-white/[0.07] py-1">
+            <div className="border-t border-neu-line/50 py-1">
               <Link
                 href={ADMIN_BASE}
                 role="menuitem"
                 onClick={() => setOpen(false)}
-                className="flex min-h-[38px] items-center gap-2.5 px-4 py-2 text-[12.5px] font-semibold text-leaf-200 transition hover:bg-leaf-600/15"
+                className="flex min-h-[38px] items-center gap-2.5 rounded-2xl px-3 py-2 text-[12.5px] font-semibold text-neu-accent-strong transition hover:bg-neu-accent-soft/70"
               >
                 <ShieldCheck className="h-3.5 w-3.5" />
                 {t("অ্যাডমিন প্যানেল", "Admin panel")}
@@ -180,12 +180,12 @@ export function UserMenu({ premium = false }: { premium?: boolean }) {
             </div>
           ) : null}
 
-          <div className="border-t border-white/[0.07] py-1">
+          <div className="border-t border-neu-line/50 py-1">
             <button
               role="menuitem"
               onClick={handleSignOut}
               disabled={signingOut}
-              className="flex min-h-[38px] w-full items-center gap-2.5 px-4 py-2 text-[12.5px] text-red-300 transition hover:bg-red-500/10 disabled:opacity-60"
+              className="flex min-h-[38px] w-full items-center gap-2.5 rounded-2xl px-3 py-2 text-[12.5px] text-[#c0392b] transition hover:bg-red-500/10 disabled:opacity-60"
             >
               <LogOut className="h-3.5 w-3.5" />
               {signingOut ? t("বের হচ্ছে…", "Signing out…") : t("লগআউট", "Log out")}

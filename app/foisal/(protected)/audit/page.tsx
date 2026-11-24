@@ -174,7 +174,7 @@ export default async function AdminAuditPage({
               key={n}
               href={`${ADMIN_BASE}/audit?${new URLSearchParams({ ...(params.entity ? { entity: params.entity } : {}), page: String(n) })}`}
               className={`min-w-[36px] rounded-lg px-2.5 py-1.5 text-center ${
-                n === page ? "bg-leaf-600/25 font-semibold text-leaf-200" : "text-sand-100/50 hover:bg-white/5"
+                n === page ? "bg-leaf-600/25 font-semibold text-leaf-700" : "text-sand-100/50 hover:bg-white/5"
               }`}
             >
               {n}

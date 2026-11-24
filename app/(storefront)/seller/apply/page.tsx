@@ -39,7 +39,7 @@ export default async function SellerApplyPage() {
         ].map((b) => (
           <div key={b.title} className="rounded-xl border border-white/8 bg-white/[0.02] p-4">
             <b.icon className="h-4 w-4 text-mint" />
-            <p className="mt-2 text-[12.5px] font-bold text-white">{b.title}</p>
+            <p className="mt-2 text-[12.5px] font-bold text-neu-ink">{b.title}</p>
             <p className="mt-0.5 text-[11px] text-sand-100/50">{b.body}</p>
           </div>
         ))}
@@ -48,7 +48,7 @@ export default async function SellerApplyPage() {
       {!user ? (
         <div className="card p-8 text-center">
           <BadgeCheck className="mx-auto h-8 w-8 text-mint/60" />
-          <p className="mt-3 text-[14px] font-semibold text-white">আবেদন করতে লগইন করুন</p>
+          <p className="mt-3 text-[14px] font-semibold text-neu-ink">আবেদন করতে লগইন করুন</p>
           <p className="mt-1 text-[12.5px] text-sand-100/50">ফোন OTP দিয়ে ৩০ সেকেন্ডে লগইন</p>
           <Link href="/login?next=/seller/apply" className="btn-primary btn-sm mt-4">
             লগইন / রেজিস্টার
@@ -62,7 +62,7 @@ export default async function SellerApplyPage() {
       ) : existing ? (
         <div className="card p-8 text-center">
           <p className="text-2xl">{existing.status === "approved" ? "🎉" : "⏳"}</p>
-          <p className="mt-2 text-[14px] font-semibold text-white">
+          <p className="mt-2 text-[14px] font-semibold text-neu-ink">
             {existing.status === "approved" ? "আপনি অনুমোদিত বিক্রেতা" : "আপনার আবেদন যাচাই চলছে"}
           </p>
           <p className="mt-1 text-[12.5px] text-sand-100/50">

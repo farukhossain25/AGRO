@@ -115,7 +115,7 @@ export function CodeManager({
 
       {/* generator */}
       <div className="card space-y-3 p-4">
-        <p className="flex items-center gap-1.5 text-[13px] font-semibold text-white">
+        <p className="flex items-center gap-1.5 text-[13px] font-semibold text-neu-ink">
           <Ticket className="h-3.5 w-3.5 text-mint" /> নতুন ব্যাচ তৈরি করুন
         </p>
         <div className="grid gap-2 sm:grid-cols-3">
@@ -198,7 +198,7 @@ export function CodeManager({
                     <span
                       className={`rounded-full px-2 py-0.5 text-[10px] ${
                         r.status === "unused"
-                          ? "bg-leaf-600/20 text-leaf-200"
+                          ? "bg-leaf-600/20 text-leaf-700"
                           : r.status === "used"
                           ? "bg-white/[0.07] text-sand-100/50"
                           : "bg-red-500/15 text-red-300"

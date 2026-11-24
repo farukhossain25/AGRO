@@ -283,7 +283,7 @@ export function SettingsManager({ initial }: { initial: Values }) {
                           className={`h-3.5 w-6 rounded-full transition ${value ? "bg-leaf-400" : "bg-white/15"}`}
                         >
                           <span
-                            className={`block h-3 w-3 translate-y-[1px] rounded-full bg-ink-950 transition ${
+                            className={`block h-3 w-3 translate-y-[1px] rounded-full bg-white shadow-neu-xs transition ${
                               value ? "translate-x-[11px]" : "translate-x-[1px]"
                             }`}
                           />

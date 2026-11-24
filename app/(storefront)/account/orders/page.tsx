@@ -19,7 +19,7 @@ const statusLabels: Record<string, { bn: string; tone: string }> = {
   received: { bn: "গৃহীত", tone: "bg-white/[0.07] text-sand-100/70" },
   packing: { bn: "প্যাকিং", tone: "bg-amber-500/15 text-amber-300" },
   shipped: { bn: "ডেলিভারির পথে", tone: "bg-sky-500/15 text-sky-300" },
-  delivered: { bn: "সম্পন্ন", tone: "bg-leaf-600/20 text-leaf-200" },
+  delivered: { bn: "সম্পন্ন", tone: "bg-leaf-600/20 text-leaf-700" },
   cancelled: { bn: "বাতিল", tone: "bg-red-500/15 text-red-300" },
 };
 

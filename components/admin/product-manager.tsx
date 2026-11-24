@@ -217,7 +217,7 @@ export function ProductManager({
                   </td>
                   <td className="px-2 py-2">
                     <div className="flex flex-wrap gap-1">
-                      <span className={`badge !text-[9px] ${p.is_active ? "bg-leaf-600/20 text-leaf-200" : "bg-white/[0.07] text-sand-100/50"}`}>
+                      <span className={`badge !text-[9px] ${p.is_active ? "bg-leaf-600/20 text-leaf-700" : "bg-white/[0.07] text-sand-100/50"}`}>
                         {p.is_active ? "সক্রিয়" : "নিষ্ক্রিয়"}
                       </span>
                       {p.is_featured ? <span className="badge !text-[9px] bg-amber-500/15 text-amber-300">ফিচার্ড</span> : null}

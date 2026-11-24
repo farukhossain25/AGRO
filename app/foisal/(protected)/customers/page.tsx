@@ -61,7 +61,7 @@ export default async function AdminCustomersPage() {
                   <td className="px-2 py-2.5 font-mono text-[11px]">{c.phone ?? "—"}</td>
                   <td className="px-2 py-2.5 text-[11px] text-sand-100/60">{c.email ?? "—"}</td>
                   <td className="px-2 py-2.5">
-                    <span className={`badge !text-[9px] ${c.phone_verified ? "bg-leaf-600/20 text-leaf-200" : "bg-white/[0.07] text-sand-100/45"}`}>
+                    <span className={`badge !text-[9px] ${c.phone_verified ? "bg-leaf-600/20 text-leaf-700" : "bg-white/[0.07] text-sand-100/45"}`}>
                       {c.phone_verified ? "হ্যাঁ" : "না"}
                     </span>
                   </td>

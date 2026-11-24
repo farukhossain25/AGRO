@@ -51,7 +51,7 @@ export default async function MarketPage() {
       {sellers.length === 0 ? (
         <div className="card border-dashed p-12 text-center">
           <Store className="mx-auto h-8 w-8 text-sand-100/25" />
-          <p className="mt-3 text-[14px] font-semibold text-white">এখনো কোনো বিক্রেতা অনুমোদিত হয়নি</p>
+          <p className="mt-3 text-[14px] font-semibold text-neu-ink">এখনো কোনো বিক্রেতা অনুমোদিত হয়নি</p>
           <p className="mx-auto mt-1.5 max-w-sm text-[12.5px] leading-relaxed text-sand-100/50">
             আপনি কি খামারি বা ক্ষুদ্র ব্যবসায়ী? প্রথম ব্যাচের সেলার হিসেবে যোগ দিন — ০% কমিশনে প্রথম ৩ মাস।
           </p>
@@ -75,12 +75,12 @@ export default async function MarketPage() {
                 ) : (
                   <div className="grid h-full place-items-center text-3xl">🏡</div>
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-ink-900 via-transparent to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-scrim via-transparent to-transparent" />
               </div>
 
               <div className="p-4">
                 <div className="flex items-start justify-between gap-2">
-                  <h2 className="text-[14.5px] font-bold text-white">{seller.name_bn}</h2>
+                  <h2 className="text-[14.5px] font-bold text-neu-ink">{seller.name_bn}</h2>
                   <BadgeCheck className="h-4 w-4 shrink-0 text-leaf-400" />
                 </div>
                 <p className="mt-1 flex items-center gap-1 text-[11.5px] text-sand-100/45">
@@ -107,8 +107,8 @@ export default async function MarketPage() {
         </div>
       )}
 
-      <div className="mt-10 rounded-2xl border border-mint/20 bg-leaf-900/20 p-6 text-center">
-        <p className="text-[14px] font-bold text-white">আপনার খামারের পণ্য অনলাইনে বিক্রি করতে চান?</p>
+      <div className="mt-10 rounded-2xl border border-neu-accent/20 bg-neu-accent-soft/60 p-6 text-center">
+        <p className="text-[14px] font-bold text-neu-ink">আপনার খামারের পণ্য অনলাইনে বিক্রি করতে চান?</p>
         <p className="mx-auto mt-1.5 max-w-md text-[12.5px] leading-relaxed text-sand-100/55">
           লাইভ ক্যামেরা + QR ট্রেসেবিলিটি সহ আপনার নিজের স্টোর — কমিশন মাত্র ১০%।
         </p>

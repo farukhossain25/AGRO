@@ -154,7 +154,7 @@ export function SupplierQualityBoard({
                           অনুমোদনের অপেক্ষায়
                         </span>
                       ) : (
-                        <span className="badge bg-leaf-600/15 text-[10px] text-leaf-200">সক্রিয়</span>
+                        <span className="badge bg-leaf-600/15 text-[10px] text-leaf-700">সক্রিয়</span>
                       )}
                       {needsAttention ? (
                         <span className="badge bg-amber-500/20 text-[10px] text-amber-200">
@@ -251,7 +251,7 @@ export function SupplierQualityBoard({
             if (e.target === e.currentTarget) setDialog(null);
           }}
         >
-          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-ink-900 p-4">
+          <div className="w-full max-w-md rounded-2xl neu-raised-lg border border-white/85 bg-neu-surface p-4">
             <h2 id="quality-dialog-title" className="text-[15px] font-bold text-sand-50">
               {dialog.action === "warn"
                 ? "সতর্কবার্তা পাঠান"

@@ -67,7 +67,7 @@ export default async function AdminMediaPage() {
                 <p className="text-[10px] text-sand-100/35">
                   {asset.bucket} · {formatDateBn(asset.created_at)}
                 </p>
-                <code className="block truncate rounded bg-black/30 px-1.5 py-1 text-[9.5px] text-sand-100/50">
+                <code className="block truncate rounded bg-neu-sunken px-1.5 py-1 text-[9.5px] text-neu-muted">
                   {asset.url}
                 </code>
               </div>

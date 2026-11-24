@@ -46,10 +46,10 @@ export function AnnouncementMarquee({ settings }: { settings: AnnouncementSettin
     <ul className="flex shrink-0 items-center">
       {messages.map((message, index) => (
         <li key={`${message}-${index}`} className="flex items-center whitespace-nowrap">
-          <span className="px-3 text-[11.5px] font-medium leading-none text-leaf-50 sm:px-5 sm:text-[12.5px]">
+          <span className="px-3 text-[11.5px] font-medium leading-none text-neu-accent-strong sm:px-5 sm:text-[12.5px]">
             {message}
           </span>
-          <span aria-hidden className="text-[8px] text-leaf-200/50">
+          <span aria-hidden className="text-[8px] text-neu-accent/40">
             ●
           </span>
         </li>
@@ -59,19 +59,19 @@ export function AnnouncementMarquee({ settings }: { settings: AnnouncementSettin
           {isExternal(ctaHref) ? (
             <a
               href={ctaHref}
-              className="px-3 text-[11.5px] font-bold leading-none text-white underline decoration-white/40 underline-offset-2 sm:px-5 sm:text-[12.5px]"
+              className="px-3 text-[11.5px] font-bold leading-none text-neu-accent-strong underline decoration-neu-accent/40 underline-offset-2 sm:px-5 sm:text-[12.5px]"
             >
               {ctaLabel}
             </a>
           ) : (
             <Link
               href={ctaHref}
-              className="px-3 text-[11.5px] font-bold leading-none text-white underline decoration-white/40 underline-offset-2 sm:px-5 sm:text-[12.5px]"
+              className="px-3 text-[11.5px] font-bold leading-none text-neu-accent-strong underline decoration-neu-accent/40 underline-offset-2 sm:px-5 sm:text-[12.5px]"
             >
               {ctaLabel}
             </Link>
           )}
-          <span aria-hidden className="text-[8px] text-leaf-200/50">
+          <span aria-hidden className="text-[8px] text-neu-accent/40">
             ●
           </span>
         </li>
@@ -81,7 +81,7 @@ export function AnnouncementMarquee({ settings }: { settings: AnnouncementSettin
 
   return (
     <div
-      className={`relative overflow-hidden border-b border-leaf-600/30 bg-gradient-to-r from-leaf-800 via-leaf-700 to-leaf-800 ${
+      className={`relative overflow-hidden border-b border-neu-accent/15 bg-gradient-to-r from-neu-accent-soft via-[#E9F4EE] to-neu-accent-soft ${
         settings.show_mobile ? "" : "hidden sm:block"
       }`}
       role="region"
@@ -105,7 +105,7 @@ export function AnnouncementMarquee({ settings }: { settings: AnnouncementSettin
             call without waiting for the number to scroll past */}
         <a
           href={`tel:${site.phone}`}
-          className="ml-auto hidden shrink-0 items-center gap-1.5 border-l border-leaf-500/30 bg-leaf-800/80 px-3 text-[11.5px] font-semibold text-leaf-50 backdrop-blur-sm hover:text-white sm:flex"
+          className="ml-auto hidden shrink-0 items-center gap-1.5 border-l border-neu-accent/15 bg-white/60 px-3 text-[11.5px] font-semibold text-neu-accent-strong backdrop-blur-sm transition hover:text-neu-ink sm:flex"
           aria-label={isBn ? "ফোনে কল করুন" : "Call us"}
         >
           <Phone className="h-3 w-3" />
@@ -115,7 +115,7 @@ export function AnnouncementMarquee({ settings }: { settings: AnnouncementSettin
         {/* icon on the very left, purely decorative */}
         <span
           aria-hidden
-          className="pointer-events-none absolute left-0 top-0 hidden h-full items-center bg-leaf-800/90 pl-2 pr-3 text-leaf-200 sm:flex"
+          className="pointer-events-none absolute left-0 top-0 hidden h-full items-center bg-neu-accent-soft/90 pl-2 pr-3 text-neu-accent-strong sm:flex"
         >
           <Megaphone className="h-3.5 w-3.5" />
         </span>

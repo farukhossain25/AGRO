@@ -42,7 +42,7 @@ const RESOLUTION: Record<string, string> = {
 const STATUS: Record<string, { bn: string; tone: string }> = {
   open: { bn: "খোলা", tone: "bg-amber-500/15 text-amber-300" },
   in_review: { bn: "পর্যালোচনায়", tone: "bg-sky-500/15 text-sky-300" },
-  resolved: { bn: "সমাধান", tone: "bg-leaf-600/20 text-leaf-200" },
+  resolved: { bn: "সমাধান", tone: "bg-leaf-600/20 text-leaf-700" },
   rejected: { bn: "বাতিল", tone: "bg-red-500/15 text-red-300" },
 };
 
@@ -147,7 +147,7 @@ export function ComplaintInbox({ initial }: { initial: SellerComplaint[] }) {
                 </button>
 
                 {expanded ? (
-                  <div className="mt-2.5 space-y-2 rounded-xl border border-white/10 bg-black/25 p-3">
+                  <div className="neu-inset-sm mt-2.5 space-y-2 rounded-xl p-3">
                     <textarea
                       value={note}
                       onChange={(e) => setNote(e.target.value)}

@@ -71,7 +71,7 @@ export default async function DairyLivePage() {
       <DairyBoard farms={farms} />
 
       <section className="mt-10 rounded-2xl border border-mint/20 bg-leaf-900/20 p-6">
-        <h2 className="text-[15px] font-bold text-white">দুধ কেনার আগে যা জানা দরকার</h2>
+        <h2 className="text-[15px] font-bold text-neu-ink">দুধ কেনার আগে যা জানা দরকার</h2>
         <ul className="mt-3 grid gap-2 sm:grid-cols-2">
           {[
             "প্রতিটি গাভীর দুধ আলাদা ফ্যাট টেস্ট করা হয় — গড় ফ্যাট ৪.২%।",

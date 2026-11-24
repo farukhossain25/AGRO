@@ -48,7 +48,7 @@ export type Column = {
   falseLabel?: string;
 };
 
-const GREEN = "bg-leaf-600/20 text-leaf-200";
+const GREEN = "bg-leaf-600/20 text-leaf-700";
 const MUTED = "bg-white/[0.07] text-sand-100/50";
 
 function Cell({ row, col }: { row: Record<string, unknown>; col: Column }) {

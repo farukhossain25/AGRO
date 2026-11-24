@@ -10,5 +10,5 @@ export const metadata: Metadata = {
  * The (protected) group adds the sidebar and the auth guard.
  */
 export default function AdminRootLayout({ children }: { children: React.ReactNode }) {
-  return <div className="min-h-dvh bg-ink-950">{children}</div>;
+  return <div className="min-h-dvh bg-neu-bg">{children}</div>;
 }

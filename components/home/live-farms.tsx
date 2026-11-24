@@ -30,7 +30,7 @@ export async function LiveFarmsStrip() {
               <Radio className="h-3.5 w-3.5" /> লাইভ ফার্ম
             </span>
             <h2 className="h-section">
-              নিজের চোখে দেখুন — <span className="text-leaf-400">খামারে কী হচ্ছে</span>
+              নিজের চোখে দেখুন — <span className="text-leaf-700">খামারে কী হচ্ছে</span>
             </h2>
             <p className="mt-2.5 max-w-xl text-[13.5px] leading-relaxed text-sand-100/60">
               {bn(online)}টি ক্যামেরা এখন লাইভ। সবজি তোলা, গাভীর দোহন, ডিম বাছাই — সবকিছু সম্পাদনাহীন।
@@ -55,7 +55,7 @@ export async function LiveFarmsStrip() {
                 sizes="(max-width:640px) 50vw, 25vw"
                 className="object-cover opacity-65 transition duration-500 group-hover:scale-105 group-hover:opacity-80"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-ink-900 via-ink-900/30 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-scrim via-scrim/30 to-transparent" />
 
               <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-red-500/90 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-white">
                 <span className="relative flex h-1 w-1">
@@ -78,7 +78,7 @@ export async function LiveFarmsStrip() {
 
         <div className="mt-5 flex flex-wrap items-center gap-3 rounded-xl border border-mint/20 bg-leaf-900/20 px-4 py-3">
           <p className="flex-1 text-[12px] leading-relaxed text-sand-100/65">
-            <span className="font-semibold text-mint">১০ মিনিট ফ্রি</span> — কার্ড ছাড়াই সব ক্যামেরা দেখুন।
+            <span className="font-semibold text-leaf-700">১০ মিনিট ফ্রি</span> — কার্ড ছাড়াই সব ক্যামেরা দেখুন।
           </p>
           <Link href="/live/trial" className="btn-mint btn-sm shrink-0">
             ফ্রি ট্রায়াল

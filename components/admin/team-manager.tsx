@@ -137,7 +137,7 @@ export function TeamManager({
               onChange={(e) => setForm({ ...form, role: e.target.value as UserRole })}
             >
               {ROLE_DESCRIPTIONS.map((r) => (
-                <option key={r.role} value={r.role} className="bg-ink-900">
+                <option key={r.role} value={r.role} className="bg-neu-raised text-neu-ink">
                   {r.label} — {r.hint}
                 </option>
               ))}
@@ -179,13 +179,13 @@ export function TeamManager({
                           className="rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-[12px]"
                         >
                           {ROLE_DESCRIPTIONS.map((r) => (
-                            <option key={r.role} value={r.role} className="bg-ink-900">
+                            <option key={r.role} value={r.role} className="bg-neu-raised text-neu-ink">
                               {r.label}
                             </option>
                           ))}
                         </select>
                       ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-leaf-600/15 px-2 py-0.5 text-[11px] font-medium text-leaf-200">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-leaf-600/15 px-2 py-0.5 text-[11px] font-medium text-leaf-700">
                           <ShieldCheck className="h-3 w-3" /> {roleLabelBn(row.role)}
                           {isSelf && <span className="text-sand-100/40">(আপনি)</span>}
                         </span>
@@ -195,7 +195,7 @@ export function TeamManager({
                     <td className="px-4 py-3">
                       <span
                         className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                          row.is_active ? "bg-leaf-600/15 text-leaf-200" : "bg-red-500/15 text-red-300"
+                          row.is_active ? "bg-leaf-600/15 text-leaf-700" : "bg-red-500/15 text-red-300"
                         }`}
                       >
                         {row.is_active ? "সক্রিয়" : "স্থগিত"}

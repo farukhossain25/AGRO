@@ -48,7 +48,7 @@ export function ProductCard({ product, priority = false }: { product: Product; p
     <article className="card card-hover group relative flex h-full flex-col overflow-hidden">
       <Link
         href={`/products/${product.slug}`}
-        className="relative block aspect-[4/3] overflow-hidden rounded-t-3xl bg-ink-800"
+        className="relative block aspect-[4/3] overflow-hidden rounded-t-3xl bg-neu-sunken"
         aria-label={t(product.name_bn, product.name_en)}
       >
         {product.image ? (
@@ -67,18 +67,18 @@ export function ProductCard({ product, priority = false }: { product: Product; p
         <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-2.5">
           <div className="flex flex-col items-start gap-1.5">
             {product.badge_bn ? (
-              <span className="badge bg-leaf-600/90 text-white shadow-sm backdrop-blur">
+              <span className="badge bg-neu-accent/90 text-white shadow-neu-xs backdrop-blur">
                 {product.badge_bn}
               </span>
             ) : null}
             {off > 0 ? (
-              <span className="badge bg-amber-400 text-ink-900 shadow-sm">
+              <span className="badge bg-amber-400 text-neu-ink shadow-neu-xs">
                 {isBn ? `${off}% ছাড়` : `${off}% off`}
               </span>
             ) : null}
           </div>
           {soldOut ? (
-            <span className="badge bg-ink-950/85 text-red-300 backdrop-blur">
+            <span className="badge bg-neu-ink/85 text-red-200 backdrop-blur">
               {t("শেষ", "Sold out")}
             </span>
           ) : null}
@@ -88,7 +88,7 @@ export function ProductCard({ product, priority = false }: { product: Product; p
       <div className="flex flex-1 flex-col p-3.5">
         <div className="mb-1.5 flex items-center gap-1.5">
           <StarRating value={Number(product.rating)} size={11} />
-          <span className="text-[10.5px] text-sand-100/40">
+          <span className="text-[10.5px] text-neu-faint">
             ({product.review_count})
           </span>
         </div>
@@ -100,7 +100,7 @@ export function ProductCard({ product, priority = false }: { product: Product; p
         </h3>
 
         {product.farm_source_bn ? (
-          <p className="mt-1 line-clamp-1 text-[11.5px] text-sand-100/40">
+          <p className="mt-1 line-clamp-1 text-[11.5px] text-neu-muted">
             📍 {product.farm_source_bn}
           </p>
         ) : null}
@@ -112,33 +112,33 @@ export function ProductCard({ product, priority = false }: { product: Product; p
         <div className="mt-auto pt-3">
           <div className="flex items-end justify-between gap-2">
             <div className="leading-tight">
-              <p className="text-[17px] font-bold text-leaf-200">
+              <p className="text-[17px] font-bold text-neu-accent-strong">
                 {money(product.price, isBn)}
-                <span className="ml-1 text-[11px] font-medium text-sand-100/45">
+                <span className="ml-1 text-[11px] font-medium text-neu-faint">
                   /{product.unit}
                 </span>
               </p>
               {product.compare_price && product.compare_price > product.price ? (
-                <p className="text-[11px] text-sand-100/35 line-through">
+                <p className="text-[11px] text-neu-faint line-through">
                   {money(product.compare_price, isBn)}
                 </p>
               ) : null}
             </div>
 
             {qty > 0 ? (
-              <div className="flex items-center gap-1 rounded-full border border-leaf-500/40 bg-leaf-600/10 p-0.5">
+              <div className="neu-inset-xs flex items-center gap-1 rounded-full p-0.5">
                 <button
                   onClick={() => cart.setQty(product.id, qty - 1)}
-                  className="grid h-7 w-7 place-items-center rounded-full text-leaf-200 transition hover:bg-leaf-600/25"
+                  className="grid h-7 w-7 place-items-center rounded-full text-neu-accent-strong transition hover:bg-white/80"
                   aria-label={t("কমান", "Decrease")}
                 >
                   <Minus className="h-3.5 w-3.5" />
                 </button>
-                <span className="min-w-5 text-center text-xs font-bold text-leaf-100">{qty}</span>
+                <span className="min-w-5 text-center text-xs font-bold text-neu-ink">{qty}</span>
                 <button
                   onClick={() => cart.setQty(product.id, qty + 1)}
                   disabled={qty >= product.stock}
-                  className="grid h-7 w-7 place-items-center rounded-full text-leaf-200 transition hover:bg-leaf-600/25 disabled:opacity-30"
+                  className="grid h-7 w-7 place-items-center rounded-full text-neu-accent-strong transition hover:bg-white/80 disabled:opacity-30"
                   aria-label={t("বাড়ান", "Increase")}
                 >
                   <Plus className="h-3.5 w-3.5" />

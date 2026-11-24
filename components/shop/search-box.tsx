@@ -150,7 +150,7 @@ export function SearchBox({
         role="search"
       >
         <label className="relative block">
-          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-sand-100/35" />
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neu-faint" />
           <input
             ref={inputRef}
             value={value}
@@ -177,7 +177,7 @@ export function SearchBox({
                 setItems([]);
                 inputRef.current?.focus();
               }}
-              className="absolute right-2 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full text-sand-100/40 hover:bg-white/10 hover:text-sand-100"
+              className="absolute right-2 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full text-neu-faint transition hover:bg-white/70 hover:text-neu-ink"
               aria-label={t("মুছুন", "Clear")}
             >
               <X className="h-3.5 w-3.5" />
@@ -190,10 +190,10 @@ export function SearchBox({
         <div
           id={listId}
           role="listbox"
-          className="absolute left-0 right-0 top-[calc(100%+6px)] z-[80] max-h-[62vh] overflow-y-auto overscroll-contain rounded-2xl border border-white/10 bg-ink-850/98 p-1.5 shadow-soft backdrop-blur-xl animate-pop"
+          className="absolute left-0 right-0 top-[calc(100%+8px)] z-[80] max-h-[62vh] overflow-y-auto overscroll-contain rounded-3xl border border-white/85 bg-neu-surface p-1.5 shadow-neu-lg animate-pop"
         >
           {items.length === 0 ? (
-            <p className="px-3 py-4 text-center text-[12px] text-sand-100/45">
+            <p className="px-3 py-4 text-center text-[12px] text-neu-muted">
               {loading
                 ? t("খোঁজা হচ্ছে…", "Searching…")
                 : t("কিছু পাওয়া যায়নি — অন্য নামে চেষ্টা করুন।", "Nothing found — try another word.")}
@@ -212,10 +212,10 @@ export function SearchBox({
                     }}
                     onMouseEnter={() => setActive(index)}
                     className={`flex items-center gap-2.5 rounded-xl px-2 py-2 transition ${
-                      index === active ? "bg-leaf-600/15" : "hover:bg-white/[0.05]"
+                      index === active ? "bg-neu-accent-soft/70" : "hover:bg-white/60"
                     }`}
                   >
-                    <span className="relative grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-lg bg-white/[0.06]">
+                    <span className="relative grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-lg bg-neu-sunken">
                       {item.image ? (
                         <Image
                           src={item.image}
@@ -247,7 +247,7 @@ export function SearchBox({
           <button
             type="button"
             onClick={() => go(value)}
-            className="mt-1 flex w-full items-center justify-between gap-2 rounded-xl border-t border-white/[0.07] px-3 py-2.5 text-[12px] font-semibold text-leaf-200 hover:bg-leaf-600/15"
+            className="mt-1 flex w-full items-center justify-between gap-2 rounded-xl border-t border-white/[0.07] px-3 py-2.5 text-[12px] font-semibold text-leaf-700 hover:bg-leaf-600/15"
           >
             <span className="truncate">
               “{value.trim()}” {t("এর সব ফলাফল", "matching products")}

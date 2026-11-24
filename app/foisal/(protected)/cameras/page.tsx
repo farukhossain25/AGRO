@@ -37,8 +37,8 @@ export default async function AdminCamerasPage() {
       {!proxyReady && (
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/8 p-3.5 text-[11.5px] leading-relaxed text-amber-200">
           <strong>STREAM_PROXY_TARGET সেট করা নেই।</strong> ক্যামেরা রেকর্ড রাখা যাবে, কিন্তু লাইভ স্ট্রিম চলবে
-          না। MediaMTX চালু করে <code className="rounded bg-black/30 px-1">STREAM_PROXY_TARGET</code> এনভায়রনমেন্ট
-          ভেরিয়েবলে URL দিন (যেমন <code className="rounded bg-black/30 px-1">http://mediamtx:8888</code>)।
+          না। MediaMTX চালু করে <code className="rounded bg-neu-sunken px-1 text-neu-accent-strong">STREAM_PROXY_TARGET</code> এনভায়রনমেন্ট
+          ভেরিয়েবলে URL দিন (যেমন <code className="rounded bg-neu-sunken px-1 text-neu-accent-strong">http://mediamtx:8888</code>)।
         </div>
       )}
 

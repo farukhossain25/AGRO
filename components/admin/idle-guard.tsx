@@ -100,7 +100,7 @@ export function IdleGuard() {
 
   return (
     <div className="fixed inset-0 z-[98] grid place-items-center bg-ink-950/80 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-ink-900 p-5 text-center shadow-2xl">
+      <div className="w-full max-w-sm neu-raised-lg rounded-2xl p-5 text-center">
         <span className="mx-auto mb-2 grid h-10 w-10 place-items-center rounded-full bg-amber-500/15 text-amber-300">
           <Clock className="h-5 w-5" />
         </span>

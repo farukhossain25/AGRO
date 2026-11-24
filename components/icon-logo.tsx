@@ -3,7 +3,7 @@ import Link from "next/link";
 export function Logo({ size = 40, href = "/", showText = true }: { size?: number; href?: string | null; showText?: boolean }) {
   const mark = (
     <span
-      className="relative inline-flex shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-leaf-500 to-leaf-700 shadow-[0_8px_24px_-10px_rgba(31,122,77,.9)]"
+      className="relative inline-flex shrink-0 items-center justify-center rounded-2xl border border-white/40 bg-gradient-to-br from-leaf-400 to-leaf-700 shadow-neu-accent-sm"
       style={{ width: size, height: size }}
       aria-hidden
     >
@@ -31,10 +31,10 @@ export function Logo({ size = 40, href = "/", showText = true }: { size?: number
      wordmark shrinks and truncates instead of pushing the header sideways. */
   const text = (
     <span className="flex min-w-0 flex-col leading-none">
-      <span className="truncate text-[13px] font-bold tracking-tight text-sand-100 min-[400px]:text-[15px]">
+      <span className="truncate text-[13px] font-bold tracking-tight text-neu-ink min-[400px]:text-[15px]">
         বিশ্বাস এগ্রো
       </span>
-      <span className="mt-1 truncate text-[8.5px] font-semibold uppercase tracking-[0.18em] text-leaf-300/80 min-[400px]:text-[9.5px] min-[400px]:tracking-[0.22em]">
+      <span className="mt-1 truncate text-[8.5px] font-semibold uppercase tracking-[0.18em] text-neu-accent-strong/80 min-[400px]:text-[9.5px] min-[400px]:tracking-[0.22em]">
         Farm to Family
       </span>
     </span>

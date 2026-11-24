@@ -141,13 +141,13 @@ export function PushOptIn({ signedIn }: { signedIn: boolean }) {
     <div className="card flex items-center gap-3 p-4">
       <span
         className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${
-          status === "on" ? "bg-leaf-600/20 text-leaf-200" : "bg-white/[0.05] text-sand-100/50"
+          status === "on" ? "bg-leaf-600/20 text-leaf-700" : "bg-white/[0.05] text-sand-100/50"
         }`}
       >
         {status === "on" ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-[12.5px] font-semibold text-white">{info.title}</p>
+        <p className="text-[12.5px] font-semibold text-neu-ink">{info.title}</p>
         <p className="text-[11px] text-sand-100/45">{info.body}</p>
       </div>
       {(status === "off" || status === "on") && (

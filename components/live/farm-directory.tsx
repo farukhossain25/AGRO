@@ -48,7 +48,7 @@ export function FarmDirectory({ farms }: { farms: Farm[] }) {
               type="button"
               onClick={() => setView(id)}
               className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium transition ${
-                view === id ? "bg-mint text-green-950" : "text-sand-100/60 hover:text-sand-100"
+                view === id ? "bg-mint text-white" : "text-sand-100/60 hover:text-sand-100"
               }`}
             >
               <Icon className="h-3.5 w-3.5" /> {label}
@@ -76,7 +76,7 @@ export function FarmDirectory({ farms }: { farms: Farm[] }) {
                     sizes="(max-width:768px) 100vw, 33vw"
                     className="object-cover transition duration-500 group-hover:scale-105"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-ink-900/95 via-ink-900/25 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-scrim/95 via-scrim/25 to-transparent" />
                   <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-black/65 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur">
                     <Video className="h-2.5 w-2.5" /> {bn(farm.online_cameras ?? 0)} লাইভ
                   </span>
@@ -113,7 +113,7 @@ export function FarmDirectory({ farms }: { farms: Farm[] }) {
 
                 <div className="mt-3 flex flex-wrap gap-1">
                   {(farm.certifications ?? []).slice(0, 2).map((c) => (
-                    <span key={c} className="rounded-full bg-leaf-600/15 px-2 py-0.5 text-[10px] text-leaf-200">
+                    <span key={c} className="rounded-full bg-leaf-600/15 px-2 py-0.5 text-[10px] text-leaf-700">
                       ✓ {c}
                     </span>
                   ))}
@@ -153,7 +153,7 @@ export function FarmDirectory({ farms }: { farms: Farm[] }) {
                     : "border-white/8 bg-white/[0.02] hover:border-mint/25"
                 }`}
               >
-                <p className="text-[13px] font-semibold text-white">{farm.name_bn}</p>
+                <p className="text-[13px] font-semibold text-neu-ink">{farm.name_bn}</p>
                 <p className="mt-0.5 text-[11px] text-sand-100/50">
                   {farm.district} · {bn(farm.online_cameras ?? 0)} লাইভ ক্যামেরা
                 </p>

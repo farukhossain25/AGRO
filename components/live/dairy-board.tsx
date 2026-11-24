@@ -148,7 +148,7 @@ export function DairyBoard({ farms }: { farms: Farm[] }) {
               <div className="border-t border-white/5 p-4 lg:border-l lg:border-t-0">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <h2 className="text-[15px] font-bold text-white">{row.name_bn}</h2>
+                    <h2 className="text-[15px] font-bold text-neu-ink">{row.name_bn}</h2>
                     <p className="mt-0.5 text-[11.5px] text-sand-100/45">
                       {row.district} · {bn(row.cows)} গাভী · {bn(row.online_cameras)}/{bn(row.camera_count)} ক্যামেরা
                     </p>
@@ -164,7 +164,7 @@ export function DairyBoard({ farms }: { farms: Farm[] }) {
                 <dl className="mt-4 grid grid-cols-3 gap-2">
                   <div className="rounded-lg bg-white/[0.03] p-2.5">
                     <dt className="text-[10px] text-sand-100/40">আজ উৎপাদন</dt>
-                    <dd className="mt-0.5 text-[15px] font-bold text-white">{bn(row.litres_today)}</dd>
+                    <dd className="mt-0.5 text-[15px] font-bold text-neu-ink">{bn(row.litres_today)}</dd>
                   </div>
                   <div className="rounded-lg bg-white/[0.03] p-2.5">
                     <dt className="text-[10px] text-sand-100/40">বিক্রি</dt>

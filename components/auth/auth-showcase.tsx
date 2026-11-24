@@ -74,14 +74,14 @@ export function AuthStats() {
       {STATS.map((stat, i) => (
         <div
           key={stat.label}
-          className="auth-rise rounded-2xl border border-white/10 bg-white/[0.05] px-3 py-2.5 backdrop-blur-md"
+          className="auth-rise rounded-2xl border border-white/15 bg-white/[0.08] px-3 py-2.5 backdrop-blur-md"
           style={{ ["--d" as string]: `${220 + i * 90}ms` }}
         >
           <p className="text-[15px] font-bold leading-none text-white tabular-nums">
             {formatBn(Math.round(stat.value * progress))}
-            <span className="text-[11px] font-medium text-leaf-300">{stat.suffix}</span>
+            <span className="text-[11px] font-medium text-emerald-300">{stat.suffix}</span>
           </p>
-          <p className="mt-1 text-[10.5px] leading-tight text-sand-100/50">{stat.label}</p>
+          <p className="mt-1 text-[10.5px] leading-tight text-white/55">{stat.label}</p>
         </div>
       ))}
     </div>
@@ -108,18 +108,18 @@ export function AuthQuote() {
 
   return (
     <figure className="auth-rise rounded-2xl border border-white/10 bg-black/25 p-3.5 backdrop-blur-md" style={{ ["--d" as string]: "520ms" }}>
-      <div className="flex items-center gap-1 text-leaf-300" aria-hidden>
+      <div className="flex items-center gap-1 text-amber-300" aria-hidden>
         {[0, 1, 2, 3, 4].map((i) => (
           <Star key={i} className="h-3 w-3 fill-current" />
         ))}
       </div>
       <div key={index} className="auth-enter mt-2">
-        <blockquote className="flex gap-1.5 text-[12px] leading-relaxed text-sand-100/80">
-          <Quote className="mt-0.5 h-3 w-3 shrink-0 text-leaf-400/70" aria-hidden />
+        <blockquote className="flex gap-1.5 text-[12px] leading-relaxed text-white/80">
+          <Quote className="mt-0.5 h-3 w-3 shrink-0 text-emerald-300/70" aria-hidden />
           <span>{quote.body}</span>
         </blockquote>
-        <figcaption className="mt-2 text-[10.5px] text-sand-100/45">
-          <span className="font-semibold text-sand-100/70">{quote.name}</span> · {quote.place}
+        <figcaption className="mt-2 text-[10.5px] text-white/50">
+          <span className="font-semibold text-white/75">{quote.name}</span> · {quote.place}
         </figcaption>
       </div>
     </figure>

@@ -39,7 +39,7 @@ export default async function TrialPage() {
         ].map((item) => (
           <div key={item.title} className="rounded-xl border border-white/8 bg-white/[0.02] p-4 text-center">
             <span className="text-lg">{item.icon}</span>
-            <p className="mt-1.5 text-[12.5px] font-bold text-white">{item.title}</p>
+            <p className="mt-1.5 text-[12.5px] font-bold text-neu-ink">{item.title}</p>
             <p className="mt-0.5 text-[11px] text-sand-100/50">{item.body}</p>
           </div>
         ))}

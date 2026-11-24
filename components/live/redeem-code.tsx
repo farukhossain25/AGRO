@@ -49,7 +49,7 @@ export function RedeemCode({ signedIn }: { signedIn: boolean }) {
 
   return (
     <form onSubmit={submit} className="rounded-xl border border-white/8 bg-white/[0.02] p-4">
-      <p className="flex items-center gap-1.5 text-[12.5px] font-semibold text-white">
+      <p className="flex items-center gap-1.5 text-[12.5px] font-semibold text-neu-ink">
         <Ticket className="h-3.5 w-3.5 text-mint" /> অ্যাক্সেস কোড আছে?
       </p>
       <p className="mt-1 text-[11px] text-sand-100/45">দোকান থেকে কেনা কার্ডের কোডটি লিখুন (XXXX-XXXX-XXXX)</p>

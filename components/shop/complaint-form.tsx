@@ -126,7 +126,7 @@ export function ComplaintForm({
   }
 
   return (
-    <div className={`rounded-xl border border-white/10 bg-black/25 p-3 ${compact ? "" : "sm:p-4"}`}>
+    <div className={`neu-inset-sm rounded-xl p-3 ${compact ? "" : "sm:p-4"}`}>
       <p className="text-[12.5px] font-semibold text-sand-50">
         {productNameBn} — সমস্যা জানান
       </p>
