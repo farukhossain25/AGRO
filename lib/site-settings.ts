@@ -1,5 +1,13 @@
 import { cache } from "react";
 import { db } from "./db";
+import {
+  defaultStoreSettings,
+  normalizePhone,
+  normalizeWhatsapp,
+  prettyPhoneBn,
+  str,
+  type StoreSettings,
+} from "./store-info-model";
 
 /* ==========================================================================
    lib/site-settings.ts — the runtime side of /foisal/settings
@@ -69,26 +77,36 @@ export const getDeliverySettings = cache(async (): Promise<DeliverySettings> => 
 
 /* --------------------------------------------------------- store profile */
 
-export type StoreSettings = {
-  name: string;
-  email: string;
-  phone: string;
-};
+export {
+  defaultStoreSettings,
+  prettyPhoneBn,
+  type StoreSettings,
+} from "./store-info-model";
 
-export const defaultStoreSettings: StoreSettings = {
-  name: "বিশ্বাস এগ্রো",
-  email: "hello@bishwasagro.com",
-  phone: "+8801700000000",
-};
-
+/**
+ * Everything a customer can read on the storefront: the brand, how to call,
+ * where to go and when someone picks up. See lib/store-info-model.ts — the
+ * defaults and the normalisers live there so the client bundle never has to
+ * import this file (and with it the service-role Supabase client).
+ */
 export const getStoreSettings = cache(async (): Promise<StoreSettings> => {
   const row = await readRow("store");
-  const str = (value: unknown, fallback: string) =>
-    typeof value === "string" && value.trim() ? value.trim() : fallback;
+  const d = defaultStoreSettings;
+  const phone = normalizePhone(row.phone, d.phone);
   return {
-    name: str(row.name, defaultStoreSettings.name),
-    email: str(row.email, defaultStoreSettings.email),
-    phone: str(row.phone, defaultStoreSettings.phone),
+    name: str(row.name, d.name),
+    name_en: str(row.name_en, d.name_en),
+    email: str(row.email, d.email),
+    phone,
+    // An explicit display wins; otherwise it is derived from the number, so
+    // editing the number alone never leaves a stale number on the site.
+    phone_display: str(row.phone_display, prettyPhoneBn(phone) || d.phone_display),
+    whatsapp: normalizeWhatsapp(row.whatsapp, d.whatsapp),
+    address_bn: str(row.address_bn, d.address_bn),
+    address_en: str(row.address_en, d.address_en),
+    hours_bn: str(row.hours_bn, d.hours_bn),
+    hours_en: str(row.hours_en, d.hours_en),
+    map_embed: str(row.map_embed, d.map_embed),
   };
 });
 
@@ -157,10 +175,6 @@ function textList(value: unknown, fallback: string[]): string[] {
     .map((item) => item.trim())
     .filter(Boolean)
     .slice(0, 8);
-}
-
-function str(value: unknown, fallback: string): string {
-  return typeof value === "string" ? value.trim() : fallback;
 }
 
 export const defaultAnnouncementSettings: AnnouncementSettings = {

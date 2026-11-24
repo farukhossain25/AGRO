@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { createClient, supabaseConfigured } from "@/lib/supabase/client";
+import { isSupabasePublicConfigured } from "@/lib/env";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useCart, type CartLine } from "@/lib/cart";
 
@@ -33,13 +33,14 @@ export function CartSync() {
 
   /* ------------------------------------------------- merge on login ------ */
   useEffect(() => {
-    if (!supabaseConfigured || !user?.id || !cart.ready) return;
+    if (!isSupabasePublicConfigured || !user?.id || !cart.ready) return;
     if (mergedFor.current === user.id) return;
     mergedFor.current = user.id;
 
     let alive = true;
     void (async () => {
       try {
+        const { createClient } = await import("@/lib/supabase/client");
         const supabase = createClient();
         const { data, error } = await supabase
           .from("cart_items")
@@ -94,7 +95,7 @@ export function CartSync() {
 
   /* ------------------------------------------------ mirror on change ----- */
   useEffect(() => {
-    if (!supabaseConfigured || !user?.id || !cart.ready) return;
+    if (!isSupabasePublicConfigured || !user?.id || !cart.ready) return;
     if (skipWrite.current) {
       // The change came from the merge itself; write it back on the next tick.
       skipWrite.current = false;
@@ -103,6 +104,7 @@ export function CartSync() {
     const timer = setTimeout(() => {
       void (async () => {
         try {
+          const { createClient } = await import("@/lib/supabase/client");
           const supabase = createClient();
           const del = await supabase.from("cart_items").delete().eq("user_id", user.id);
           if (del.error) throw del.error;

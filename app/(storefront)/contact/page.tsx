@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Clock, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
 import { ContactForm } from "@/components/contact-form";
-import { site } from "@/lib/site";
+import { defaultStoreSettings, getStoreSettings } from "@/lib/site-settings";
 import { SocialLinksList } from "@/components/social-links";
 import { alternatesFor } from "@/lib/seo";
 import { withSeo } from "@/lib/seo-db";
@@ -18,8 +18,9 @@ export async function generateMetadata(): Promise<Metadata> {
   });
 }
 
-export default function ContactPage() {
-  const wa = `https://wa.me/${site.whatsapp}`;
+export default async function ContactPage() {
+  const store = await getStoreSettings().catch(() => defaultStoreSettings);
+  const wa = `https://wa.me/${store.whatsapp}`;
 
   return (
     <div className="container-x py-8 sm:py-12">
@@ -34,14 +35,14 @@ export default function ContactPage() {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
         <div className="space-y-3">
-          <a href={`tel:${site.phone}`} className="card card-hover flex items-center gap-3.5 p-4">
+          <a href={`tel:${store.phone}`} className="card card-hover flex items-center gap-3.5 p-4">
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-leaf-600/15 text-leaf-300">
               <Phone className="h-5 w-5" />
             </span>
             <div>
               <p className="text-[11px] uppercase tracking-wider text-sand-100/40">ফোন</p>
-              <p className="text-[14px] font-semibold">{site.phoneDisplay}</p>
-              <p className="text-[11px] text-sand-100/45">{site.hoursBn}</p>
+              <p className="text-[14px] font-semibold">{store.phone_display}</p>
+              <p className="text-[11px] text-sand-100/45">{store.hours_bn}</p>
             </div>
           </a>
 
@@ -56,13 +57,13 @@ export default function ContactPage() {
             </div>
           </a>
 
-          <a href={`mailto:${site.email}`} className="card card-hover flex items-center gap-3.5 p-4">
+          <a href={`mailto:${store.email}`} className="card card-hover flex items-center gap-3.5 p-4">
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-leaf-600/15 text-leaf-300">
               <Mail className="h-5 w-5" />
             </span>
             <div>
               <p className="text-[11px] uppercase tracking-wider text-sand-100/40">ইমেইল</p>
-              <p className="text-[14px] font-semibold">{site.email}</p>
+              <p className="text-[14px] font-semibold">{store.email}</p>
               <p className="text-[11px] text-sand-100/45">২৪ ঘণ্টার মধ্যে উত্তর</p>
             </div>
           </a>
@@ -73,9 +74,9 @@ export default function ContactPage() {
             </span>
             <div>
               <p className="text-[11px] uppercase tracking-wider text-sand-100/40">অফিস</p>
-              <p className="text-[13px] font-semibold leading-relaxed">{site.addressBn}</p>
+              <p className="text-[13px] font-semibold leading-relaxed">{store.address_bn}</p>
               <p className="mt-0.5 flex items-center gap-1 text-[11px] text-sand-100/45">
-                <Clock className="h-3 w-3" /> {site.hoursBn}
+                <Clock className="h-3 w-3" /> {store.hours_bn}
               </p>
             </div>
           </div>
@@ -85,7 +86,7 @@ export default function ContactPage() {
 
           <div className="card overflow-hidden p-0">
             <iframe
-              src={site.mapEmbed}
+              src={store.map_embed}
               title="বিশ্বাস এগ্রো অফিসের ম্যাপ"
               width="100%"
               height="220"

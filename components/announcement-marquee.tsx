@@ -81,7 +81,7 @@ export function AnnouncementMarquee({ settings }: { settings: AnnouncementSettin
 
   return (
     <div
-      className={`relative overflow-hidden border-b border-neu-accent/15 bg-gradient-to-r from-neu-accent-soft via-[#E9F4EE] to-neu-accent-soft ${
+      className={`print:hidden relative overflow-hidden border-b border-neu-accent/15 bg-gradient-to-r from-neu-accent-soft via-[#E9F4EE] to-neu-accent-soft ${
         settings.show_mobile ? "" : "hidden sm:block"
       }`}
       role="region"

@@ -48,8 +48,12 @@ export function Logo({ size = 40, href = "/", showText = true }: { size?: number
   );
 
   if (!href) return content;
+  /* No aria-label: the link's visible text ("বিশ্বাস এগ্রো · Farm to Family") is
+     already a perfect accessible name, and overriding it with a shorter one
+     fails label-content-name-mismatch — the name has to contain every word the
+     sighted user reads. */
   return (
-    <Link href={href} aria-label="বিশ্বাস এগ্রো — হোম" className="rounded-2xl">
+    <Link href={href} className="rounded-2xl">
       {content}
     </Link>
   );

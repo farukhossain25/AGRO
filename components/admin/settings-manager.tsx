@@ -26,7 +26,7 @@ type Field = {
   path: string;
   label: string;
   hint?: string;
-  type: "number" | "text" | "boolean";
+  type: "number" | "text" | "boolean" | "textarea";
   suffix?: string;
 };
 
@@ -135,12 +135,20 @@ const GROUPS: Group[] = [
   },
   {
     key: "store",
-    title: "দোকানের পরিচিতি",
-    desc: "ফুটার ও রসিদে দেখানো যোগাযোগের তথ্য।",
+    title: "দোকানের পরিচিতি ও যোগাযোগ",
+    desc: "ওয়েবসাইটের হেডার, মেনু, ফুটার, যোগাযোগ পাতা, অর্ডার পাতা ও শিপিং লেবেলে এই তথ্যই দেখায়।",
     fields: [
-      { path: "store.name", label: "দোকানের নাম", type: "text" },
+      { path: "store.name", label: "দোকানের নাম (বাংলা)", type: "text" },
+      { path: "store.name_en", label: "দোকানের নাম (English)", type: "text" },
       { path: "store.email", label: "ইমেইল", type: "text" },
-      { path: "store.phone", label: "ফোন", type: "text" },
+      { path: "store.phone", label: "ফোন নম্বর (কলের জন্য)", type: "text", hint: "যেমন +8801712345678 — এটা দিয়ে কল বাটন কাজ করে।" },
+      { path: "store.phone_display", label: "ফোন নম্বর (যেটা দেখাবে)", type: "text", hint: "খালি রাখলে উপরের নম্বর থেকে নিজে থেকে বানিয়ে নেয়।" },
+      { path: "store.whatsapp", label: "হোয়াটসঅ্যাপ নম্বর", type: "text", hint: "শুধু সংখ্যা — যেমন 8801712345678" },
+      { path: "store.address_bn", label: "ঠিকানা (বাংলা)", type: "textarea" },
+      { path: "store.address_en", label: "ঠিকানা (English)", type: "textarea" },
+      { path: "store.hours_bn", label: "খোলার সময় (বাংলা)", type: "text", hint: "যেমন: প্রতিদিন সকাল ৭টা — রাত ১০টা" },
+      { path: "store.hours_en", label: "খোলার সময় (English)", type: "text" },
+      { path: "store.map_embed", label: "গুগল ম্যাপ এমবেড লিংক", type: "text", hint: "Google Maps → Share → Embed a map → লিংকটি পেস্ট করুন।" },
     ],
   },
 ];
@@ -258,7 +266,12 @@ export function SettingsManager({ initial }: { initial: Values }) {
               {group.fields.map((field) => {
                 const value = read(values, field.path);
                 return (
-                  <label key={field.path} className="block space-y-1">
+                  <label
+                    key={field.path}
+                    className={`block space-y-1 ${
+                      field.type === "textarea" || field.path === "store.map_embed" ? "sm:col-span-2" : ""
+                    }`}
+                  >
                     <span className="flex items-baseline justify-between gap-2 text-[11.5px] font-medium text-sand-100/70">
                       <span>{field.label}</span>
                       {field.suffix ? (
@@ -289,6 +302,13 @@ export function SettingsManager({ initial }: { initial: Values }) {
                           />
                         </span>
                       </button>
+                    ) : field.type === "textarea" ? (
+                      <textarea
+                        className="inp min-h-[72px] resize-y py-2"
+                        rows={2}
+                        value={value === undefined || value === null ? "" : String(value)}
+                        onChange={(e) => set(field.path, e.target.value)}
+                      />
                     ) : (
                       <input
                         className="inp min-h-[38px]"

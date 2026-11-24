@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+// Code-splits with this component instead of blocking every page (see globals.css).
+import "maplibre-gl/dist/maplibre-gl.css";
 import type { Farm } from "@/lib/types";
 
 /* ==========================================================================

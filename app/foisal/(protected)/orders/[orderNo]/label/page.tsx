@@ -3,7 +3,9 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, Printer } from "lucide-react";
 import { currentUser } from "@/lib/api";
 import { buildLabel, paymentLabelBn } from "@/lib/parcels";
+import { qrSvg, scanUrlFor } from "@/lib/qr";
 import { site } from "@/lib/site";
+import { defaultStoreSettings, getStoreSettings } from "@/lib/site-settings";
 import { PrintButton } from "@/components/admin/print-button";
 import { ADMIN_BASE, ADMIN_LOGIN_PATH } from "@/lib/paths";
 
@@ -25,17 +27,12 @@ export default async function LabelPage({ params }: { params: Promise<{ orderNo:
   if (!result) notFound();
 
   const { parcel, token } = result;
-  const qr = await import("qrcode");
-
-  const base = site.url;
-  const scanUrl = `${base.replace(/\/$/, "")}/p/${token}`;
-  const svg = await qr.toString(scanUrl, {
-    type: "svg",
-    margin: 0,
-    width: 150,
-    errorCorrectionLevel: "M",
-    color: { dark: "#000000", light: "#ffffff" },
-  });
+  // The brand on the label follows the panel, so a renamed shop does not ship
+  // parcels under its old name.
+  const store = await getStoreSettings().catch(() => defaultStoreSettings);
+  const scanUrl = scanUrlFor(`/p/${token}`);
+  // margin + size handled in one place: see lib/qr.ts
+  const svg = await qrSvg(scanUrl);
 
   return (
     <div className="mx-auto max-w-3xl p-4 sm:p-8">
@@ -81,7 +78,7 @@ export default async function LabelPage({ params }: { params: Promise<{ orderNo:
           }}
         >
           <div>
-            <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.2 }}>বিশ্বাস এগ্রো</div>
+            <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.2 }}>{store.name}</div>
             <div style={{ fontSize: 8.5, opacity: 0.8 }}>Farm to Family · {site.domain}</div>
           </div>
           <div style={{ textAlign: "right" }}>
@@ -126,14 +123,27 @@ export default async function LabelPage({ params }: { params: Promise<{ orderNo:
             </div>
           </div>
 
-          {/* QR */}
-          <div style={{ width: 108, textAlign: "center", flexShrink: 0 }}>
+          {/* QR — printed ~34 mm square. The white ring is the quiet zone the
+              scanner needs; it is baked into the SVG in lib/qr.ts, so it is
+              never lost to a coloured background or a tight crop. */}
+          <div style={{ width: 122, textAlign: "center", flexShrink: 0 }}>
             <div
-              style={{ width: 104, height: 104, border: "1px solid #e2e6e3", borderRadius: 4, padding: 2 }}
-              dangerouslySetInnerHTML={{ __html: svg }}
-            />
+              style={{
+                width: 122,
+                height: 122,
+                background: "#ffffff",
+                border: "1px solid #e2e6e3",
+                borderRadius: 4,
+                padding: 2,
+              }}
+            >
+              <div style={{ width: "100%", height: "100%" }} dangerouslySetInnerHTML={{ __html: svg }} />
+            </div>
             <div style={{ fontSize: 7, color: "#5a655f", marginTop: 3, lineHeight: 1.3 }}>
-              স্ক্যান করে ডেলিভারি কনফার্ম করুন
+              স্ক্যান করে অর্ডারের তথ্য ও ডেলিভারি
+            </div>
+            <div style={{ fontSize: 6.5, color: "#7a857f", marginTop: 1, wordBreak: "break-all" }}>
+              {scanUrl}
             </div>
           </div>
         </div>
@@ -150,13 +160,13 @@ export default async function LabelPage({ params }: { params: Promise<{ orderNo:
           }}
         >
           <span>{paymentLabelBn[parcel.payment_method] ?? parcel.payment_method}</span>
-          <span>{parcel.sources.join(" · ") || "বিশ্বাস এগ্রো"}</span>
+          <span>{parcel.sources.join(" · ") || store.name}</span>
           <span>{new Date(parcel.created_at).toLocaleDateString("en-GB")}</span>
         </div>
       </div>
 
       <p className="mt-4 text-center text-[11.5px] text-sand-100/40 print:hidden">
-        🖨️ প্রিন্ট করতে Ctrl/Cmd + P · থার্মাল প্রিন্টারে ১০০×১৫০মিমি সিলেক্ট করুন
+        🖨️ প্রিন্ট করতে Ctrl/Cmd + P · থার্মাল প্রিন্টারে ১০০×১৫০মিমি সিলেক্ট করুন · QR-এর চারপাশের সাদা ফাঁক কেটে ফেলবেন না
       </p>
       <p className="mt-1 break-all text-center text-[10px] text-sand-100/25 print:hidden">{scanUrl}</p>
 

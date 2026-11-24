@@ -241,7 +241,7 @@ export function BackToTop() {
     <button
       onClick={toTop}
       aria-label="উপরে যান"
-      className="neu-icon-btn fixed bottom-24 right-4 z-40 h-11 w-11 sm:bottom-6 sm:right-6"
+      className="neu-icon-btn print:hidden fixed bottom-24 right-4 z-40 h-11 w-11 sm:bottom-6 sm:right-6"
     >
       <ArrowUp className="h-5 w-5" />
     </button>

@@ -13,6 +13,7 @@ import {
 } from "@/lib/sellers";
 import { ensureSellerFarm, type SellerFarmLink } from "@/lib/seller-farm";
 import { toBn } from "@/lib/format";
+import { Printer } from "lucide-react";
 import { SellerProductManager } from "@/components/seller/product-manager";
 
 export const dynamic = "force-dynamic";
@@ -206,6 +207,13 @@ export default async function SellerDashboard() {
                       </p>
                     </div>
                     <span className="shrink-0 font-semibold text-mint">৳{Math.round(Number(o.seller_earning))}</span>
+                    <Link
+                      href={`/seller/orders/${encodeURIComponent(o.sub_no)}/receipt`}
+                      className="neu-pill shrink-0 px-2 py-1 text-[10px] font-semibold text-neu-accent-strong transition hover:text-neu-accent"
+                      aria-label={`${o.sub_no} রসিদ প্রিন্ট করুন`}
+                    >
+                      <Printer className="h-3 w-3" /> রসিদ
+                    </Link>
                   </li>
                 ))}
               </ul>

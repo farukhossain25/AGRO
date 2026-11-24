@@ -150,8 +150,12 @@ export function SiteHeader({
                 {locale === "bn" ? "বাংলা" : "English"}
               </button>
 
+              {/* prefetch={false}: this route redirects to /login for a guest, so
+                  prefetching it on every page cost a redirect round-trip and a
+                  console error for a page the visitor may never open. */}
               <Link
                 href="/account/wishlist"
+                prefetch={false}
                 className="neu-icon-btn hidden h-10 w-10 sm:grid"
                 aria-label={t("পছন্দের তালিকা", "Wishlist")}
               >
