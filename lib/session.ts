@@ -17,6 +17,9 @@ export type SessionUser = {
   phone: string | null;
   role: UserRole;
   avatarUrl?: string | null;
+  /** profiles.is_seller — has a seller application (any status). Drives the
+   *  "সেলার ড্যাশবোর্ড" entry in the header menu. */
+  isSeller?: boolean;
 };
 
 const ROLES: readonly UserRole[] = ["customer", "premium", "seller", "staff", "manager", "admin"];

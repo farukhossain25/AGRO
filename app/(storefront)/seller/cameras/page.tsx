@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Camera, CheckCircle2, Clock, Video } from "lucide-react";
+import { CalendarClock, Camera, CheckCircle2, Clock, PhoneCall, Video, XCircle } from "lucide-react";
 import { currentUser } from "@/lib/api";
 import { db } from "@/lib/db";
 import { getSellerByUser } from "@/lib/sellers";
-import { listFarms } from "@/lib/farms";
+import { ensureSellerFarm } from "@/lib/seller-farm";
+import { toBn } from "@/lib/format";
 import { CameraRequestForm } from "@/components/seller/camera-request-form";
 
 export const dynamic = "force-dynamic";
@@ -14,11 +15,18 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
+/* The statuses camera_requests.status allows in the database
+   (pending | contacted | scheduled | installed | cancelled). `approved` /
+   `rejected` stay as labels for rows written before the panel matched the
+   constraint. */
 const STATUS = {
   pending: { label: "অনুমোদনের অপেক্ষায়", tone: "text-amber-300", icon: Clock },
+  contacted: { label: "টিম যোগাযোগ করেছে", tone: "text-sky-300", icon: PhoneCall },
+  scheduled: { label: "অনুমোদিত — ইনস্টলের দিন নির্ধারিত", tone: "text-sky-300", icon: CalendarClock },
   approved: { label: "অনুমোদিত — ইনস্টলেশন চলবে", tone: "text-sky-300", icon: Camera },
-  installed: { label: "ইনস্টল সম্পন্ন", tone: "text-leaf-200", icon: CheckCircle2 },
-  rejected: { label: "বাতিল", tone: "text-red-300", icon: Clock },
+  installed: { label: "ইনস্টল সম্পন্ন — লাইভ চলছে", tone: "text-leaf-200", icon: CheckCircle2 },
+  rejected: { label: "বাতিল", tone: "text-red-300", icon: XCircle },
+  cancelled: { label: "বাতিল", tone: "text-red-300", icon: XCircle },
 } as const;
 
 export default async function SellerCamerasPage() {
@@ -28,16 +36,31 @@ export default async function SellerCamerasPage() {
   const seller = await getSellerByUser(user.id).catch(() => null);
   if (!seller) redirect("/seller/apply");
 
-  const [{ data: requests }, farms] = await Promise.all([
+  // An approved seller always has a farm to hang cameras on.
+  const farm = seller.status === "approved" ? await ensureSellerFarm(seller).catch(() => null) : null;
+
+  const [{ data: requests }, { data: cameraRows }] = await Promise.all([
     db()
       .from("camera_requests")
       .select("*")
       .eq("seller_id", seller.id)
       .order("created_at", { ascending: false }),
-    listFarms({}),
+    farm
+      ? db()
+          .from("cameras")
+          .select("id, status, stream_key")
+          .eq("farm_id", farm.id)
+          .eq("is_active", true)
+      : Promise.resolve({ data: null, error: null }),
   ]);
 
-  const mine = farms.find((f) => f.id === seller.farm_id);
+  const mine = farm
+    ? {
+        ...farm,
+        camera_count: cameraRows?.length ?? 0,
+        online_cameras: cameraRows?.filter((c) => c.status === "online").length ?? 0,
+      }
+    : null;
 
   return (
     <div className="container-x max-w-2xl py-10 sm:py-14">
@@ -63,7 +86,7 @@ export default async function SellerCamerasPage() {
           <p className="text-[11px] uppercase tracking-wide text-sand-100/40">যুক্ত খামার</p>
           <p className="mt-0.5 text-[14px] font-semibold text-neu-ink">{mine.name_bn}</p>
           <p className="text-[11.5px] text-sand-100/45">
-            {mine.camera_count}টি ক্যামেরা · {mine.online_cameras}টি অনলাইন
+            {toBn(mine.camera_count)}টি ক্যামেরা · {toBn(mine.online_cameras)}টি অনলাইন
           </p>
           <Link href={`/live/farms/${mine.slug}`} className="mt-2 inline-block text-[11.5px] text-mint hover:underline">
             লাইভ পেজ দেখুন →
@@ -71,7 +94,7 @@ export default async function SellerCamerasPage() {
         </div>
       )}
 
-      <CameraRequestForm hasFarm={Boolean(seller.farm_id)} />
+      <CameraRequestForm hasFarm={Boolean(farm)} />
 
       {(requests ?? []).length > 0 && (
         <section className="mt-8">
@@ -86,7 +109,7 @@ export default async function SellerCamerasPage() {
                   <div className="min-w-0 flex-1">
                     <p className={`text-[12.5px] font-semibold ${meta.tone}`}>{meta.label}</p>
                     <p className="mt-0.5 text-[11.5px] text-sand-100/55">
-                      {r.camera_count}টি ক্যামেরা
+                      {toBn(Number(r.camera_count ?? 0))}টি ক্যামেরা
                       {r.note_bn ? ` · ${r.note_bn}` : ""}
                     </p>
                     {r.admin_note && (

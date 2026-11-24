@@ -196,7 +196,7 @@ export async function getFarmers(): Promise<Farmer[]> {
     name_bn: row.name_bn,
     location_bn: [row.district, row.division].filter(Boolean).join(", ") || null,
     specialty_bn: row.description_bn,
-    story_bn: row.story_bn ?? row.owner_bio_bn,
+    story_bn: row.story_bn ?? row.owner_bio_bn ?? row.description_bn,
     years: row.established_year ? Math.max(1, new Date().getFullYear() - row.established_year) : 0,
     image: row.cover ?? row.images?.[0] ?? null,
     is_active: row.is_active,

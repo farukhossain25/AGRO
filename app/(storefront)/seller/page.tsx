@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Banknote, Package, ShoppingBag, TrendingUp } from "lucide-react";
+import { Banknote, Eye, Package, ShoppingBag, Store, TrendingUp } from "lucide-react";
 import { currentUser } from "@/lib/api";
 import { db } from "@/lib/db";
 import { getSellerByUser, sellerStatusLabelBn, payoutStatusLabelBn } from "@/lib/sellers";
+import { ensureSellerFarm, type SellerFarmLink } from "@/lib/seller-farm";
 import { SellerProductManager } from "@/components/seller/product-manager";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +21,12 @@ export default async function SellerDashboard() {
 
   const seller = await getSellerByUser(user.id).catch(() => null);
   if (!seller) redirect("/seller/apply");
+
+  // Sellers approved before farms were auto-created have no farm yet → the
+  // public "আমাদের খামার" strip and the live page had nothing to show. This
+  // is idempotent: once linked it is a single primary-key read.
+  const farm: SellerFarmLink | null =
+    seller.status === "approved" ? await ensureSellerFarm(seller).catch(() => null) : null;
 
   const client = db();
   const [{ data: products }, { data: subs }, { data: payouts }, { data: categories }] = await Promise.all([
@@ -75,11 +82,45 @@ export default async function SellerDashboard() {
           <Link href="/seller/reviews" className="btn-ghost btn-sm min-h-[44px]">
             রিভিউ ও অভিযোগ
           </Link>
-          <Link href={`/market/${seller.slug}`} className="btn-ghost btn-sm min-h-[44px]">
-            পাবলিক স্টোর দেখুন →
-          </Link>
+          {seller.status === "approved" ? (
+            <Link href={`/market/${seller.slug}`} className="btn-ghost btn-sm min-h-[44px]">
+              <Eye className="h-4 w-4" /> আমার স্টোর পৃষ্ঠা দেখুন
+            </Link>
+          ) : null}
         </div>
       </div>
+
+      {/* The seller's own public URLs — this is the page they said they couldn't find. */}
+      {seller.status === "approved" ? (
+        <div className="mb-5 flex flex-col gap-2 rounded-xl border border-neu-accent/25 bg-neu-accent-soft/60 p-3.5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="flex items-center gap-1.5 text-[12.5px] font-semibold text-neu-ink">
+              <Store className="h-3.5 w-3.5 text-neu-accent-strong" /> আপনার পাবলিক স্টোর
+            </p>
+            <p className="mt-0.5 truncate font-mono text-[11.5px] text-neu-muted">/market/{seller.slug}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link href={`/market/${seller.slug}`} className="btn-primary btn-sm min-h-[40px]">
+              স্টোর খুলুন
+            </Link>
+            <Link href="/market" className="btn-ghost btn-sm min-h-[40px]">
+              মার্কেটপ্লেসে আমার অবস্থান
+            </Link>
+          </div>
+        </div>
+      ) : seller.status === "rejected" ? (
+        <div className="mb-5 rounded-xl border border-red-500/30 bg-red-500/8 p-4 text-[12.5px] leading-relaxed text-red-200">
+          আপনার আবেদন বাতিল হয়েছে{seller.rejection_reason ? `: ${seller.rejection_reason}` : ""}।{" "}
+          <Link href="/seller/apply" className="font-semibold underline underline-offset-2">
+            তথ্য ঠিক করে আবার আবেদন করুন
+          </Link>
+        </div>
+      ) : seller.status === "suspended" ? (
+        <p className="mb-5 text-[11.5px] text-sand-100/50">
+          আপনার স্টোর (<span className="font-mono">/market/{seller.slug}</span>) ও খামার পৃষ্ঠা স্থগিত করা হয়েছে —
+          বিস্তারিত জানতে সাপোর্টে যোগাযোগ করুন।
+        </p>
+      ) : null}
 
       {seller.status === "pending" && (
         <div className="mb-5 rounded-xl border border-amber-500/30 bg-amber-500/8 p-4 text-[12.5px] leading-relaxed text-amber-200">
@@ -166,12 +207,30 @@ export default async function SellerDashboard() {
           </div>
 
           <div className="rounded-xl border border-mint/20 bg-leaf-900/20 p-4">
-            <p className="text-[12.5px] font-bold text-neu-ink">লাইভ ক্যামেরা চান?</p>
-            <p className="mt-1 text-[11px] leading-relaxed text-sand-100/50">
-              আপনার খামারে ক্যামেরা বসিয়ে গ্রাহককে সরাসরি দেখানোর সুযোগ নিন — বিক্রি গড়ে ৩৪% বাড়ে।
-            </p>
-            <Link href="/seller/cameras" className="btn-ghost btn-sm mt-3 w-full">
-              ক্যামেরা রিকোয়েস্ট
+            <p className="text-[12.5px] font-bold text-neu-ink">আপনার খামার</p>
+            {farm ? (
+              <>
+                <p className="mt-1 text-[12px] font-semibold text-mint">{farm.name_bn}</p>
+                <p className="mt-0.5 text-[11px] leading-relaxed text-sand-100/50">
+                  অনুমোদনের সাথে সাথে "আমাদের খামার"-এ স্বয়ংক্রিয়ভাবে যুক্ত হয়েছে। কভার ছবি ও বিবরণ পরে আমাদের
+                  টিম যোগ করে দেবে।
+                </p>
+                <div className="mt-3 grid gap-1.5">
+                  <Link href={`/live/farms/${farm.slug}`} className="btn-ghost btn-sm w-full">
+                    লাইভ ক্যামেরা পৃষ্ঠা →
+                  </Link>
+                  <Link href="/farm" className="btn-ghost btn-sm w-full">
+                    "আমাদের খামার" পৃষ্ঠায় দেখুন →
+                  </Link>
+                </div>
+              </>
+            ) : (
+              <p className="mt-1 text-[11px] leading-relaxed text-sand-100/50">
+                অনুমোদিত হলে আপনার খামার স্বয়ংক্রিয়ভাবে "আমাদের খামার"-এ যুক্ত হবে।
+              </p>
+            )}
+            <Link href="/seller/cameras" className="btn-primary btn-sm mt-3 w-full">
+              লাইভ ক্যামেরা রিকোয়েস্ট
             </Link>
           </div>
         </aside>

@@ -4,6 +4,8 @@ import { recordAudit, diffOf } from "@/lib/audit";
 import { notify } from "@/lib/notify";
 import { clientIp } from "@/lib/api";
 import type { Permission } from "@/lib/permissions";
+import { ensureSellerFarm, provisionRequestCameras } from "@/lib/seller-farm";
+import type { Seller } from "@/lib/types";
 import { ZodError } from "zod";
 import {
   bannerSchema,
@@ -58,6 +60,77 @@ const SELLER_COLUMNS = [
   "updated_at",
 ];
 
+/** Real columns of `cameras`. The panel decorates each row with `farm_name`
+ *  for the table, and the admin cameras page had the same "column does not
+ *  exist" failure as sellers did — editing any camera PATCHed `farm_name`. */
+const CAMERA_COLUMNS = [
+  "farm_id",
+  "name_bn",
+  "zone_bn",
+  "protocol",
+  "stream_key",
+  "stream_url",
+  "poster",
+  "location_lat",
+  "location_lng",
+  "status",
+  "last_heartbeat",
+  "is_active",
+  "is_premium",
+  "max_viewers",
+  "sort_order",
+  "created_at",
+  "updated_at",
+];
+
+/** Real columns of `farms`. */
+const FARM_COLUMNS = [
+  "slug",
+  "name_bn",
+  "name_en",
+  "type",
+  "owner_user_id",
+  "owner_name_bn",
+  "owner_phone",
+  "owner_photo",
+  "owner_bio_bn",
+  "division",
+  "district",
+  "upazila",
+  "address_bn",
+  "lat",
+  "lng",
+  "boundary",
+  "harvest_calendar",
+  "daily_output",
+  "description_bn",
+  "story_bn",
+  "cover",
+  "images",
+  "established_year",
+  "certifications",
+  "is_active",
+  "is_premium",
+  "sort_order",
+  "created_at",
+  "updated_at",
+];
+
+/** Real columns of `camera_requests` (seller/farm names are joined for display). */
+const CAMERA_REQUEST_COLUMNS = [
+  "seller_id",
+  "farm_id",
+  "user_id",
+  "contact_name",
+  "contact_phone",
+  "note_bn",
+  "camera_count",
+  "status",
+  "admin_note",
+  "created_at",
+  "updated_at",
+];
+
 /** Coerce empty strings to null and numeric strings to numbers. When
  *  `allowed` is given, anything that is not a column is dropped — a
  *  display-only key must never reach the table. */
@@ -92,17 +165,19 @@ const schemas: Record<string, LightSchema> = {
 
   farms: lightSchema(
     ["lat", "lng", "established_year", "sort_order"],
-    ["created_at"]
+    ["created_at"],
+    FARM_COLUMNS
   ),
   cameras: lightSchema(
     ["location_lat", "location_lng", "max_viewers", "sort_order"],
-    ["last_heartbeat"]
+    ["last_heartbeat"],
+    CAMERA_COLUMNS
   ),
   "premium-plans": lightSchema(["price", "compare_price", "duration_days", "max_devices", "sort_order"]),
   "access-codes": lightSchema([], ["expires_at"]),
   sellers: lightSchema(["commission_percent"], ["approved_at"], SELLER_COLUMNS),
   payouts: lightSchema(["amount"], ["paid_at"]),
-  "camera-requests": lightSchema(["camera_count"]),
+  "camera-requests": lightSchema(["camera_count"], [], CAMERA_REQUEST_COLUMNS),
   notifications: lightSchema([]),
   seo: lightSchema([], []),
   "cms-pages": lightSchema([], []),
@@ -346,6 +421,55 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ resour
             : afterRow.rejection_reason || "বিস্তারিত জানতে সাপোর্টে যোগাযোগ করুন।",
           link: "/seller",
         }).catch(() => undefined);
+      }
+    }
+
+    /* Approval also means "you now exist publicly": give the seller a farm so
+       they appear under "আমাদের খামার" and have somewhere to hang cameras.
+       Must never fail the approval itself. */
+    if (resource === "sellers") {
+      const after = data as unknown as Seller;
+      const beforeStatus = (before as { status?: string } | null)?.status;
+      if (after?.status === "approved" && (!after.farm_id || beforeStatus !== "approved")) {
+        await ensureSellerFarm(after).catch((e) =>
+          console.warn("[sellers] farm auto-create failed:", (e as Error).message)
+        );
+      }
+    }
+
+    /* "ইনস্টল সম্পন্ন" is the moment a camera request becomes real cameras —
+       otherwise the live page has nothing to show. Only on the transition
+       into `installed`, so re-saving the row never duplicates them. */
+    if (resource === "camera-requests") {
+      const after = data as {
+        id: string;
+        seller_id: string | null;
+        farm_id: string | null;
+        camera_count: number;
+        status: string;
+      };
+      const beforeStatus = (before as { status?: string } | null)?.status;
+      if (after?.status === "installed" && beforeStatus !== "installed") {
+        const result = await provisionRequestCameras({
+          id: after.id,
+          seller_id: after.seller_id,
+          farm_id: after.farm_id,
+          camera_count: after.camera_count,
+        }).catch((e) => {
+          console.warn("[camera-requests] provisioning failed:", (e as Error).message);
+          return null;
+        });
+
+        if (result?.created && result.sellerUserId) {
+          await notify({
+            userId: result.sellerUserId,
+            audience: "seller",
+            kind: "camera",
+            title: "আপনার ক্যামেরা ইনস্টল সম্পন্ন",
+            body: `${result.created}টি ক্যামেরা লাইভ হয়েছে${result.farmSlug ? ` — /live/farms/${result.farmSlug}` : ""}।`,
+            link: "/seller/cameras",
+          }).catch(() => undefined);
+        }
       }
     }
 

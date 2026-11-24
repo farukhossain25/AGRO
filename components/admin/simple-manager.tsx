@@ -41,11 +41,18 @@ export type Column = {
     | "badge"
     | "coupon_value"
     | "usage"
-    | "scope";
+    | "scope"
+    | "link";
   subKey?: string;
   subPrefix?: string;
   trueLabel?: string;
   falseLabel?: string;
+  /** for "link": the anchor text (the cell value is the href) */
+  linkLabel?: string;
+  /** for "link": open in a new tab (default true) */
+  external?: boolean;
+  /** keep short values (status, dates, counts) on one line; the table scrolls instead */
+  nowrap?: boolean;
 };
 
 const GREEN = "bg-leaf-600/20 text-leaf-700";
@@ -107,6 +114,20 @@ function Cell({ row, col }: { row: Record<string, unknown>; col: Column }) {
         <span className={`badge !text-[9px] ${raw === "inside_dhaka" ? GREEN : "bg-white/[0.07] text-sand-100/60"}`}>
           {raw === "inside_dhaka" ? "ঢাকার ভেতরে" : "ঢাকার বাইরে"}
         </span>
+      );
+
+    case "link":
+      return raw ? (
+        <a
+          href={String(raw)}
+          target={col.external === false ? undefined : "_blank"}
+          rel={col.external === false ? undefined : "noopener noreferrer"}
+          className="text-leaf-300 underline-offset-2 hover:text-leaf-200 hover:underline"
+        >
+          {col.linkLabel ?? String(raw)}
+        </a>
+      ) : (
+        <>—</>
       );
 
     default:
@@ -217,7 +238,7 @@ export function SimpleManager({
             <thead className="bg-white/[0.02] text-[10.5px] uppercase tracking-wider text-sand-100/40">
               <tr>
                 {columns.map((c) => (
-                  <th key={c.key} className="px-3 py-2.5 font-medium">{c.label}</th>
+                  <th key={c.key} className="whitespace-nowrap px-3 py-2.5 font-medium">{c.label}</th>
                 ))}
                 <th className="px-3 py-2.5 text-right font-medium">অ্যাকশন</th>
               </tr>
@@ -226,7 +247,7 @@ export function SimpleManager({
               {rows.map((row) => (
                 <tr key={String(row.id)} className="hover:bg-white/[0.02]">
                   {columns.map((c) => (
-                    <td key={c.key} className="px-3 py-2.5">
+                    <td key={c.key} className={`px-3 py-2.5 ${c.nowrap ? "whitespace-nowrap" : ""}`}>
                       <Cell row={row} col={c} />
                     </td>
                   ))}
@@ -302,6 +323,9 @@ export function SimpleManager({
                         placeholder={f.placeholder}
                       />
                     )}
+                    {f.hint && f.type !== "checkbox" ? (
+                      <p className="mt-1 text-[10.5px] leading-relaxed text-sand-100/40">{f.hint}</p>
+                    ) : null}
                     {errors[f.name] ? <p className="mt-1 text-[11px] text-red-300">{errors[f.name]}</p> : null}
                   </label>
                 );

@@ -120,15 +120,22 @@ async function queryApprovedSellers(limit: number): Promise<SellerWithStats[]> {
   });
 }
 
-export async function getSellerBySlug(slug: string) {
+/**
+ * Public store lookup (approved only). With `ownerUserId` the status filter is
+ * replaced by an ownership check, so a seller can preview their own page while
+ * pending — the page shows it as a non-public preview instead of a 404.
+ */
+export async function getSellerBySlug(slug: string, opts: { ownerUserId?: string } = {}) {
   if (!isDbConfigured()) return null;
 
-  const { data, error } = await db()
+  const q = db()
     .from("sellers")
     .select("*")
-    .eq("slug", slug)
-    .eq("status", "approved")
-    .maybeSingle();
+    .eq("slug", slug);
+  if (opts.ownerUserId) q.eq("user_id", opts.ownerUserId);
+  else q.eq("status", "approved");
+
+  const { data, error } = await q.maybeSingle();
 
   if (error) throw error;
   if (!data) return null;

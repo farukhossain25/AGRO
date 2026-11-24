@@ -34,6 +34,7 @@ type ProfileRow = {
   phone: string | null;
   avatar_url: string | null;
   role: string | null;
+  is_seller?: boolean | null;
 };
 
 export function AuthProvider({
@@ -76,6 +77,7 @@ export function AuthProvider({
       phone: null,
       role: "customer",
       avatarUrl: null,
+      isSeller: false,
     };
 
     if (!supabaseConfigured) return fallback;
@@ -84,7 +86,7 @@ export function AuthProvider({
       const supabase = createClient();
       const { data } = await supabase
         .from("profiles")
-        .select("id, full_name, phone, avatar_url, role")
+        .select("id, full_name, phone, avatar_url, role, is_seller")
         .eq("id", authUser.id)
         .maybeSingle<ProfileRow>();
 
@@ -101,6 +103,7 @@ export function AuthProvider({
             ? role
             : "customer",
         avatarUrl: data.avatar_url ?? null,
+        isSeller: Boolean(data.is_seller) || role === "seller",
       } satisfies SessionUser;
     } catch {
       return fallback;

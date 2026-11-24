@@ -140,9 +140,13 @@ export default async function FarmPage() {
                         <MapPin className="h-3 w-3" /> {f.location_bn}
                       </p>
                     </div>
-                    <span className="badge bg-white/[0.06] text-sand-100/60">{f.years}+ বছর</span>
+                    <span className="badge bg-white/[0.06] text-sand-100/60">
+                      {f.years > 0 ? `${f.years}+ বছর` : "নতুন খামার"}
+                    </span>
                   </div>
-                  <p className="mt-2 text-[12px] leading-relaxed text-sand-100/55">{f.story_bn}</p>
+                  {f.story_bn && (
+                    <p className="mt-2 text-[12px] leading-relaxed text-sand-100/55">{f.story_bn}</p>
+                  )}
                   <p className="mt-2.5 text-[10.5px] font-semibold uppercase tracking-wider text-leaf-300/70">
                     বিশেষত্ব: {f.specialty_bn}
                   </p>

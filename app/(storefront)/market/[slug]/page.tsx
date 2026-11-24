@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BadgeCheck, MapPin, Phone, ShieldCheck } from "lucide-react";
-import { getSellerBySlug } from "@/lib/sellers";
+import { BadgeCheck, Eye, MapPin, Phone, ShieldCheck } from "lucide-react";
+import { currentUser } from "@/lib/api";
+import { getSellerBySlug, sellerStatusLabelBn } from "@/lib/sellers";
 import { ProductCard } from "@/components/product-card";
 import type { Product } from "@/lib/types";
 import { breadcrumbLd, dynamicAlternates, jsonLdScript } from "@/lib/seo";
@@ -18,13 +19,18 @@ export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const data = await getSellerBySlug(slug).catch(() => null);
+  const user = await currentUser().catch(() => null);
+  const data =
+    (await getSellerBySlug(slug).catch(() => null)) ??
+    (user ? await getSellerBySlug(slug, { ownerUserId: user.id }).catch(() => null) : null);
   if (!data) return { title: "বিক্রেতা পাওয়া যায়নি" };
 
+  const preview = data.seller.status !== "approved";
   return {
-    title: `${data.seller.name_bn} — মার্কেটপ্লেস`,
+    title: preview ? `${data.seller.name_bn} — প্রিভিউ` : `${data.seller.name_bn} — মার্কেটপ্লেস`,
     description: `${data.seller.district} জেলার ${data.seller.name_bn}। বিশ্বাস এগ্রো মার্কেটপ্লেসে যাচাইকৃত বিক্রেতা।`,
     alternates: dynamicAlternates(`/market/${data.seller.slug}`),
+    ...(preview ? { robots: { index: false, follow: false } } : {}),
   };
 }
 
@@ -42,10 +48,17 @@ const TYPES_BN: Record<string, string> = {
 
 export default async function SellerStorePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const data = await getSellerBySlug(slug).catch(() => null);
+
+  // Public first; if this is the seller's own store (any status) they still
+  // get to see it — as a clearly marked preview, never a 404.
+  const user = await currentUser().catch(() => null);
+  const data =
+    (await getSellerBySlug(slug).catch(() => null)) ??
+    (user ? await getSellerBySlug(slug, { ownerUserId: user.id }).catch(() => null) : null);
   if (!data) notFound();
 
   const { seller, products } = data;
+  const isPreview = seller.status !== "approved";
   const cover = seller.farm_photos?.[0] ?? "/images/hero/farm.jpg";
 
   /* Storefront markup: a Store node (so Google can show the shop's name and
@@ -95,6 +108,23 @@ export default async function SellerStorePage({ params }: { params: Promise<{ sl
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLdScript(sellerLd) }}
       />
+      {isPreview && (
+        <div className="border-b border-amber-500/30 bg-amber-500/10">
+          <div className="container-x flex flex-col gap-2 py-3 text-[12.5px] text-amber-100 sm:flex-row sm:items-center sm:justify-between">
+            <p className="flex items-start gap-2">
+              <Eye className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+              <span>
+                এটি <strong>আপনার নিজের স্টোরের প্রিভিউ</strong> — এখনো পাবলিক নয় (স্টেটাস:{" "}
+                {sellerStatusLabelBn[seller.status] ?? seller.status})। অনুমোদিত হলে এই পৃষ্ঠাটিই গ্রাহকরা দেখবেন।
+              </span>
+            </p>
+            <Link href="/seller" className="shrink-0 font-semibold underline underline-offset-2 hover:text-white">
+              সেলার ড্যাশবোর্ড →
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* banner */}
       <section className="relative h-44 overflow-hidden sm:h-56">
         <Image src={cover} alt="" fill sizes="100vw" priority className="object-cover opacity-40" />
@@ -107,7 +137,7 @@ export default async function SellerStorePage({ params }: { params: Promise<{ sl
           </nav>
           <h1 className="flex items-center gap-2 text-[24px] font-bold text-white sm:text-3xl">
             {seller.name_bn}
-            <BadgeCheck className="h-5 w-5 text-leaf-400" />
+            {!isPreview && <BadgeCheck className="h-5 w-5 text-leaf-400" />}
           </h1>
           <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-white/70">
             <span className="inline-flex items-center gap-1">
@@ -130,9 +160,11 @@ export default async function SellerStorePage({ params }: { params: Promise<{ sl
               {TYPES_BN[t] ?? t}
             </span>
           ))}
-          <span className="chip chip-active">
-            <ShieldCheck className="h-3 w-3" /> যাচাইকৃত
-          </span>
+          {!isPreview && (
+            <span className="chip chip-active">
+              <ShieldCheck className="h-3 w-3" /> যাচাইকৃত
+            </span>
+          )}
         </div>
 
         <h2 className="mb-4 text-[16px] font-bold text-neu-ink">
