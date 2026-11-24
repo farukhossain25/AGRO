@@ -1,7 +1,20 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Download, Search, Wallet, ChevronDown, ChevronUp, Package, Clock, Truck, XCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
+import {
+  Download,
+  Search,
+  Wallet,
+  ChevronDown,
+  ChevronUp,
+  Package,
+  Clock,
+  Truck,
+  XCircle,
+  RotateCcw,
+  AlertTriangle,
+} from "lucide-react";
 import { useToast } from "@/lib/toast";
 import { orderStatusLabelBn } from "@/lib/sellers";
 import { sellerStatusLabelBn } from "@/lib/sellers";
@@ -235,7 +248,52 @@ function Stat({
 }
 
 function SellerDetail({ row, onClose }: { row: SellerSalesRow | null; onClose: () => void }) {
+  const toast = useToast();
+  const router = useRouter();
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+
   if (!row) return null;
+  // Narrowed copy: TS does not keep the null-check inside the closure below.
+  const seller = row;
+
+  /* Payments worth resetting: anything sold, anything pending, or a payout
+     already recorded. A seller with none of these has nothing to wipe. */
+  const hasPayments = row.sold + row.pending > 0 || row.paidOut > 0;
+
+  async function resetPayments() {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/foisal/seller-payments", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seller_id: seller.id }),
+      });
+      const json = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        message?: string;
+        data?: { removed?: Record<string, number> };
+      } | null;
+      if (!res.ok || !json?.ok) {
+        toast.error(json?.message ?? "রিসেট করা যায়নি");
+        return;
+      }
+      const removed = json.data?.removed ?? {};
+      toast.success(
+        `রিসেট হয়েছে — সাব-অর্ডার ${toBn(removed.sub_orders ?? 0)}টি, আইটেম ${toBn(
+          removed.order_items ?? 0
+        )}টি, পেআউট ${toBn(removed.seller_payouts ?? 0)}টি মুছে ফেলা হয়েছে। পণ্য অক্ষত আছে।`
+      );
+      setConfirming(false);
+      onClose();
+      router.refresh();
+    } catch {
+      toast.error("নেটওয়ার্ক সমস্যা — আবার চেষ্টা করুন");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-[95] flex items-center justify-center bg-ink-950/80 p-3 backdrop-blur-sm" role="dialog" aria-modal="true">
       <div className="card max-h-[90vh] w-full max-w-2xl overflow-y-auto p-5">
@@ -246,9 +304,20 @@ function SellerDetail({ row, onClose }: { row: SellerSalesRow | null; onClose: (
               {row.slug} · {row.phone} · কমিশন {toBn(row.commission_percent)}%
             </p>
           </div>
-          <button onClick={onClose} className="neu-icon-btn" aria-label="বন্ধ">
-            <XCircle className="h-4 w-4" />
-          </button>
+          <div className="flex shrink-0 items-center gap-1.5">
+            {hasPayments ? (
+              <button
+                onClick={() => setConfirming(true)}
+                className="btn btn-sm min-h-[36px] border border-red-200 bg-red-50 px-2.5 text-[11.5px] font-semibold text-red-600 transition hover:bg-red-100"
+                title="এই সেলারের পেমেন্ট/অর্ডার রেকর্ড মুছে ফেলুন — পণ্য থাকবে"
+              >
+                <RotateCcw className="h-3.5 w-3.5" /> পেমেন্ট রিসেট
+              </button>
+            ) : null}
+            <button onClick={onClose} className="neu-icon-btn" aria-label="বন্ধ">
+              <XCircle className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
@@ -298,6 +367,8 @@ function SellerDetail({ row, onClose }: { row: SellerSalesRow | null; onClose: (
           </ul>
         )}
 
+        {confirming ? <ResetConfirm row={row} busy={busy} onCancel={() => setConfirming(false)} onConfirm={resetPayments} /> : null}
+
         <h3 className="mt-4 text-[12.5px] font-bold text-neu-ink">পণ্যসমূহ</h3>
         {row.products.length === 0 ? (
           <p className="mt-1 text-[11.5px] text-neu-muted">কোনো পণ্য নেই</p>
@@ -325,6 +396,81 @@ function SellerDetail({ row, onClose }: { row: SellerSalesRow | null; onClose: (
             ))}
           </ul>
         )}
+      </div>
+    </div>
+  );
+}
+
+/* --------------------------------------------------------------------------
+   The confirmation for a destructive action: it spells out what disappears and,
+   just as clearly, what does not. The seller's products are the whole point of
+   the request, so they are named in the "stays" column, not implied.
+   -------------------------------------------------------------------------- */
+function ResetConfirm({
+  row,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  row: SellerSalesRow;
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-ink-950/70 p-4"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="reset-title"
+    >
+      <div className="card w-full max-w-md p-5">
+        <div className="flex items-start gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-red-500/10 text-red-600">
+            <AlertTriangle className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <h3 id="reset-title" className="text-[15px] font-extrabold text-neu-ink">
+              {row.name_bn} — পেমেন্ট রিসেট?
+            </h3>
+            <p className="mt-1 text-[11.5px] leading-relaxed text-neu-muted">
+              এটি ফিরিয়ে আনা যাবে না। শুধু চালিয়ে যান যদি এই সেলারের বিক্রয়/পেমেন্ট রেকর্ড
+              নতুন করে শুরু করতে চান।
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          <div className="rounded-xl border border-red-200/70 bg-red-50/60 p-3">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-red-600">মুছে যাবে</p>
+            <ul className="mt-1.5 space-y-1 text-[11.5px] text-neu-ink">
+              <li>· {toBn(row.sold + row.pending)}টি সাব-অর্ডার ও তার আইটেম</li>
+              <li>· {money(row.payable)} প্রদেয় ও কমিশন রেকর্ড</li>
+              <li>· {money(row.paidOut)} পরিশোধিত পেআউট</li>
+            </ul>
+          </div>
+          <div className="rounded-xl border border-leaf-600/20 bg-leaf-600/5 p-3">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-leaf-700">থেকে যাবে</p>
+            <ul className="mt-1.5 space-y-1 text-[11.5px] text-neu-ink">
+              <li>· {toBn(row.liveProducts)}টি লাইভ পণ্য</li>
+              <li>· সেলারের প্রোফাইল, খামার ও রিভিউ</li>
+              <li>· স্টক ও পণ্যের দাম</li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="mt-4 flex justify-end gap-2">
+          <button onClick={onCancel} className="btn btn-ghost btn-sm min-h-[40px]" disabled={busy}>
+            বাতিল
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={busy}
+            className="btn btn-danger btn-sm min-h-[40px] min-w-[130px]"
+          >
+            {busy ? "মুছে ফেলা হচ্ছে…" : "হ্যাঁ, রিসেট করুন"}
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -29,6 +29,17 @@ export function money(value: number | string | null | undefined, bangla = true):
   return `${BDT}${bangla ? bnNumber(safe, hasFraction ? 2 : 0) : safe.toLocaleString("en-US")}`;
 }
 
+/** Customer-facing label for a payment method. Lives here (client-safe) so
+ *  printed receipts and the phone scan page can both use it without pulling
+ *  lib/parcels — and node:crypto — into a client bundle. */
+export const paymentLabelBn: Record<string, string> = {
+  cod: "ক্যাশ অন ডেলিভারি",
+  bkash: "bKash",
+  nagad: "Nagad",
+  sslcommerz: "কার্ড / SSLCommerz",
+  code: "অ্যাক্সেস কোড",
+};
+
 export function formatDateBn(value: string | Date | null | undefined, bangla = true): string {
   if (!value) return "—";
   const date = typeof value === "string" ? new Date(value) : value;

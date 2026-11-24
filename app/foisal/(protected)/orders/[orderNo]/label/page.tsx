@@ -2,20 +2,28 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, Printer } from "lucide-react";
 import { currentUser } from "@/lib/api";
-import { buildLabel, paymentLabelBn } from "@/lib/parcels";
+import { buildLabel } from "@/lib/parcels";
 import { qrSvg, scanUrlFor } from "@/lib/qr";
 import { site } from "@/lib/site";
 import { defaultStoreSettings, getStoreSettings } from "@/lib/site-settings";
+import { formatDateBn, money, paymentLabelBn, toBn } from "@/lib/format";
+import { orderStatusLabelBn } from "@/lib/sellers";
+import { ReceiptSheet, type ReceiptSheetData } from "@/components/receipt/receipt-sheet";
 import { PrintButton } from "@/components/admin/print-button";
 import { ADMIN_BASE, ADMIN_LOGIN_PATH } from "@/lib/paths";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "শিপিং লেবেল", robots: { index: false } };
+export const metadata = { title: "অর্ডার রসিদ", robots: { index: false } };
 
 /**
- * A6 shipping label, laid out for thermal printers (100×150mm) and for
- * 4-up A4 sheets. Print CSS hides the app chrome.
+ * The admin's receipt for one order — the SAME sheet the seller prints
+ * (components/receipt/receipt-sheet.tsx), so the box never carries two
+ * different-looking documents. This one covers the whole order, so the money
+ * block shows what the customer paid rather than one vendor's share.
+ *
+ * buildLabel() owns the data: it caches this exact receipt as the parcel's
+ * label snapshot (a reprint stays identical) and counts the print.
  */
 export default async function LabelPage({ params }: { params: Promise<{ orderNo: string }> }) {
   const user = await currentUser();
@@ -27,15 +35,63 @@ export default async function LabelPage({ params }: { params: Promise<{ orderNo:
   if (!result) notFound();
 
   const { parcel, token } = result;
-  // The brand on the label follows the panel, so a renamed shop does not ship
-  // parcels under its old name.
   const store = await getStoreSettings().catch(() => defaultStoreSettings);
   const scanUrl = scanUrlFor(`/p/${token}`);
-  // margin + size handled in one place: see lib/qr.ts
   const svg = await qrSvg(scanUrl);
 
+  const vendorNames = parcel.sources;
+  const vendor =
+    vendorNames.length === 0
+      ? null
+      : vendorNames.length === 1
+        ? { name: vendorNames[0], detail: `${toBn(1)} ভেন্ডর · পণ্য ${toBn(parcel.item_count)}টি আইটেম` }
+        : {
+            name: `${toBn(vendorNames.length)} জন ভেন্ডরের অর্ডার`,
+            detail: vendorNames.join(", "),
+          };
+
+  const data: ReceiptSheetData = {
+    brand: { nameBn: store.name, nameEn: store.name_en, tagline: site.taglineBn, domain: site.domain },
+    vendor,
+    meta: [
+      { label: "অর্ডার নম্বর", value: parcel.order_no, mono: true },
+      { label: "তারিখ", value: formatDateBn(parcel.created_at) },
+      { label: "স্টেটাস", value: orderStatusLabelBn[parcel.status] ?? parcel.status },
+      { label: "পেমেন্ট", value: parcel.payment_status === "paid" ? "পরিশোধিত" : "বাকি" },
+    ],
+    customer: {
+      name: parcel.customer_name,
+      phone: parcel.phone,
+      address: `${parcel.address}\n${parcel.upazila}, ${parcel.district}${parcel.division ? `, ${parcel.division}` : ""}`,
+      note: parcel.delivery_note,
+    },
+    lines: parcel.items.map((i) => ({ name: i.name_bn, qty: i.quantity, unit: i.unit, price: i.price })),
+    money: [
+      { label: "পণ্যের মোট", value: money(parcel.subtotal) },
+      { label: "ডেলিভারি চার্জ", value: parcel.delivery_charge === 0 ? "ফ্রি" : money(parcel.delivery_charge), muted: parcel.delivery_charge === 0 },
+      { label: "কুপন ছাড়", value: `− ${money(parcel.discount)}`, muted: parcel.discount === 0 },
+    ],
+    total: { label: "মোট পরিশোধ", value: money(parcel.total) },
+    payment: [
+      paymentLabelBn[parcel.payment_method] ?? parcel.payment_method,
+      parcel.payment_status === "paid" ? "পরিশোধিত" : "পেমেন্ট বাকি",
+      parcel.coupon_code ? `কুপন ${parcel.coupon_code}` : "",
+    ]
+      .filter(Boolean)
+      .join(" · "),
+    qr: {
+      svg,
+      url: scanUrl,
+      caption:
+        "অর্ডারের তথ্য, ভেন্ডর ও পণ্যের তালিকা — স্ক্যান করলে যেকোনো ফোনে দেখা যাবে। ডেলিভারির সময় স্টাফ এখান থেকেই ডেলিভারি নিশ্চিত করতে পারবেন।",
+      hint: scanUrl,
+    },
+    footer: `এই রসিদটি পণ্যের বাক্সের ভেতরে/গায়ে লাগিয়ে দিন · ${store.name} · ${store.phone_display}`,
+    kind: "order",
+  };
+
   return (
-    <div className="mx-auto max-w-3xl p-4 sm:p-8">
+    <div className="mx-auto max-w-3xl p-4 sm:p-8 print:max-w-none print:p-0">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3 print:hidden">
         <Link
           href={`${ADMIN_BASE}/orders`}
@@ -46,124 +102,7 @@ export default async function LabelPage({ params }: { params: Promise<{ orderNo:
         <PrintButton />
       </div>
 
-      <style>{`
-        @media print {
-          @page { size: A6; margin: 4mm; }
-          body { background: #fff !important; }
-          .print\\:hidden { display: none !important; }
-        }
-        .label-sheet {
-          background: #fff;
-          color: #0b0d0c;
-          width: 100%;
-          max-width: 420px;
-          margin: 0 auto;
-          border-radius: 8px;
-          overflow: hidden;
-          border: 1px solid #d5d9d6;
-          font-family: var(--font-hind), "Hind Siliguri", system-ui, sans-serif;
-        }
-      `}</style>
-
-      <div className="label-sheet">
-        {/* header */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            background: "#1f7a4d",
-            color: "#fff",
-            padding: "10px 14px",
-          }}
-        >
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.2 }}>{store.name}</div>
-            <div style={{ fontSize: 8.5, opacity: 0.8 }}>Farm to Family · {site.domain}</div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 8, opacity: 0.75, textTransform: "uppercase", letterSpacing: 0.6 }}>
-              Order
-            </div>
-            <div style={{ fontSize: 13, fontWeight: 700, fontFamily: "monospace" }}>{parcel.order_no}</div>
-          </div>
-        </div>
-
-        {/* body */}
-        <div style={{ display: "flex", gap: 12, padding: "12px 14px" }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <Row label="গ্রাহক" value={parcel.customer_name} bold />
-            <Row label="ফোন" value={parcel.phone} mono />
-            <Row
-              label="ঠিকানা"
-              value={`${parcel.address}\n${parcel.upazila}, ${parcel.district}${parcel.division ? `, ${parcel.division}` : ""}`}
-            />
-            {parcel.delivery_note && (
-              <div
-                style={{
-                  marginTop: 6,
-                  padding: "4px 6px",
-                  background: "#fff7e0",
-                  border: "1px solid #f0dfa8",
-                  borderRadius: 4,
-                  fontSize: 8.5,
-                }}
-              >
-                📝 {parcel.delivery_note}
-              </div>
-            )}
-
-            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-              <Chip label="পণ্য" value={`${parcel.item_count}টি`} />
-              <Chip
-                label={parcel.payment_status === "paid" ? "পরিশোধিত" : "COD"}
-                value={`৳${Number(parcel.total).toLocaleString("en-IN")}`}
-                accent={parcel.payment_status !== "paid"}
-              />
-            </div>
-          </div>
-
-          {/* QR — printed ~34 mm square. The white ring is the quiet zone the
-              scanner needs; it is baked into the SVG in lib/qr.ts, so it is
-              never lost to a coloured background or a tight crop. */}
-          <div style={{ width: 122, textAlign: "center", flexShrink: 0 }}>
-            <div
-              style={{
-                width: 122,
-                height: 122,
-                background: "#ffffff",
-                border: "1px solid #e2e6e3",
-                borderRadius: 4,
-                padding: 2,
-              }}
-            >
-              <div style={{ width: "100%", height: "100%" }} dangerouslySetInnerHTML={{ __html: svg }} />
-            </div>
-            <div style={{ fontSize: 7, color: "#5a655f", marginTop: 3, lineHeight: 1.3 }}>
-              স্ক্যান করে অর্ডারের তথ্য ও ডেলিভারি
-            </div>
-            <div style={{ fontSize: 6.5, color: "#7a857f", marginTop: 1, wordBreak: "break-all" }}>
-              {scanUrl}
-            </div>
-          </div>
-        </div>
-
-        {/* footer */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            borderTop: "1px dashed #c9d0cc",
-            padding: "7px 14px",
-            fontSize: 8,
-            color: "#5a655f",
-          }}
-        >
-          <span>{paymentLabelBn[parcel.payment_method] ?? parcel.payment_method}</span>
-          <span>{parcel.sources.join(" · ") || store.name}</span>
-          <span>{new Date(parcel.created_at).toLocaleDateString("en-GB")}</span>
-        </div>
-      </div>
+      <ReceiptSheet data={data} />
 
       <p className="mt-4 text-center text-[11.5px] text-sand-100/40 print:hidden">
         🖨️ প্রিন্ট করতে Ctrl/Cmd + P · থার্মাল প্রিন্টারে ১০০×১৫০মিমি সিলেক্ট করুন · QR-এর চারপাশের সাদা ফাঁক কেটে ফেলবেন না
@@ -173,45 +112,10 @@ export default async function LabelPage({ params }: { params: Promise<{ orderNo:
       <div className="mt-5 flex items-center justify-center gap-3 print:hidden">
         <Printer className="h-4 w-4 text-sand-100/30" />
         <span className="text-[11.5px] text-sand-100/40">
-          একই লেবেল একাধিকবার প্রিন্ট করলে QR একই থাকে — সমস্যা নেই।
+          সেলারের রসিদের সাথে একই ডিজাইন — একই অর্ডারে দুই রকম কাগজ যাবে না।
         </span>
       </div>
     </div>
   );
 }
 
-function Row({ label, value, bold, mono }: { label: string; value: string; bold?: boolean; mono?: boolean }) {
-  return (
-    <div style={{ display: "flex", gap: 6, fontSize: 9, marginBottom: 4 }}>
-      <span style={{ width: 40, flexShrink: 0, color: "#6a746e" }}>{label}</span>
-      <span
-        style={{
-          flex: 1,
-          fontWeight: bold ? 700 : 500,
-          fontFamily: mono ? "monospace" : "inherit",
-          whiteSpace: "pre-line",
-          wordBreak: "break-word",
-        }}
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
-
-function Chip({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
-  return (
-    <div
-      style={{
-        flex: 1,
-        border: `1px solid ${accent ? "#e8b44a" : "#d5d9d6"}`,
-        background: accent ? "#fff8e6" : "#f6f8f7",
-        borderRadius: 4,
-        padding: "3px 6px",
-      }}
-    >
-      <div style={{ fontSize: 7, color: "#6a746e", textTransform: "uppercase", letterSpacing: 0.4 }}>{label}</div>
-      <div style={{ fontSize: 11, fontWeight: 700 }}>{value}</div>
-    </div>
-  );
-}
