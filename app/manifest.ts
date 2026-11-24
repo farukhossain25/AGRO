@@ -15,7 +15,8 @@ export default function manifest(): MetadataRoute.Manifest {
     scope: "/",
     display: "standalone",
     orientation: "portrait",
-    background_color: "#111312",
+    /* Matches the top of the iOS launch-screen gradient (scripts/generate-brand.mjs). */
+    background_color: "#0a2a1b",
     theme_color: "#1f7a4d",
     lang: "bn-BD",
     dir: "ltr",

@@ -9,12 +9,12 @@
    Cache version is bumped by hand on every deploy that changes shell assets.
    ========================================================================== */
 
-const VERSION = "ba-v1";
+const VERSION = "ba-v2";
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
 const OFFLINE_URL = "/offline";
 
-const PRECACHE = ["/", OFFLINE_URL, "/favicon.svg", "/manifest.webmanifest"];
+const PRECACHE = ["/", OFFLINE_URL, "/favicon.ico", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

@@ -67,7 +67,7 @@ export function SiteHeader({
             </button>
 
             <div className="min-w-0 shrink">
-              <Logo />
+              <Logo responsive priority />
             </div>
 
             {/* Desktop social icons — admin-managed, hidden on small screens */}

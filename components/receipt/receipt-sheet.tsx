@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
+import Image from "next/image";
 
 /* ==========================================================================
    components/receipt/receipt-sheet.tsx — the ONE printed receipt
@@ -108,7 +109,16 @@ export function ReceiptSheet({ data }: { data: ReceiptSheetData }) {
           }}
         >
           <div style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
-            <Leaf />
+            {/* the marketplace emblem — the same mark as the site header */}
+            <Image
+              src="/brand/logo-mark.webp"
+              alt=""
+              width={28}
+              height={28}
+              priority
+              className="rounded-[7px] ring-1 ring-white/40"
+              style={{ flexShrink: 0, marginTop: 2 }}
+            />
             <div style={{ minWidth: 0, flex: 1 }}>
               {/* 1 — the marketplace, the biggest name on the paper */}
               <div style={{ fontSize: 19, fontWeight: 800, lineHeight: 1.05, letterSpacing: -0.2 }}>
@@ -357,15 +367,6 @@ function money(n: number): string {
 const BN_DIGITS = ["০", "১", "২", "৩", "৪", "৫", "৬", "৭", "৮", "৯"];
 function toBn(n: number): string {
   return String(Math.round(Number(n ?? 0))).replace(/\d/g, (d) => BN_DIGITS[Number(d)]);
-}
-
-function Leaf() {
-  return (
-    <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" style={{ flexShrink: 0, marginTop: 2 }}>
-      <path d="M20 4C11 4 5 10 5 19c9 0 15-6 15-15Z" fill="#ffffff" opacity="0.96" />
-      <path d="M5 19C9 15 13 11 20 4" stroke={C.brand} strokeWidth="1.1" fill="none" opacity="0.55" />
-    </svg>
-  );
 }
 
 export type { ReactNode };
