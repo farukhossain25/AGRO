@@ -1,4 +1,4 @@
-import { db, dbUsable, markDbUnreachable } from "./db";
+import { db, dbUsable, isDbConfigured, markDbUnreachable } from "./db";
 import type { Camera, Farm, FarmType } from "./types";
 
 /* ==========================================================================
@@ -14,8 +14,6 @@ const PUBLIC_CAMERA_COLUMNS = [
   "name_bn",
   "zone_bn",
   "protocol",
-  /* which player to mount — never the serial or the credential */
-  "cloud_provider",
   "poster",
   "location_lat",
   "location_lng",
@@ -26,6 +24,14 @@ const PUBLIC_CAMERA_COLUMNS = [
   "max_viewers",
   "sort_order",
 ].join(", ");
+
+/**
+ * `cloud_provider` arrived in migration 24. Asking for it before the migration
+ * is applied fails the WHOLE embedded camera select — and because the farm
+ * query throws on a nested error, every farm disappeared from the storefront.
+ * So the column is requested separately and dropped on 42703.
+ */
+const PUBLIC_CAMERA_COLUMNS_V24 = `${PUBLIC_CAMERA_COLUMNS}, cloud_provider`;
 
 /* The seller who owns a farm uploads a logo and a banner from /seller. A farm
    row only has `cover`, so the seller's banner is copied there on save — and
@@ -49,11 +55,36 @@ type QueryResult = PromiseLike<{
   data: unknown[] | null;
   error: { code?: string; message: string } | null;
 }>;
-async function selectFarms(withBrand: () => QueryResult, withoutBrand: () => QueryResult) {
+async function selectFarms(
+  withBrand: () => QueryResult,
+  withoutBrand: () => QueryResult,
+  /** last resort: neither the seller brand nor the v24 camera columns exist */
+  plainest?: () => QueryResult
+) {
   // supabase-js reports a bad column as `{ data: null, error }`, not as a throw
   const first = await withBrand();
-  if (first.error && isMissingBrandColumns(first.error)) return withoutBrand();
+  if (!first.error) return first;
+
+  if (isMissingBrandColumns(first.error)) {
+    const second = await withoutBrand();
+    if (!second.error) return second;
+    if (plainest && isMissingCameraColumns(second.error)) return plainest();
+    return second;
+  }
+
+  if (plainest && isMissingCameraColumns(first.error)) {
+    const second = await plainest();
+    return second;
+  }
+
   return first;
+}
+
+/** True when the database predates migration 24 (no cameras.cloud_provider). */
+function isMissingCameraColumns(error: unknown): boolean {
+  const message = (error as { message?: string })?.message ?? "";
+  const code = (error as { code?: string })?.code;
+  return code === "42703" && /cloud_provider/i.test(message);
 }
 
 function applySellerBrand(row: FarmWithSeller): Farm {
@@ -101,8 +132,10 @@ export async function listFarms(filters: FarmFilters = {}): Promise<Farm[]> {
     };
 
     const plain = `*, cameras (${PUBLIC_CAMERA_COLUMNS})`;
+    const plainV24 = `*, cameras (${PUBLIC_CAMERA_COLUMNS_V24})`;
     const { data, error } = await selectFarms(
-      () => run(`${plain}, ${SELLER_BRAND_EMBED}`),
+      () => run(`${plainV24}, ${SELLER_BRAND_EMBED}`),
+      () => run(plainV24),
       () => run(plain)
     );
     if (error) throw error;
@@ -124,15 +157,71 @@ export async function listFarms(filters: FarmFilters = {}): Promise<Farm[]> {
   }
 }
 
+/** Tri-state farm lookup, for pages that render a 404 when it is missing. */
+export type FarmLookup = { state: "ok"; value: Farm | null } | { state: "error" };
+
+export async function lookupFarmBySlug(slug: string): Promise<FarmLookup> {
+  if (!isDbConfigured()) return { state: "ok", value: await getFarmBySlug(slug) };
+  if (!dbUsable()) return { state: "error" };
+
+  try {
+    const plain = `*, cameras (${PUBLIC_CAMERA_COLUMNS})`;
+    const plainV24 = `*, cameras (${PUBLIC_CAMERA_COLUMNS_V24})`;
+    const { data, error } = await selectFarms(
+      () =>
+        db()
+          .from("farms")
+          .select(`${plainV24}, ${SELLER_BRAND_EMBED}`)
+          .eq("slug", slug)
+          .eq("is_active", true)
+          .maybeSingle(),
+      () =>
+        db()
+          .from("farms")
+          .select(plainV24)
+          .eq("slug", slug)
+          .eq("is_active", true)
+          .maybeSingle(),
+      () =>
+        db()
+          .from("farms")
+          .select(plain)
+          .eq("slug", slug)
+          .eq("is_active", true)
+          .maybeSingle()
+    );
+    if (error) throw error;
+    if (!data) return { state: "ok", value: null };
+
+    const farm = applySellerBrand(stripFarm(data as unknown as Record<string, unknown>) as FarmWithSeller);
+    farm.cameras = (farm.cameras ?? []).sort((a, b) => a.sort_order - b.sort_order);
+    farm.camera_count = farm.cameras.length;
+    farm.online_cameras = farm.cameras.filter((c) => c.status === "online").length;
+    return { state: "ok", value: farm };
+  } catch (error) {
+    markDbUnreachable(error);
+    console.warn("[farms] detail lookup failed:", (error as Error).message);
+    return { state: "error" };
+  }
+}
+
 export async function getFarmBySlug(slug: string): Promise<Farm | null> {
   if (dbUsable()) {
     try {
       const plain = `*, cameras (${PUBLIC_CAMERA_COLUMNS})`;
+      const plainV24 = `*, cameras (${PUBLIC_CAMERA_COLUMNS_V24})`;
       const { data, error } = await selectFarms(
         () =>
           db()
             .from("farms")
-            .select(`${plain}, ${SELLER_BRAND_EMBED}`)
+            .select(`${plainV24}, ${SELLER_BRAND_EMBED}`)
+            .eq("slug", slug)
+            .eq("is_active", true)
+            .maybeSingle(),
+        () =>
+          db()
+            .from("farms")
+            .select(plainV24)
             .eq("slug", slug)
             .eq("is_active", true)
             .maybeSingle(),
@@ -154,7 +243,7 @@ export async function getFarmBySlug(slug: string): Promise<Farm | null> {
         return farm;
       }
     } catch (error) {
-      markDbUnreachable();
+      markDbUnreachable(error);
       console.warn("[farms] detail fallback:", (error as Error).message);
     }
   }
@@ -169,12 +258,22 @@ export async function getDairyFarms(): Promise<Farm[]> {
 export async function listCamerasByFarm(farmId: string): Promise<Camera[]> {
   if (dbUsable()) {
     try {
-      const { data, error } = await db()
+      let { data, error } = await db()
         .from("cameras")
-        .select(PUBLIC_CAMERA_COLUMNS)
+        .select(PUBLIC_CAMERA_COLUMNS_V24)
         .eq("farm_id", farmId)
         .eq("is_active", true)
         .order("sort_order");
+
+      if (error && isMissingCameraColumns(error)) {
+        // pre-migration-24 database — the cameras still work, just no cloud ones
+        ({ data, error } = await db()
+          .from("cameras")
+          .select(PUBLIC_CAMERA_COLUMNS)
+          .eq("farm_id", farmId)
+          .eq("is_active", true)
+          .order("sort_order"));
+      }
       if (error) throw error;
       if (data?.length) return data as unknown as Camera[];
     } catch {

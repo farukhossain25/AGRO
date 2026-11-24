@@ -29,6 +29,21 @@ import type {
 
 const warned = new Set<string>();
 
+/**
+ * A read that can distinguish "nothing matched" from "the database did not
+ * answer". Callers that answer 404 / not-found on a null have to use this:
+ * `safe(..., null)` turns a transient outage into a permanent-looking 404.
+ * That is exactly how every /products/<slug> started 404-ing in production
+ * while the catalogue itself looked healthy.
+ */
+export class DataUnavailableError extends Error {
+  constructor(readonly key: string, cause?: unknown) {
+    super(`database unavailable while reading "${key}"`);
+    this.name = "DataUnavailableError";
+    this.cause = cause;
+  }
+}
+
 /** Run a read, degrade to `empty` instead of throwing. */
 async function safe<T>(fn: () => Promise<T>, empty: T, key = "catalogue"): Promise<T> {
   if (!dbUsable()) return empty;
@@ -44,6 +59,28 @@ async function safe<T>(fn: () => Promise<T>, empty: T, key = "catalogue"): Promi
       );
     }
     return empty;
+  }
+}
+
+/**
+ * Like `safe`, but hands the caller a tri-state:
+ *
+ *   ok    — a row was found, or the query genuinely matched nothing
+ *   error — the read failed; the caller must NOT claim "not found"
+ */
+export type Lookup<T> = { state: "ok"; value: T } | { state: "error"; error: unknown };
+
+async function lookup<T>(fn: () => Promise<T>, key = "row"): Promise<Lookup<T>> {
+  try {
+    if (!dbUsable()) throw new Error("database marked unreachable");
+    const value = await fn();
+    return { state: "ok", value };
+  } catch (error) {
+    if (process.env.NODE_ENV !== "test" && !warned.has(`lookup:${key}`)) {
+      warned.add(`lookup:${key}`);
+      console.warn(`[data] "${key}" lookup failed:`, (error as Error)?.message ?? error);
+    }
+    return { state: "error", error };
   }
 }
 
@@ -65,6 +102,23 @@ export function getProducts(filters: ProductFilters = {}): Promise<Product[]> {
 
 export function getProductBySlug(slug: string): Promise<Product | null> {
   return safe(() => q.getProductBySlug(slug), null, "product");
+}
+
+/** Slug lookups whose caller renders a 404 — never confuse outage with absence. */
+export function lookupProductBySlug(slug: string): Promise<Lookup<Product | null>> {
+  return lookup(() => q.getProductBySlug(slug), "product");
+}
+
+export function lookupComboBySlug(slug: string): Promise<Lookup<Combo | null>> {
+  return lookup(() => q.getComboBySlug(slug), "combo");
+}
+
+export function lookupCategoryBySlug(slug: string): Promise<Lookup<Category | null>> {
+  return lookup(() => q.getCategoryBySlug(slug), "category");
+}
+
+export function lookupBlogPost(slug: string): Promise<Lookup<BlogPost | null>> {
+  return lookup(() => q.getBlogPost(slug), "post");
 }
 
 export function getRelatedProducts(product: Product, limit = 4): Promise<Product[]> {

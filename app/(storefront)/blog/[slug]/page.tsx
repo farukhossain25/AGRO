@@ -4,7 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Clock, Share2, User } from "lucide-react";
 import { decodeRouteParam } from "@/lib/format";
-import { getBlogPost, getBlogPosts } from "@/lib/data";
+import { getBlogPosts, lookupBlogPost } from "@/lib/data";
 import { formatDateBn } from "@/lib/format";
 import { site } from "@/lib/site";
 import { breadcrumbLd, dynamicAlternates, jsonLdScript } from "@/lib/seo";
@@ -25,8 +25,9 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug: rawSlug } = await params;
   const slug = decodeRouteParam(rawSlug);
-  const post = await getBlogPost(slug);
-  if (!post) return { title: "লেখাটি পাওয়া যায়নি" };
+  const found = await lookupBlogPost(slug);
+  const post = found.state === "ok" ? found.value : null;
+  if (!post) return { title: "ব্লগ" };
   return {
     title: post.title_bn,
     description: post.excerpt_bn ?? undefined,
@@ -114,7 +115,11 @@ function renderMarkdown(md: string) {
 export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug: rawSlug } = await params;
   const slug = decodeRouteParam(rawSlug);
-  const post = await getBlogPost(slug);
+  const found = await lookupBlogPost(slug);
+  if (found.state === "error") {
+    throw new Error(`post lookup failed for "${slug}" — retry instead of 404`);
+  }
+  const post = found.value;
   if (!post) notFound();
 
   const others = (await getBlogPosts(6)).filter((p) => p.slug !== post.slug).slice(0, 3);

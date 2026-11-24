@@ -4,7 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { decodeRouteParam } from "@/lib/format";
-import { getCategories, getCategoryBySlug, getProducts } from "@/lib/data";
+import { getCategories, getProducts, lookupCategoryBySlug } from "@/lib/data";
 import { ProductBrowser } from "@/components/shop/product-browser";
 import { breadcrumbLd, dynamicAlternates, jsonLdScript } from "@/lib/seo";
 import { site } from "@/lib/site";
@@ -29,8 +29,9 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug: rawSlug } = await params;
   const slug = decodeRouteParam(rawSlug);
-  const category = await getCategoryBySlug(slug);
-  if (!category) return { title: "ক্যাটাগরি পাওয়া যায়নি" };
+  const found = await lookupCategoryBySlug(slug);
+  const category = found.state === "ok" ? found.value : null;
+  if (!category) return { title: "ক্যাটাগরি" };
 
   return {
     title: category.name_bn,
@@ -48,7 +49,12 @@ export async function generateMetadata({
 export default async function CategoryPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug: rawSlug } = await params;
   const slug = decodeRouteParam(rawSlug);
-  const category = await getCategoryBySlug(slug);
+  /* An outage must not masquerade as "this category is gone". */
+  const found = await lookupCategoryBySlug(slug);
+  if (found.state === "error") {
+    throw new Error(`category lookup failed for "${slug}" — retry instead of 404`);
+  }
+  const category = found.value;
   if (!category) notFound();
 
   const [products, categories] = await Promise.all([

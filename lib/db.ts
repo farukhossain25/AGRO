@@ -28,11 +28,11 @@ const timeoutFetch: typeof fetch = (input, init) => {
 
   return fetch(input, { ...init, signal: controller.signal })
     .then((response) => {
-      reachable = true;
+      markDbReachable();
       return response;
     })
     .catch((error) => {
-      reachable = false;
+      markDbUnreachable(error);
       throw error;
     })
     .finally(() => clearTimeout(timer));
@@ -59,28 +59,65 @@ export function db(): SupabaseClient<Database> {
 }
 
 /**
- * Set after the first failed round-trip in this process. Rendering an offline
- * build is the point: once we know Supabase is unreachable, every later call
- * returns its fallback immediately instead of burning 8 s on another timeout.
- * Reset whenever a request succeeds.
+ * Circuit breaker — and why it is time-boxed.
+ * --------------------------------------------------------------------------
+ * A failed round-trip opens the breaker so the rest of the render does not burn
+ * another 8 s per query. That part is fine.
+ *
+ * It used to stay open until some later request succeeded — but a process that
+ * has already fallen back never retries, so one bad minute (a Vercel cold start
+ * that could not resolve DNS, a transient 5xx from Postgres) left the whole
+ * serverless instance serving EMPTY data indefinitely. Symptom: product cards
+ * render, every /products/<slug> is a 404, sections vanish — while Supabase is
+ * perfectly healthy again. That is exactly what happened in production.
+ *
+ * So the breaker now closes itself after a short probe window, and a successful
+ * response closes it immediately.
  */
-let reachable: boolean | null = null;
-
-export function markDbUnreachable() {
-  reachable = false;
+function probeAfterMs(): number {
+  const raw = Number(process.env.SUPABASE_PROBE_AFTER_MS);
+  return Number.isFinite(raw) && raw > 0 ? raw : 3000;
 }
 
+let unreachableUntil = 0;
+
+/** A request genuinely reached the database. Always safe to call. */
 export function markDbReachable() {
-  reachable = true;
+  unreachableUntil = 0;
 }
 
 /**
- * True when it is worth attempting a query: credentials exist AND the last
- * attempt in this process did not fail. Callers use it exactly like
+ * Called by data modules when a read fails. Production failures do NOT open the
+ * breaker — most are row-level (a missing column, one bad filter) and every
+ * other query still works. Only transport-level errors do, because those are
+ * the ones that make each retry cost a full timeout.
+ */
+export function markDbUnreachable(error?: unknown) {
+  if (!isTransportFailure(error)) return;
+  unreachableUntil = Date.now() + probeAfterMs();
+}
+
+function isTransportFailure(error: unknown): boolean {
+  const e = error as { code?: string; message?: string; name?: string; status?: number } | undefined;
+  if (!e) return true; // no detail at all — assume the worst, the window is short
+  const message = `${e.message ?? ""}`.toLowerCase();
+  if (e.name === "AbortError" || /abort|timeout|timed out/.test(message)) return true;
+  if (/fetch failed|network|econnrefused|enotfound|eai_again|socket hang up|terminated/.test(message))
+    return true;
+  // Supabase's own gateway codes for "the database is not answering"
+  if (e.status !== undefined && e.status >= 500) return true;
+  // Everything else is a query-level problem (42703 unknown column, 42P01 missing
+  // table, PGRST errors about the request itself) — do not punish the whole app.
+  return false;
+}
+
+/**
+ * True when it is worth attempting a query: credentials exist AND the breaker is
+ * closed (or its probe window has elapsed). Callers use it exactly like
  * `isDbConfigured()` — data modules already fall back to seed content.
  */
 export function dbUsable(): boolean {
-  return isDbConfigured() && reachable !== false;
+  return isDbConfigured() && Date.now() >= unreachableUntil;
 }
 
 /** True when Supabase credentials are present (used for graceful demo mode). */

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Check, ChevronRight, Clock, Leaf, Package, Truck } from "lucide-react";
 import { decodeRouteParam } from "@/lib/format";
-import { getComboBySlug, getCombos } from "@/lib/data";
+import { getCombos, lookupComboBySlug } from "@/lib/data";
 import { money } from "@/lib/format";
 import { ComboAddButton } from "@/components/shop/combo-add-button";
 import { dynamicAlternates } from "@/lib/seo";
@@ -25,7 +25,8 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug: rawSlug } = await params;
   const slug = decodeRouteParam(rawSlug);
-  const combo = await getComboBySlug(slug);
+  const found = await lookupComboBySlug(slug);
+  const combo = found.state === "ok" ? found.value : null;
   if (!combo) return { title: "কম্বো পাওয়া যায়নি" };
   return {
     title: combo.name_bn,
@@ -43,7 +44,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function ComboPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug: rawSlug } = await params;
   const slug = decodeRouteParam(rawSlug);
-  const combo = await getComboBySlug(slug);
+  /* A failed read must not be reported as "no such combo" — see lib/data.ts. */
+  const found = await lookupComboBySlug(slug);
+  if (found.state === "error") throw new Error(`combo lookup failed for "${slug}"`);
+  const combo = found.value;
   if (!combo) notFound();
 
   const all = await getCombos();

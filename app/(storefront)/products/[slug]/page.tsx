@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { decodeRouteParam } from "@/lib/format";
-import { getApprovedReviews, getCategories, getProductBySlug, getProducts, getRelatedProducts } from "@/lib/data";
+import { getApprovedReviews, getCategories, getProducts, getRelatedProducts, lookupProductBySlug } from "@/lib/data";
 import { ProductDetail } from "@/components/shop/product-detail";
 import { SupplierCard } from "@/components/shop/supplier-card";
 import { ProductLiveBlock } from "@/components/live/product-live-block";
@@ -37,8 +37,10 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug: rawSlug } = await params;
   const slug = decodeRouteParam(rawSlug);
-  const product = await getProductBySlug(slug);
-  if (!product) return { title: "পণ্য পাওয়া যায়নি" };
+  // Metadata must not cache a 404 title because of a hiccup either.
+  const found = await lookupProductBySlug(slug);
+  const product = found.state === "ok" ? found.value : null;
+  if (!product) return { title: "পণ্য" };
 
   const title = `${product.name_bn} — ${product.unit}`;
   const description =
@@ -80,7 +82,15 @@ export default async function ProductPage({
   const { slug: rawSlug } = await params;
   const slug = decodeRouteParam(rawSlug);
   const sort = normaliseSort((await searchParams).rsort);
-  const product = await getProductBySlug(slug);
+
+  /* Only a genuine "no such row" may answer 404. A failed read used to look
+     identical, so one bad minute at Supabase turned every product link into
+     "পণ্য পাওয়া যায়নি" until the serverless instance was recycled. */
+  const found = await lookupProductBySlug(slug);
+  if (found.state === "error") {
+    throw new Error(`product lookup failed for "${slug}" — retry instead of 404`);
+  }
+  const product = found.value;
   if (!product) notFound();
 
   const [categories, related, reviews, verified] = await Promise.all([
