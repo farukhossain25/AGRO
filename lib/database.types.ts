@@ -2057,6 +2057,8 @@ export type Database = {
         upazila: string | null
         farm_photos: string[]
         product_types: string[]
+        logo: string | null
+        banner: string | null
         payout_method: string
         payout_number: string | null
         bank_name: string | null
@@ -2083,6 +2085,8 @@ export type Database = {
         upazila?: string | null
         farm_photos?: string[]
         product_types?: string[]
+        logo?: string | null
+        banner?: string | null
         payout_method?: string
         payout_number?: string | null
         bank_name?: string | null
@@ -2109,6 +2113,8 @@ export type Database = {
         upazila?: string | null
         farm_photos?: string[]
         product_types?: string[]
+        logo?: string | null
+        banner?: string | null
         payout_method?: string
         payout_number?: string | null
         bank_name?: string | null
@@ -2683,6 +2689,8 @@ export type Database = {
         farm_address_bn: string | null
         farm_photos: string[] | null
         product_types: string[] | null
+        logo: string | null
+        banner: string | null
         commission_percent: number | null
         status: Database["public"]["Enums"]["seller_status"] | null
         approved_at: string | null

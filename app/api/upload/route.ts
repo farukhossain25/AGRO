@@ -1,4 +1,5 @@
 import { clientKey, currentUser, fail, handleError, ok, rateLimit, tooMany } from "@/lib/api";
+import { db } from "@/lib/db";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -8,9 +9,11 @@ export const maxDuration = 30;
 /* ==========================================================================
    POST /api/upload — customer-facing image upload
    --------------------------------------------------------------------------
-   Used by the review screen and the complaint form. Callers may only write to
-   the two buckets listed below; the path is namespaced by user id so one
-   customer can never overwrite another's photo.
+   Used by the review screen, the complaint form and — for approved sellers —
+   the product photo gallery and the store logo / banner on the seller
+   dashboard. Callers may only write to the buckets listed below (the seller
+   set is additionally gated on the caller's seller status); the path is
+   namespaced by user id so one account can never overwrite another's photo.
 
    Safety:
      • session required (no anonymous uploads)
@@ -25,10 +28,28 @@ const ALLOWED: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
   "image/webp": "webp",
+  "image/avif": "avif",
 };
 
-/** Buckets a normal customer may write to, with their per-user folder prefix. */
+/** Buckets a signed-in customer may write to. */
 const BUCKETS = new Set(["review-photos", "complaint-photos"]);
+
+/** Buckets only an APPROVED seller may write to (their own store / products). */
+const SELLER_BUCKETS = new Set(["product-images", "logos", "farm-images"]);
+
+async function isApprovedSeller(userId: string): Promise<boolean> {
+  try {
+    const { data } = await db()
+      .from("sellers")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("status", "approved")
+      .maybeSingle();
+    return Boolean(data);
+  } catch {
+    return false;
+  }
+}
 
 /** Sniff the real image type from the first bytes of the file. */
 function sniff(bytes: Uint8Array): string | null {
@@ -65,6 +86,20 @@ function sniff(bytes: Uint8Array): string | null {
     return "image/webp";
   }
 
+  // AVIF: .... "ftyp" "avif"
+  if (
+    bytes[4] === 0x66 &&
+    bytes[5] === 0x74 &&
+    bytes[6] === 0x79 &&
+    bytes[7] === 0x70 &&
+    bytes[8] === 0x61 &&
+    bytes[9] === 0x76 &&
+    bytes[10] === 0x69 &&
+    bytes[11] === 0x66
+  ) {
+    return "image/avif";
+  }
+
   return null;
 }
 
@@ -83,9 +118,15 @@ export async function POST(req: Request) {
     const bucket = String(form.get("bucket") ?? "review-photos");
 
     if (!(file instanceof File)) return fail("ছবি নির্বাচন করুন", 400);
-    if (!BUCKETS.has(bucket)) return fail("এই বাকেটে আপলোড অনুমোদিত নয়", 403);
+    if (!BUCKETS.has(bucket)) {
+      // Seller store / product photos: only for an approved seller account.
+      if (!SELLER_BUCKETS.has(bucket)) return fail("এই বাকেটে আপলোড অনুমোদিত নয়", 403);
+      if (!(await isApprovedSeller(user.id))) {
+        return fail("শুধু অনুমোদিত সেলার পণ্যের ছবি বা স্টোরের লোগো/ব্যানার আপলোড করতে পারেন", 403);
+      }
+    }
 
-    if (!ALLOWED[file.type]) return fail("শুধু JPG, PNG বা WebP ছবি দিন", 415);
+    if (!ALLOWED[file.type]) return fail("শুধু JPG, PNG, WebP বা AVIF ছবি দিন", 415);
     if (file.size > MAX_BYTES) return fail("ছবিটি ৪ MB-এর বেশি — ছোট ছবি দিন", 413);
 
     const bytes = new Uint8Array(await file.arrayBuffer());

@@ -483,6 +483,9 @@ create table if not exists public.sellers (
   upazila             text,
   farm_photos         text[] not null default '{}'::text[],
   product_types       text[] not null default '{}'::text[],
+  -- store brand images, uploaded by the seller (migration 22 adds them to older DBs)
+  logo                 text,
+  banner               text,
   payout_method       text not null default 'bkash' check (payout_method in ('bkash', 'nagad', 'bank')),
   payout_number       text,
   bank_name           text,
@@ -2687,6 +2690,8 @@ select
   s.farm_address_bn,
   s.farm_photos,
   s.product_types,
+  s.logo,
+  s.banner,
   s.commission_percent,
   s.status,
   s.approved_at,

@@ -138,6 +138,8 @@ select
   s.farm_address_bn,
   s.farm_photos,
   s.product_types,
+  s.logo,
+  s.banner,
   s.commission_percent,
   s.status,
   s.approved_at,

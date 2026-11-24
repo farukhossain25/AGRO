@@ -62,7 +62,9 @@ export default async function SellerStorePage({ params }: { params: Promise<{ sl
 
   const { seller, products } = data;
   const isPreview = seller.status !== "approved";
-  const cover = seller.farm_photos?.[0] ?? "/images/hero/farm.jpg";
+  // the banner the seller uploaded wins; older stores fall back to the first farm photo
+  const cover = seller.banner || seller.farm_photos?.[0] || "/images/hero/farm.jpg";
+  const logo = seller.logo ?? null;
 
   /* Storefront markup: a Store node (so Google can show the shop's name and
      location) plus a BreadcrumbList. Seller NID / bank / phone never appear —
@@ -76,6 +78,7 @@ export default async function SellerStorePage({ params }: { params: Promise<{ sl
         name: seller.name_bn,
         url: `${site.url}/market/${seller.slug}`,
         image: cover.startsWith("http") ? cover : `${site.url}${cover}`,
+        ...(logo ? { logo: logo.startsWith("http") ? logo : `${site.url}${logo}` } : {}),
         description: seller.farm_address_bn ?? `${seller.district} জেলার যাচাইকৃত খামার ও বিক্রেতা।`,
         address: {
           "@type": "PostalAddress",
@@ -138,10 +141,17 @@ export default async function SellerStorePage({ params }: { params: Promise<{ sl
             <span>/</span>
             <span className="text-white/85">{seller.name_bn}</span>
           </nav>
-          <h1 className="flex items-center gap-2 text-[24px] font-bold text-white sm:text-3xl">
-            {seller.name_bn}
-            {!isPreview && <BadgeCheck className="h-5 w-5 text-leaf-400" />}
-          </h1>
+          <div className="flex items-center gap-3">
+            {logo ? (
+              <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-white shadow-lg ring-2 ring-white/70 sm:h-14 sm:w-14">
+                <Image src={logo} alt={`${seller.name_bn} লোগো`} fill sizes="56px" className="object-contain p-0.5" />
+              </span>
+            ) : null}
+            <h1 className="flex items-center gap-2 text-[24px] font-bold text-white sm:text-3xl">
+              {seller.name_bn}
+              {!isPreview && <BadgeCheck className="h-5 w-5 text-leaf-400" />}
+            </h1>
+          </div>
           <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-white/70">
             <span className="inline-flex items-center gap-1">
               <MapPin className="h-3 w-3" /> {seller.district}

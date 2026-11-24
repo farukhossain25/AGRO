@@ -64,9 +64,9 @@ export default async function MarketPage() {
           {sellers.map((seller) => (
             <article key={seller.id} className="card overflow-hidden transition hover:border-leaf-600/40">
               <div className="relative aspect-[16/9] overflow-hidden bg-ink-800">
-                {seller.farm_photos?.[0] ? (
+                {seller.banner || seller.farm_photos?.[0] ? (
                   <Image
-                    src={seller.farm_photos[0]}
+                    src={seller.banner || seller.farm_photos![0]}
                     alt={seller.name_bn}
                     fill
                     sizes="(max-width:768px) 100vw, 33vw"
@@ -76,6 +76,11 @@ export default async function MarketPage() {
                   <div className="grid h-full place-items-center text-3xl">🏡</div>
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-scrim via-transparent to-transparent" />
+                {seller.logo ? (
+                  <span className="absolute bottom-3 left-3 h-11 w-11 overflow-hidden rounded-xl bg-white shadow-md ring-2 ring-white/80">
+                    <Image src={seller.logo} alt={`${seller.name_bn} লোগো`} fill sizes="44px" className="object-contain p-0.5" />
+                  </span>
+                ) : null}
               </div>
 
               <div className="p-4">

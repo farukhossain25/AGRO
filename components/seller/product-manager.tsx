@@ -7,6 +7,7 @@ import { Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useToast } from "@/lib/toast";
 import { money, toBn } from "@/lib/format";
 import type { Product } from "@/lib/types";
+import { PhotoGalleryField } from "@/components/seller/photo-gallery-field";
 
 type Category = { id: string; name_bn: string };
 type Row = Product & { approval_status?: string; approval_note?: string | null };
@@ -21,7 +22,8 @@ const empty = {
   price: "",
   compare_price: "",
   stock: "",
-  image: "",
+  /** photo gallery from the device — [0] is the cover (products.image) */
+  images: [] as string[],
 };
 
 /* ==========================================================================
@@ -63,7 +65,7 @@ export function SellerProductManager({
       price: String(row.price ?? ""),
       compare_price: row.compare_price ? String(row.compare_price) : "",
       stock: String(row.stock ?? 0),
-      image: row.image ?? row.images?.[0] ?? "",
+      images: Array.from(new Set([row.image, ...(row.images ?? [])].filter(Boolean) as string[])),
     });
     setOpen(true);
   };
@@ -77,6 +79,8 @@ export function SellerProductManager({
         price: Number(form.price),
         compare_price: form.compare_price ? Number(form.compare_price) : null,
         stock: Number(form.stock || 0),
+        image: form.images[0] ?? "",
+        images: form.images,
       };
 
       const res = await fetch("/api/sellers/products", {
@@ -333,15 +337,14 @@ export function SellerProductManager({
                   className="input"
                 />
               </div>
-              <div>
-                <label className="label">ছবির URL</label>
-                <input
-                  value={form.image}
-                  onChange={(e) => setForm({ ...form, image: e.target.value })}
-                  className="input"
-                  placeholder="/images/cat/vegetables.jpg"
-                />
+              <div className="sm:col-span-2">
+                <label className="label">পণ্যের ছবি</label>
               </div>
+              <PhotoGalleryField
+                value={form.images}
+                onChange={(images) => setForm({ ...form, images })}
+                max={5}
+              />
               <div className="sm:col-span-2">
                 <label className="label">বিবরণ</label>
                 <textarea

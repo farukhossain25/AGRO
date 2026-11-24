@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Banknote, Eye, Package, ShoppingBag, Store, TrendingUp } from "lucide-react";
@@ -15,6 +16,7 @@ import { ensureSellerFarm, type SellerFarmLink } from "@/lib/seller-farm";
 import { toBn } from "@/lib/format";
 import { Printer } from "lucide-react";
 import { SellerProductManager } from "@/components/seller/product-manager";
+import { StoreBranding } from "@/components/seller/store-branding";
 
 export const dynamic = "force-dynamic";
 
@@ -81,23 +83,30 @@ export default async function SellerDashboard() {
     <div className="container-x py-8 sm:py-12">
       {/* header */}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-[11px] uppercase tracking-wide text-sand-100/40">সেলার ড্যাশবোর্ড</p>
-          <h1 className="mt-0.5 text-[22px] font-bold sm:text-[28px]">{seller.name_bn}</h1>
-          <p className="mt-1 flex items-center gap-2 text-[12px] text-sand-100/50">
-            <span
-              className={`rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${
-                seller.status === "approved"
-                  ? "bg-leaf-600/20 text-leaf-700"
-                  : seller.status === "pending"
-                  ? "bg-amber-500/15 text-amber-300"
-                  : "bg-red-500/15 text-red-300"
-              }`}
-            >
-              {sellerStatusLabelBn[seller.status]}
+        <div className="flex items-center gap-3">
+          {seller.logo ? (
+            <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-white ring-1 ring-white/15 sm:h-14 sm:w-14">
+              <Image src={seller.logo} alt="" fill sizes="56px" className="object-contain p-0.5" unoptimized />
             </span>
-            {seller.district} · কমিশন {Number(seller.commission_percent)}%
-          </p>
+          ) : null}
+          <div>
+            <p className="text-[11px] uppercase tracking-wide text-sand-100/40">সেলার ড্যাশবোর্ড</p>
+            <h1 className="mt-0.5 text-[22px] font-bold sm:text-[28px]">{seller.name_bn}</h1>
+            <p className="mt-1 flex items-center gap-2 text-[12px] text-sand-100/50">
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${
+                  seller.status === "approved"
+                    ? "bg-leaf-600/20 text-leaf-700"
+                    : seller.status === "pending"
+                    ? "bg-amber-500/15 text-amber-300"
+                    : "bg-red-500/15 text-red-300"
+                }`}
+              >
+                {sellerStatusLabelBn[seller.status]}
+              </span>
+              {seller.district} · কমিশন {Number(seller.commission_percent)}%
+            </p>
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href="/seller/reviews" className="btn-ghost btn-sm min-h-[44px]">
@@ -183,6 +192,15 @@ export default async function SellerDashboard() {
 
         {/* orders + payouts */}
         <aside className="space-y-5">
+          <StoreBranding
+            key={seller.id}
+            slug={seller.slug}
+            name={seller.name_bn}
+            initialLogo={seller.logo}
+            initialBanner={seller.banner}
+            live={seller.status === "approved"}
+          />
+
           <div className="card p-4">
             <h2 className="mb-3 flex items-center justify-between text-[13px] font-bold text-neu-ink">
               <span>সাম্প্রতিক অর্ডার</span>

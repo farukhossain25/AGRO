@@ -91,8 +91,8 @@ export async function POST(req: Request) {
       price: data.price,
       compare_price: data.compare_price ?? null,
       stock: data.stock,
-      image: data.image || null,
-      images: data.image ? [data.image] : [],
+      image: data.images?.[0] ?? data.image ?? null,
+      images: data.images?.length ? data.images : data.image ? [data.image] : [],
       weight_grams: data.weight_grams ?? null,
       is_active: true,
       is_featured: false,
@@ -137,7 +137,7 @@ export async function PATCH(req: Request) {
     const client = db();
     const { data: existing } = await client
       .from("products")
-      .select("id, seller_id, approval_status")
+      .select("id, seller_id, approval_status, image, images")
       .eq("id", id)
       .maybeSingle();
 
@@ -160,6 +160,16 @@ export async function PATCH(req: Request) {
       if (data[key] !== undefined) patch[key] = data[key];
     }
     if (typeof body.is_active === "boolean") patch.is_active = body.is_active;
+
+    // The gallery travels with the cover: a new list replaces the old one; a
+    // cover set on its own just takes the front slot and keeps the rest.
+    if (data.images !== undefined) {
+      patch.images = data.images;
+      patch.image = data.images[0] ?? null;
+    } else if (data.image !== undefined) {
+      const rest = ((existing.images as string[] | null) ?? []).filter((src) => src !== existing.image).slice(0, 5);
+      patch.images = data.image ? [data.image, ...rest] : rest;
+    }
 
     // No re-queue on edit: a verified seller updating today's stock must not
     // have the product disappear from the store until someone re-approves it.
