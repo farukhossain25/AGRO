@@ -72,7 +72,7 @@ export function ParcelDetails({ data }: { data: ParcelScanData }) {
       <div className="overflow-hidden rounded-[26px] border border-white/60 bg-neu-raised shadow-neu-lg">
         <div
           className="relative px-5 pb-5 pt-6 text-white"
-          style={{ background: "linear-gradient(135deg,#0d3b25 0%,#1f7a4d 80%,#2c9a68 100%)" }}
+          style={{ background: "linear-gradient(135deg,#06350a 0%,#0a4d0a 78%,#1f7a2b 100%)" }}
         >
           <div className="flex items-start gap-3">
             <svg viewBox="0 0 24 24" width="34" height="34" aria-hidden="true" className="mt-0.5 shrink-0">

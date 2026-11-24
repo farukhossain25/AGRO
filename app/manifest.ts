@@ -15,9 +15,9 @@ export default function manifest(): MetadataRoute.Manifest {
     scope: "/",
     display: "standalone",
     orientation: "portrait",
-    /* Matches the top of the iOS launch-screen gradient (scripts/generate-brand.mjs). */
-    background_color: "#0a2a1b",
-    theme_color: "#1f7a4d",
+    /* Matches the brand script's splash gradient + badge ring (scripts/generate-brand.mjs). */
+    background_color: "#083a0a",
+    theme_color: "#0a4d0a",
     lang: "bn-BD",
     dir: "ltr",
     categories: ["shopping", "food", "lifestyle"],

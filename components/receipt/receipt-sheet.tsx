@@ -57,8 +57,8 @@ const C = {
   faint: "#8b948e",
   line: "#dfe5e1",
   soft: "#f5f8f6",
-  brand: "#1f7a4d",
-  brandDark: "#0d3b25",
+  brand: "#0a4d0a",
+  brandDark: "#06350a",
   tint: "#eaf5ee",
   tintLine: "#bfe0cd",
 };
@@ -105,7 +105,7 @@ export function ReceiptSheet({ data }: { data: ReceiptSheetData }) {
             position: "relative",
             padding: "9px 11px 8px",
             color: "#fff",
-            background: `linear-gradient(135deg, ${C.brandDark} 0%, ${C.brand} 78%, #2c9a68 100%)`,
+            background: `linear-gradient(135deg, ${C.brandDark} 0%, ${C.brand} 72%, #1f7a2b 100%)`,
           }}
         >
           <div style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>

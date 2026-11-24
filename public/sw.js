@@ -9,7 +9,7 @@
    Cache version is bumped by hand on every deploy that changes shell assets.
    ========================================================================== */
 
-const VERSION = "ba-v2";
+const VERSION = "ba-v3";
 const STATIC_CACHE = `${VERSION}-static`;
 const IMAGE_CACHE = `${VERSION}-images`;
 const OFFLINE_URL = "/offline";

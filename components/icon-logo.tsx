@@ -2,12 +2,16 @@ import type { CSSProperties } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
-/* Brand colours sampled from the master logo (assets/brand/bishwas-agro-logo.jpg):
-   the deep green of "বিশ্বাস", the leaf green of "এগ্রো", the orange of "AGRO". */
-const BN_DEEP = "#06591b";
-const BN_LEAF = "#23961c";
-const EN_ORANGE = "#e98206";
-const EN_ORANGE_ON_DARK = "#f6a94a";
+/* Brand colours sampled from the master logo (assets/brand/bishwas-agro-logo.png):
+   the deep ring green of "বিশ্বাস", the leaf green of "এগ্রো", the gold of "AGRO".
+   Gold is a fill colour in the artwork — as 12 px type on a light surface it
+   would sit at ~1.2:1, so the wordmark uses its darkened amber (#8f5a05, 4.9:1)
+   instead of the literal #fcd818. */
+const BN_DEEP = "#0a4d0a";
+const BN_LEAF = "#2f7a10";
+const EN_AMBER = "#8f5a05";
+const BN_LEAF_ON_DARK = "#9fe3bf";
+const EN_AMBER_ON_DARK = "#f6c85a";
 
 export function Logo({
   size = 40,
@@ -44,22 +48,22 @@ export function Logo({
   const rootStyle = { "--logo-size": `${size}px` } as CSSProperties;
 
   if (variant === "full") {
+    /* The seal already has its own gold ring and transparent corners — no
+       white plate behind it, or the round badge sits in a visible box. */
     const content = (
-      <span className="inline-block rounded-[22px] border border-white/80 bg-white p-2.5 shadow-neu-sm sm:p-3">
-        <Image
-          src="/brand/logo-full.webp"
-          alt="বিশ্বাস এগ্রো — BISHWAS AGRO"
-          width={1200}
-          height={764}
-          sizes="(max-width: 640px) 190px, 224px"
-          priority={priority}
-          className="block h-auto w-[190px] sm:w-[224px]"
-        />
-      </span>
+      <Image
+        src="/brand/logo-full.webp"
+        alt="বিশ্বাস এগ্রো — BISHWAS AGRO"
+        width={1200}
+        height={1093}
+        sizes="(max-width: 640px) 200px, 240px"
+        priority={priority}
+        className="block h-auto w-[200px] sm:w-[240px]"
+      />
     );
     if (!href) return content;
     return (
-      <Link href={href} className="inline-block rounded-[22px]">
+      <Link href={href} className="inline-block rounded-2xl">
         {content}
       </Link>
     );
@@ -89,14 +93,14 @@ export function Logo({
         className="truncate font-bold tracking-tight text-[calc(var(--logo-size)*0.37)]"
         style={{ color: onDark ? "#ffffff" : BN_DEEP }}
       >
-        বিশ্বাস <span style={{ color: onDark ? "#9fe3bf" : BN_LEAF }}>এগ্রো</span>
+        বিশ্বাস <span style={{ color: onDark ? BN_LEAF_ON_DARK : BN_LEAF }}>এগ্রো</span>
       </span>
       <span
         className="mt-[calc(var(--logo-size)*0.11)] truncate font-sans font-bold uppercase tracking-[0.2em] text-[calc(var(--logo-size)*0.225)]"
         style={{ color: onDark ? "#9fe3bf" : BN_DEEP }}
       >
         BISHWAS{" "}
-        <span style={{ color: onDark ? EN_ORANGE_ON_DARK : EN_ORANGE }}>AGRO</span>
+        <span style={{ color: onDark ? EN_AMBER_ON_DARK : EN_AMBER }}>AGRO</span>
       </span>
     </span>
   );
