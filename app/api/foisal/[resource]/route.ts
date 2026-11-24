@@ -72,6 +72,10 @@ const CAMERA_COLUMNS = [
   "protocol",
   "stream_key",
   "stream_url",
+  /* cloud bridge (migration 24) — the seller's own app keeps the camera online */
+  "cloud_provider",
+  "cloud_serial",
+  "cloud_channel",
   "poster",
   "location_lat",
   "location_lng",

@@ -9,6 +9,8 @@ export default async function AdminCamerasPage() {
   let online = rows.filter((r) => r.status === "online").length;
   let dbReady = isDbConfigured();
   const proxyReady = Boolean(process.env.STREAM_PROXY_TARGET);
+  const imouReady = Boolean(process.env.IMOU_APP_ID && process.env.IMOU_APP_SECRET);
+  const ezvizReady = Boolean(process.env.EZVIZ_APP_KEY && process.env.EZVIZ_APP_SECRET);
 
   if (isDbConfigured()) {
     try {
@@ -34,14 +36,30 @@ export default async function AdminCamerasPage() {
 
   return (
     <div className="space-y-4">
-      {!proxyReady && (
+      {/* MediaMTX is now optional: a cloud-bridge camera (Imou / EZVIZ / a
+          public HLS link) plays without any server of ours, so the warning is
+          only shown when NO path is configured at all. */}
+      {!proxyReady && !imouReady && !ezvizReady && (
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/8 p-3.5 text-[11.5px] leading-relaxed text-amber-200">
-          <strong>STREAM_PROXY_TARGET সেট করা নেই।</strong> ক্যামেরা রেকর্ড রাখা যাবে, কিন্তু লাইভ স্ট্রিম চলবে
-          না। MediaMTX চালু করে <code className="rounded bg-neu-sunken px-1 text-neu-accent-strong">STREAM_PROXY_TARGET</code> এনভায়রনমেন্ট
-          ভেরিয়েবলে URL দিন (যেমন <code className="rounded bg-neu-sunken px-1 text-neu-accent-strong">http://mediamtx:8888</code>)।
+          <strong>লাইভের কোনো পথ চালু নেই।</strong> সহজ উপায়: Vercel-এ{" "}
+          <code className="rounded bg-neu-sunken px-1 text-neu-accent-strong">IMOU_APP_ID</code> /{" "}
+          <code className="rounded bg-neu-sunken px-1 text-neu-accent-strong">IMOU_APP_SECRET</code> দিন, তারপর
+          ক্যামেরার স্ট্রিম সোর্স <strong>Imou Life</strong> বেছে নিন — কোনো ভিপিএস বা ল্যাপটপ লাগবে না।
+          EZVIZ হলে <code className="rounded bg-neu-sunken px-1 text-neu-accent-strong">EZVIZ_APP_KEY</code> /{" "}
+          <code className="rounded bg-neu-sunken px-1 text-neu-accent-strong">EZVIZ_APP_SECRET</code>।
         </div>
       )}
 
+      {/* Per-provider reminder — a row saved with a provider whose keys are
+          missing would fail only when a viewer opens it, so say it here. */}
+      {((!imouReady && rows.some((r) => r.cloud_provider === "imou")) ||
+        (!ezvizReady && rows.some((r) => r.cloud_provider === "ezviz"))) && (
+        <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-3.5 text-[11.5px] leading-relaxed text-[#1b5878]">
+          <strong>কিছু ক্যামেরার ক্লাউড কী সেট করা নেই।</strong> Imou/EZVIZ ক্যামেরা চালু করতে Vercel-এ
+          সংশ্লিষ্ট <code className="rounded bg-neu-sunken px-1">*_APP_ID / *_APP_SECRET</code> যোগ করুন, নইলে
+          দর্শক "ক্যামেরা চালু করা যাচ্ছে না" দেখবেন।
+        </div>
+      )}
       <SimpleManager
         title="ক্যামেরা"
         subtitle={`${rows.length}টি ক্যামেরা · ${online}টি অনলাইন`}
@@ -54,7 +72,10 @@ export default async function AdminCamerasPage() {
           zone_bn: "জমি",
           stream_key: "",
           protocol: "hls",
-          status: "offline",
+          cloud_provider: "none",
+          cloud_serial: "",
+          cloud_channel: 0,
+          status: "online",
           max_viewers: 50,
           is_active: true,
           is_premium: true,
@@ -63,6 +84,7 @@ export default async function AdminCamerasPage() {
         columns={[
           { key: "name_bn", label: "ক্যামেরা", format: "stack", subKey: "zone_bn" },
           { key: "farm_name", label: "খামার" },
+          { key: "cloud_provider", label: "স্ট্রিম সোর্স" },
           { key: "stream_key", label: "Stream key", format: "code" },
           { key: "protocol", label: "প্রোটোকল" },
           { key: "status", label: "স্টেটাস" },
@@ -82,8 +104,34 @@ export default async function AdminCamerasPage() {
             })),
           },
           {
+            name: "cloud_provider",
+            label: "স্ট্রিম সোর্স",
+            type: "select",
+            colSpan: 2,
+            options: [
+              { value: "imou", label: "Imou Life অ্যাপ (কোনো ল্যাপটপ/ভিপিএস ছাড়া)" },
+              { value: "ezviz", label: "EZVIZ অ্যাপ (কোনো ল্যাপটপ/ভিপিএস ছাড়া)" },
+              { value: "hls", label: "ক্লাউড HLS লিংক (আগে থেকেই পাবলিক)" },
+              { value: "none", label: "MediaMTX / RTSP (ভিপিএস লাগবে)" },
+            ],
+            hint: "Imou/EZVIZ বেছে নিলে সেলারের ফোনের অ্যাপই ক্যামেরা অনলাইন রাখে — আলাদা কিছু লাগে না",
+          },
+          {
+            name: "cloud_serial",
+            label: "ডিভাইস সিরিয়াল / Device ID",
+            type: "text",
+            colSpan: 2,
+            hint: "Imou: অ্যাপের ডিভাইস তথ্যের Device ID · EZVIZ: ৯ অক্ষরের সিরিয়াল (যেমন F00497273) · DVR হলে চ্যানেল নম্বরও দিন",
+          },
+          {
+            name: "cloud_channel",
+            label: "চ্যানেল নম্বর",
+            type: "number",
+            hint: "একক ক্যামেরা হলে ০ · Dahua/Hikvision DVR-এ ১–১৬",
+          },
+          {
             name: "protocol",
-            label: "প্রোটোকল",
+            label: "প্রোটোকল (পুরোনো RTSP পথ)",
             type: "select",
             options: [
               { value: "hls", label: "HLS (MediaMTX)" },
@@ -94,9 +142,8 @@ export default async function AdminCamerasPage() {
             name: "stream_key",
             label: "Stream key",
             type: "text",
-            required: true,
             colSpan: 2,
-            hint: "MediaMTX path নাম — কখনো ব্রাউজারে যায় না",
+            hint: "শুধু MediaMTX পথে দরকার — কখনো ব্রাউজারে যায় না",
           },
           {
             name: "status",

@@ -82,6 +82,11 @@ create table if not exists public.cameras (
   protocol        public.camera_protocol not null default 'hls',
   stream_key      text,
   stream_url      text,
+  -- cloud-bridge playback (migration 24): the seller's own camera app keeps the
+  -- device reachable, so no VPS / tunnel is needed. 'none' = the RTSP path.
+  cloud_provider  text not null default 'none' check (cloud_provider in ('none', 'hls', 'imou', 'ezviz')),
+  cloud_serial    text,
+  cloud_channel   integer not null default 0,
   poster          text,
   location_lat    numeric(9, 6),
   location_lng    numeric(9, 6),

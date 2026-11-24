@@ -14,6 +14,8 @@ const PUBLIC_CAMERA_COLUMNS = [
   "name_bn",
   "zone_bn",
   "protocol",
+  /* which player to mount — never the serial or the credential */
+  "cloud_provider",
   "poster",
   "location_lat",
   "location_lng",
