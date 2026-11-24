@@ -15,6 +15,7 @@ import {
   ShoppingBag,
   Truck,
   Undo2,
+  Zap,
 } from "lucide-react";
 import { useCart } from "@/lib/cart";
 import { useLocale } from "@/lib/locale";
@@ -203,7 +204,9 @@ export function ProductDetail({
           </div>
         </dl>
 
-        {/* quantity + actions */}
+        {/* quantity + actions — the two buttons share one shape and height;
+            on phones they drop to their own full-width row so neither is
+            squeezed into a blob by the stepper next to it. */}
         <div className="mt-5 flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-1 rounded-full border border-white/10 bg-ink-800 p-1">
             <button
@@ -224,14 +227,26 @@ export function ProductDetail({
             </button>
           </div>
 
-          <button onClick={add} disabled={soldOut} className="btn-primary flex-1 sm:flex-none">
-            <ShoppingBag className="h-4 w-4" />
-            {t("কার্টে যোগ করুন", "Add to cart")}
-          </button>
-          <button onClick={buyNow} disabled={soldOut} className="btn-mint flex-1 sm:flex-none">
-            {t("এখনই অর্ডার", "Buy now")}
-          </button>
           <WishlistButton productId={product.id} initial={initialSaved} />
+
+          <div className="flex w-full gap-3 sm:w-auto sm:flex-1">
+            <button
+              onClick={add}
+              disabled={soldOut}
+              className="btn-ghost min-h-[48px] flex-1 whitespace-nowrap px-3 text-[13px] sm:px-6 sm:text-sm"
+            >
+              <ShoppingBag className="h-4 w-4 shrink-0" />
+              {t("কার্টে যোগ করুন", "Add to cart")}
+            </button>
+            <button
+              onClick={buyNow}
+              disabled={soldOut}
+              className="btn-primary min-h-[48px] flex-1 whitespace-nowrap px-3 text-[13px] sm:px-6 sm:text-sm"
+            >
+              <Zap className="h-4 w-4 shrink-0" />
+              {t("এখনই অর্ডার", "Buy now")}
+            </button>
+          </div>
         </div>
 
         {/* assurances */}

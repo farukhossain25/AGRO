@@ -62,10 +62,27 @@ export async function PATCH(req: Request) {
       .single();
     if (error) throw error;
 
-    // The store page and the marketplace grid are dynamic, but any cached
-    // path underneath them must not keep showing the previous picture.
+    // The banner is also the farm's cover: "আমাদের খামার" (/farm), the live
+    // directory and the home strip all read farms.cover. Only touched when the
+    // banner itself changed, so a logo-only save never clears an admin's cover.
+    if (patch.banner !== undefined && seller.farm_id) {
+      await db()
+        .from("farms")
+        .update({
+          cover: data.banner || seller.farm_photos?.[0] || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", seller.farm_id);
+    }
+
+    // The store page and the marketplace grid are dynamic, but every cached
+    // page that shows the cover (/farm is ISR) must drop the previous picture.
     revalidatePath(`/market/${seller.slug}`);
     revalidatePath("/market");
+    revalidatePath("/farm");
+    revalidatePath("/live");
+    revalidatePath("/live/farms");
+    revalidatePath("/");
 
     await recordAudit({
       actor: user,

@@ -419,6 +419,8 @@ export type Farmer = {
   story_bn: string | null;
   years: number;
   image: string | null;
+  /** the owner-seller's logo, when they uploaded one from their dashboard */
+  logo: string | null;
   is_active: boolean;
   sort_order: number;
 };
@@ -518,6 +520,8 @@ export type Farm = {
   online_cameras?: number;
   product_count?: number;
   cameras?: Camera[];
+  /** the seller who owns this farm uploaded a logo from the dashboard */
+  logo?: string | null;
 };
 
 export type CameraStatus = "online" | "offline" | "maintenance";

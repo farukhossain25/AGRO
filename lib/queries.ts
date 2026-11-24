@@ -185,23 +185,36 @@ export async function getBlogPost(slug: string): Promise<BlogPost | null> {
  * IS the farmer profile, so there is no second table to keep in sync.
  */
 export async function getFarmers(): Promise<Farmer[]> {
-  const { data, error } = await db()
-    .from("farms")
-    .select("id, name_bn, district, division, description_bn, owner_bio_bn, story_bn, established_year, cover, images, is_active, sort_order")
-    .eq("is_active", true)
-    .order("sort_order");
+  // `sellers` (owner-seller of the farm) brings the logo / banner the seller
+  // uploads from the dashboard; the banner doubles as the card's picture.
+  // Falls back to the plain select on a database that predates migration 22.
+  const cols =
+    "id, name_bn, district, division, description_bn, owner_bio_bn, story_bn, established_year, cover, images, is_active, sort_order";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic select string
+  type FarmRows = { data: any[] | null; error: { code?: string; message: string } | null };
+  const query = (select: string): Promise<FarmRows> =>
+    db().from("farms").select(select).eq("is_active", true).order("sort_order") as unknown as Promise<FarmRows>;
+  let result = await query(`${cols}, sellers(slug, logo, banner)`);
+  if (result.error && /sellers\.(logo|banner)|42703/i.test(`${result.error.code} ${result.error.message}`)) {
+    result = await query(cols);
+  }
+  const { data, error } = result;
   if (error) throw error;
-  return (data ?? []).map((row) => ({
-    id: row.id,
-    name_bn: row.name_bn,
-    location_bn: [row.district, row.division].filter(Boolean).join(", ") || null,
-    specialty_bn: row.description_bn,
-    story_bn: row.story_bn ?? row.owner_bio_bn ?? row.description_bn,
-    years: row.established_year ? Math.max(1, new Date().getFullYear() - row.established_year) : 0,
-    image: row.cover ?? row.images?.[0] ?? null,
-    is_active: row.is_active,
-    sort_order: row.sort_order,
-  })) as Farmer[];
+  return (data ?? []).map((row) => {
+    const seller = Array.isArray(row.sellers) ? row.sellers[0] : null;
+    return {
+      id: row.id,
+      name_bn: row.name_bn,
+      location_bn: [row.district, row.division].filter(Boolean).join(", ") || null,
+      specialty_bn: row.description_bn,
+      story_bn: row.story_bn ?? row.owner_bio_bn ?? null,
+      years: row.established_year ? Math.max(1, new Date().getFullYear() - row.established_year) : 0,
+      image: seller?.banner || row.cover || row.images?.[0] || null,
+      logo: seller?.logo ?? null,
+      is_active: row.is_active,
+      sort_order: row.sort_order,
+    };
+  }) as Farmer[];
 }
 
 export async function getBanners(placement = "home_hero"): Promise<Banner[]> {

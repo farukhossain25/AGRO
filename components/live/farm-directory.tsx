@@ -81,7 +81,14 @@ export function FarmDirectory({ farms }: { farms: Farm[] }) {
                     <Video className="h-2.5 w-2.5" /> {bn(farm.online_cameras ?? 0)} লাইভ
                   </span>
                   <div className="absolute inset-x-3 bottom-3">
-                    <h2 className="text-[15px] font-bold text-white drop-shadow">{farm.name_bn}</h2>
+                    <div className="flex items-center gap-2">
+                      {farm.logo ? (
+                        <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-lg bg-white ring-1 ring-white/80">
+                          <Image src={farm.logo} alt="" fill sizes="32px" className="object-contain p-px" />
+                        </span>
+                      ) : null}
+                      <h2 className="text-[15px] font-bold text-white drop-shadow">{farm.name_bn}</h2>
+                    </div>
                     <p className="text-[11.5px] text-white/60">
                       {TYPE_LABEL[farm.type]} · {farm.upazila ? `${farm.upazila}, ` : ""}
                       {farm.district}

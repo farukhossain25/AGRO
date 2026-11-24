@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { Award, Leaf, MapPin, ShieldCheck, Sprout, Truck } from "lucide-react";
+import { Award, Leaf, ShieldCheck, Sprout, Truck } from "lucide-react";
 import { getFarmers } from "@/lib/data";
+import { FarmerCard } from "@/components/farm/farmer-card";
 import { SectionHeader } from "@/components/ui";
 import { site } from "@/lib/site";
 import { alternatesFor } from "@/lib/seo";
@@ -126,33 +127,7 @@ export default async function FarmPage() {
 
         <div className="grid gap-4 sm:grid-cols-2">
           {farmers.map((f) => (
-            <article key={f.id} className="card overflow-hidden">
-              <div className="grid sm:grid-cols-[160px_1fr]">
-                <div className="relative aspect-[4/3] sm:aspect-auto">
-                  {f.image ? <Image src={f.image} alt={f.name_bn} fill sizes="200px" className="object-cover" /> : null}
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent to-scrim/60 sm:to-scrim" />
-                </div>
-                <div className="p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <h3 className="text-[15px] font-bold">{f.name_bn}</h3>
-                      <p className="mt-0.5 flex items-center gap-1 text-[11.5px] text-leaf-300">
-                        <MapPin className="h-3 w-3" /> {f.location_bn}
-                      </p>
-                    </div>
-                    <span className="badge bg-white/[0.06] text-sand-100/60">
-                      {f.years > 0 ? `${f.years}+ বছর` : "নতুন খামার"}
-                    </span>
-                  </div>
-                  {f.story_bn && (
-                    <p className="mt-2 text-[12px] leading-relaxed text-sand-100/55">{f.story_bn}</p>
-                  )}
-                  <p className="mt-2.5 text-[10.5px] font-semibold uppercase tracking-wider text-leaf-300/70">
-                    বিশেষত্ব: {f.specialty_bn}
-                  </p>
-                </div>
-              </div>
-            </article>
+            <FarmerCard key={f.id} f={f} />
           ))}
         </div>
       </section>

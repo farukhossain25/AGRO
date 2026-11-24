@@ -66,8 +66,15 @@ export async function LiveFarmsStrip() {
               </span>
 
               <div className="absolute inset-x-2 bottom-2">
-                <p className="text-[11.5px] font-bold leading-tight text-white drop-shadow">{farm.name_bn}</p>
-                <p className="mt-0.5 flex items-center gap-1 text-[9.5px] text-white/65">
+                <div className="flex items-center gap-2">
+                  {farm.logo ? (
+                    <span className="relative h-7 w-7 shrink-0 overflow-hidden rounded-lg bg-white ring-1 ring-white/80">
+                      <Image src={farm.logo} alt="" fill sizes="28px" className="object-contain p-px" />
+                    </span>
+                  ) : null}
+                  <p className="text-[11.5px] font-bold leading-tight text-white drop-shadow">{farm.name_bn}</p>
+                </div>
+                <p className={`${farm.logo ? "ml-9" : "mt-0.5"} flex items-center gap-1 text-[9.5px] text-white/65`}>
                   <Video className="h-2.5 w-2.5" />
                   {bn(farm.online_cameras ?? 0)} ক্যামেরা · {TYPE_BN[farm.type]}
                 </p>
