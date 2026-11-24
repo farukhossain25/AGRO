@@ -2588,6 +2588,9 @@ export type Database = {
         auto_renew: boolean
         device_limit: number
         cancelled_at: string | null
+        cancel_reason: string | null
+        reviewed_at: string | null
+        reviewed_by: string | null
         created_at: string
         updated_at: string
       }
@@ -2609,6 +2612,9 @@ export type Database = {
         auto_renew?: boolean
         device_limit?: number
         cancelled_at?: string | null
+        cancel_reason?: string | null
+        reviewed_at?: string | null
+        reviewed_by?: string | null
         created_at?: string
         updated_at?: string
       }
@@ -2630,6 +2636,9 @@ export type Database = {
         auto_renew?: boolean
         device_limit?: number
         cancelled_at?: string | null
+        cancel_reason?: string | null
+        reviewed_at?: string | null
+        reviewed_by?: string | null
         created_at?: string
         updated_at?: string
       }

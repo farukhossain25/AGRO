@@ -27,6 +27,10 @@ export default async function AccountPremiumPage() {
   ]);
 
   const history = subs ?? [];
+  /* The last rejected payment, if it is the newest thing that happened and
+     nothing live replaced it — the customer needs the owner's reason. */
+  const lastRejected =
+    !state.subscription && history.length && history[0]?.status === "cancelled" ? history[0] : null;
 
   return (
     <div className="space-y-5">
@@ -72,6 +76,22 @@ export default async function AccountPremiumPage() {
             </p>
           )}
 
+          {/* The manual-payment states. `pending` means the TrxID has been
+              reported and an admin is checking it; `cancelled` means it was
+              checked and did not match — the reason is shown verbatim. */}
+          {state.subscription.status === "pending" && (
+            <div className="mt-3 rounded-lg bg-sky-500/10 px-3 py-2.5 text-[11.5px] leading-relaxed text-[#1c5b7a]">
+              <p className="font-semibold">⏳ পেমেন্ট যাচাই চলছে</p>
+              <p className="mt-0.5">
+                আপনার TrxID জমা হয়েছে
+                {state.subscription.payment_ref ? (
+                  <> (<span className="font-mono">{state.subscription.payment_ref.split(" | ")[0]}</span>)</>
+                ) : null}
+                — অ্যাডমিন মিলিয়ে দেখে চালু করে দিলেই লাইভ ক্যামেরা খুলে যাবে। সাধারণত কিছুক্ষণের ব্যাপার।
+              </p>
+            </div>
+          )}
+
           <div className="mt-4 flex flex-wrap gap-2">
             <Link href="/live/farms" className="btn-primary btn-sm">
               <Video className="h-3.5 w-3.5" /> লাইভ দেখুন
@@ -86,6 +106,37 @@ export default async function AccountPremiumPage() {
             canCancel={state.subscription.status === "active"}
             autoRenew={Boolean(state.subscription.auto_renew)}
           />
+        </div>
+      ) : lastRejected ? (
+        /* The most recent purchase was checked and did not match. The reason
+           the owner wrote is the whole point of keeping the row — show it
+           instead of the generic "no plan" card. */
+        <div className="card border-red-500/25 p-5">
+          <div className="flex items-start gap-3">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-red-500/12 text-[#a02b21]">
+              ✕
+            </span>
+            <div className="min-w-0">
+              <p className="text-[13px] font-bold text-neu-ink">
+                পেমেন্ট যাচাই হয়নি — {lastRejected.sub_no}
+              </p>
+              <p className="mt-1 text-[12px] leading-relaxed text-sand-100/60">
+                {lastRejected.cancel_reason ?? "TrxID মিলানো যায়নি।"}
+              </p>
+              <p className="mt-1.5 text-[11.5px] leading-relaxed text-sand-100/45">
+                টাকা কেটে নেওয়া হয়ে থাকলে পেমেন্ট মাধ্যমের সহায়তা নম্বরে যোগাযোগ করুন, অথবা সঠিক TrxID দিয়ে আবার
+                পেমেন্ট করুন — অ্যাডমিন যাচাই করে চালু করে দেবেন।
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Link href="/live/plans" className="btn-primary btn-sm">
+                  <CreditCard className="h-3.5 w-3.5" /> আবার পেমেন্ট করুন
+                </Link>
+                <Link href="/contact" className="btn-ghost btn-sm">
+                  যোগাযোগ করুন
+                </Link>
+              </div>
+            </div>
+          </div>
         </div>
       ) : (
         <div className="card p-5 text-center">
@@ -142,6 +193,7 @@ export default async function AccountPremiumPage() {
                 <th className="px-4 py-2 font-medium">স্টেটাস</th>
                 <th className="px-4 py-2 font-medium">শেষ</th>
                 <th className="px-4 py-2 font-medium">টাকা</th>
+                <th className="px-4 py-2 font-medium">নোট</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.04]">
@@ -153,11 +205,14 @@ export default async function AccountPremiumPage() {
                     {s.expires_at ? new Date(s.expires_at).toLocaleDateString("bn-BD") : "—"}
                   </td>
                   <td className="px-4 py-2 text-mint">৳{Number(s.amount)}</td>
+                  <td className="max-w-[190px] px-4 py-2 text-[10.5px] text-sand-100/45">
+                    {s.status === "cancelled" && s.cancel_reason ? s.cancel_reason : "—"}
+                  </td>
                 </tr>
               ))}
               {history.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-4 py-6 text-center text-sand-100/35">
+                  <td colSpan={5} className="px-4 py-6 text-center text-sand-100/35">
                     কোনো ইতিহাস নেই
                   </td>
                 </tr>

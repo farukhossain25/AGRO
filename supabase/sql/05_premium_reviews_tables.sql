@@ -61,6 +61,10 @@ create table if not exists public.user_subscriptions (
   auto_renew      boolean not null default false,
   device_limit    integer not null default 2,
   cancelled_at    timestamptz,
+  -- approve/reject trail for the manual payment flow (migration 23)
+  cancel_reason   text,
+  reviewed_at     timestamptz,
+  reviewed_by     uuid references public.profiles (id) on delete set null,
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now()
 );

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -139,6 +139,22 @@ export function AdminShell({ user, children }: { user: SessionUser; children: Re
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  /* The sidebar shows how many premium payments are waiting for a decision.
+     It is a read-only count from the same route the premium desk uses; a
+     failure just hides the dot rather than bothering the owner. */
+  const [pendingPremium, setPendingPremium] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/foisal/premium-subscriptions", { method: "GET" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (alive && typeof json?.data?.pending === "number") setPendingPremium(json.data.pending);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [pathname]);
 
   async function signOut() {
     // Supabase clears its own cookies on the server; then land on the login page.
@@ -185,6 +201,14 @@ export function AdminShell({ user, children }: { user: SessionUser; children: Re
                       >
                         <Icon className="h-4 w-4 shrink-0" />
                         {label}
+                        {href === adminHref("premium") && pendingPremium > 0 ? (
+                          <span
+                            className="ml-auto rounded-full bg-sky-500/20 px-1.5 py-0.5 text-[9.5px] font-bold text-sky-200"
+                            title="যাচাইয়ের অপেক্ষায় থাকা পেমেন্ট"
+                          >
+                            {pendingPremium}
+                          </span>
+                        ) : null}
                       </Link>
                     </li>
                   );
