@@ -76,7 +76,7 @@ export default async function StorefrontLayout({ children }: { children: React.R
       <SiteFooter
         categories={navCats}
         paymentMethods={paymentMethods}
-        socials={<SocialLinks placement="footer" tone="dark" className="mt-5" />}
+        socials={<SocialLinks placement="footer" className="mt-5" />}
       />
       <FloatingActions />
     </AuthProvider>

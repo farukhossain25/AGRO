@@ -50,7 +50,8 @@ export async function SocialLinks({
   placement: SocialPlacement;
   className?: string;
   size?: "sm" | "md";
-  /** `dark` = rendered on the footer's deep-green panel. */
+  /** `light` (default) = neumorphic circle on the site's soft surface;
+      `dark` = rendered on a deep-green panel (white icon on a translucent disc). */
   tone?: "light" | "dark";
   showLabel?: boolean;
 }) {
@@ -78,7 +79,7 @@ export async function SocialLinks({
                 tone === "dark"
                   ? // arbitrary rgba: bg-white/* and text-sand-* are remapped by the light theme
                     `grid ${box} place-items-center rounded-full bg-[rgba(255,255,255,0.08)] text-white/75 transition hover:bg-[rgba(255,255,255,0.18)] hover:text-white`
-                  : `grid ${box} place-items-center rounded-full bg-white/[0.06] text-sand-100/60 transition hover:bg-leaf-600/25 hover:text-leaf-700`
+                  : `grid ${box} place-items-center rounded-full neu-raised-xs text-neu-muted transition hover:text-neu-accent-strong`
               }
               style={link.color ? { color: link.color } : undefined}
             >

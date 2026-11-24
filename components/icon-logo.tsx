@@ -45,7 +45,7 @@ export function Logo({
 
   if (variant === "full") {
     const content = (
-      <span className="inline-block rounded-[22px] bg-white p-2.5 ring-1 ring-white/70 shadow-[0_18px_40px_rgba(0,0,0,0.28)] sm:p-3">
+      <span className="inline-block rounded-[22px] border border-white/80 bg-white p-2.5 shadow-neu-sm sm:p-3">
         <Image
           src="/brand/logo-full.webp"
           alt="বিশ্বাস এগ্রো — BISHWAS AGRO"
