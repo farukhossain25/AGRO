@@ -161,7 +161,7 @@ async function sendEmail(to: string, subject: string, text: string, link?: strin
         <p style="margin:0;font-size:14px;line-height:1.7;color:#c9d6cc;white-space:pre-line">${text}</p>
         ${
           link
-            ? `<a href="${link}" style="display:inline-block;margin-top:20px;background:#1f7a4d;color:#fff;text-decoration:none;padding:11px 20px;border-radius:10px;font-size:14px;font-weight:600">এখনই দেখুন →</a>`
+            ? `<a href="${link}" style="display:inline-block;margin-top:20px;background:#0a4d0a;color:#fff;text-decoration:none;padding:11px 20px;border-radius:10px;font-size:14px;font-weight:600">এখনই দেখুন →</a>`
             : ""
         }
         <p style="margin:22px 0 0;font-size:11px;color:#6d7c72">খামার থেকে আপনার ঘরে · bishwasagro.com</p>
