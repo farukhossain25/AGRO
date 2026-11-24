@@ -1,8 +1,9 @@
+import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import type { TablesInsert, TablesUpdate } from "@/lib/database.types";
 import { created, fail, handleError, limitGuard, ok, requireUser } from "@/lib/api";
 import { sellerProductSchema } from "@/lib/validation";
-import { getSellerByUser } from "@/lib/sellers";
+import { getSellerByUser, getSellerSettings } from "@/lib/sellers";
 import { notifyAdmins } from "@/lib/notify";
 import { ADMIN_BASE } from "@/lib/paths";
 
@@ -10,9 +11,21 @@ export const dynamic = "force-dynamic";
 
 /**
  * Seller product CRUD.
- * Sellers can only touch their own rows, and every new product goes into the
- * admin approval queue (approval_status = 'pending').
+ * Sellers can only touch their own rows. The seller account itself is what
+ * gets reviewed; once it is approved, products publish immediately
+ * (approval_status = 'approved') — a per-product queue only meant stock and
+ * price edits silently vanished from the store until an admin noticed.
  */
+
+/** The listing pages are ISR-cached; a new or edited product must not wait for the next tick. */
+function refreshStorefront() {
+  try {
+    revalidatePath("/products");
+    revalidatePath("/");
+  } catch {
+    /* outside a request context — nothing to purge */
+  }
+}
 
 async function requireSeller() {
   const user = await requireUser();
@@ -63,6 +76,7 @@ export async function POST(req: Request) {
 
     const data = sellerProductSchema.parse(await req.json());
     const client = db();
+    const settings = await getSellerSettings();
 
     const payload: TablesInsert<"products"> = {
       seller_id: seller.id,
@@ -82,23 +96,26 @@ export async function POST(req: Request) {
       weight_grams: data.weight_grams ?? null,
       is_active: true,
       is_featured: false,
-      approval_status: "pending",
+      approval_status: settings.auto_approve_products ? "approved" : "pending",
       rejection_reason: null,
     };
 
     const { data: product, error } = await client.from("products").insert(payload).select().single();
     if (error) throw error;
 
+    refreshStorefront();
+
+    // Informational only — the product is already live.
     await notifyAdmins({
       kind: "product",
-      title: "নতুন পণ্য অনুমোদনের অপেক্ষায়",
+      title: settings.auto_approve_products ? "নতুন পণ্য যোগ হয়েছে (স্বয়ংক্রিয় অনুমোদিত)" : "নতুন পণ্য অনুমোদনের অপেক্ষায়",
       body: `${data.name_bn} · ${seller.name_bn}`,
       link: `${ADMIN_BASE}/products`,
     }).catch(() => undefined);
 
     return created({
       product,
-      note: "পণ্যটি অ্যাডমিন অনুমোদনের অপেক্ষায় আছে",
+      note: settings.auto_approve_products ? "পণ্যটি এখনই স্টোরে দেখা যাচ্ছে" : "পণ্যটি অ্যাডমিন অনুমোদনের অপেক্ষায় আছে",
       submittedBy: user.id,
     });
   } catch (error) {
@@ -144,10 +161,8 @@ export async function PATCH(req: Request) {
     }
     if (typeof body.is_active === "boolean") patch.is_active = body.is_active;
 
-    // Editing an approved product re-enters the queue — prices and stock are
-    // customer-facing, so an admin should see the change.
-    if (existing.approval_status === "approved") patch.approval_status = "pending";
-
+    // No re-queue on edit: a verified seller updating today's stock must not
+    // have the product disappear from the store until someone re-approves it.
     const { data: product, error } = await client
       .from("products")
       .update(patch as TablesUpdate<"products">)
@@ -156,6 +171,7 @@ export async function PATCH(req: Request) {
       .single();
 
     if (error) throw error;
+    refreshStorefront();
     return ok(product);
   } catch (error) {
     const code = (error as { status?: number }).status;
@@ -173,6 +189,7 @@ export async function DELETE(req: Request) {
 
     const { error } = await db().from("products").delete().eq("id", id).eq("seller_id", seller.id);
     if (error) throw error;
+    refreshStorefront();
     return ok({ deleted: true });
   } catch (error) {
     const code = (error as { status?: number }).status;

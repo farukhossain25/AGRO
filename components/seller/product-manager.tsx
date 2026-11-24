@@ -95,7 +95,11 @@ export function SellerProductManager({
       setRows((prev) =>
         editing ? prev.map((r) => (r.id === editing.id ? { ...r, ...saved } : r)) : [saved, ...prev]
       );
-      success(editing ? "পণ্য আপডেট হয়েছে" : "পণ্য যোগ হয়েছে", editing ? "এডিটের পর আবার অনুমোদন লাগবে" : "অ্যাডমিন অনুমোদনের অপেক্ষায়");
+      const live = (json.data?.product ?? json.data)?.approval_status === "approved";
+      success(
+        editing ? "পণ্য আপডেট হয়েছে" : "পণ্য যোগ হয়েছে",
+        live ? "এখনই আপনার স্টোর ও মেইন সাইটে দেখা যাচ্ছে" : "অ্যাডমিন অনুমোদনের অপেক্ষায়"
+      );
       setOpen(false);
     } catch {
       errorToast("নেটওয়ার্ক সমস্যা");
@@ -142,13 +146,22 @@ export function SellerProductManager({
     }
   };
 
+  const pendingCount = rows.filter((r) => r.approval_status === "pending").length;
+
   return (
     <div>
-      {canAdd && (
-        <button type="button" onClick={openNew} className="btn-primary btn-sm mb-3">
-          <Plus className="h-3.5 w-3.5" /> নতুন পণ্য
-        </button>
-      )}
+      {/* Live count: lives here, not in the server-rendered heading, so it
+          updates the moment a product is added or deleted. */}
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <p className="text-[11.5px] text-sand-100/50">
+          {toBn(rows.length)}টি পণ্য{pendingCount ? ` · ${toBn(pendingCount)}টি যাচাইয়ের অপেক্ষায়` : ""}
+        </p>
+        {canAdd && (
+          <button type="button" onClick={openNew} className="btn-primary btn-sm">
+            <Plus className="h-3.5 w-3.5" /> নতুন পণ্য
+          </button>
+        )}
+      </div>
 
       {rows.length === 0 ? (
         <div className="card border-dashed p-8 text-center">

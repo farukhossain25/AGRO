@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CalendarDays, MapPin, Phone, ShieldCheck, Sprout, Users, Video } from "lucide-react";
+import { decodeRouteParam } from "@/lib/format";
 import { getFarmBySlug, farmTypeLabelBn } from "@/lib/farms";
 import { FarmCameras } from "@/components/live/farm-cameras";
 import { FarmDetailMap } from "@/components/live/farm-detail-map";
@@ -22,7 +23,8 @@ export async function generateMetadata({
 }: {
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = decodeRouteParam(rawSlug);
   const farm = await getFarmBySlug(slug);
   if (!farm) return { title: "খামার পাওয়া যায়নি" };
 
@@ -40,7 +42,8 @@ export async function generateMetadata({
 }
 
 export default async function FarmDetailPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = decodeRouteParam(rawSlug);
   const farm = await getFarmBySlug(slug);
   if (!farm) notFound();
 

@@ -3,6 +3,7 @@ import type { TablesInsert } from "@/lib/database.types";
 import { created, fail, handleError, limitGuard, ok, requireUser } from "@/lib/api";
 import { sellerApplySchema } from "@/lib/validation";
 import type { Seller } from "@/lib/types";
+import { slugifyAscii } from "@/lib/format";
 import { getSellerSettings, getSellerByUser } from "@/lib/sellers";
 import { ensureSellerFarm } from "@/lib/seller-farm";
 import { notify, notifyAdmins } from "@/lib/notify";
@@ -26,16 +27,6 @@ export async function GET() {
   }
 }
 
-function slugify(input: string): string {
-  return (
-    input
-      .toLowerCase()
-      .replace(/[^a-z0-9\u0980-\u09FF]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 48) || "seller"
-  );
-}
-
 export async function POST(req: Request) {
   try {
     const guard = limitGuard(req, "seller-apply", 5, 60 * 60_000);
@@ -57,7 +48,10 @@ export async function POST(req: Request) {
     const settings = await getSellerSettings();
     const client = db();
 
-    const baseSlug = slugify(data.name_bn);
+    // ASCII only: a Bangla slug becomes a 9-chars-per-letter percent-encoded
+    // URL that breaks when pasted into SMS/WhatsApp, and it was what made the
+    // store page unfindable before route params were decoded.
+    const baseSlug = slugifyAscii(data.name_bn, "seller");
     const slug = existing?.slug ?? `${baseSlug}-${Math.random().toString(36).slice(2, 6)}`;
 
     const payload: TablesInsert<"sellers"> = {

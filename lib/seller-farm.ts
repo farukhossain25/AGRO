@@ -1,7 +1,7 @@
 import { db, isDbConfigured } from "./db";
 import type { TablesInsert } from "./database.types";
 import type { FarmType, Seller } from "./types";
-import { toBn } from "./format";
+import { slugifyAscii, toBn } from "./format";
 
 /* ==========================================================================
    Seller → farm onboarding
@@ -55,16 +55,6 @@ const ZONE_BY_FARM_TYPE: Record<FarmType, string> = {
   vegetables: "জমি",
   fruits: "জমি",
 };
-
-/** ASCII-only slug (Bengali names collapse to the random suffix). */
-function slugifyAscii(input: string): string {
-  return input
-    .normalize("NFKD")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 40);
-}
 
 function randomSuffix(len = 6): string {
   return Math.random().toString(36).slice(2, 2 + len);
@@ -129,7 +119,7 @@ async function createFarmForSeller(
 
   // slug is unique — try twice with a fresh suffix before giving up
   for (let attempt = 0; attempt < 2; attempt++) {
-    const base = slugifyAscii(seller.name_bn) || "farm";
+    const base = slugifyAscii(seller.name_bn, "farm");
     const payload: TablesInsert<"farms"> = {
       slug: `${base}-${randomSuffix()}`.slice(0, 60),
       name_bn: seller.name_bn,

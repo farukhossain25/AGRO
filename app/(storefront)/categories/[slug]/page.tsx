@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronRight } from "lucide-react";
+import { decodeRouteParam } from "@/lib/format";
 import { getCategories, getCategoryBySlug, getProducts } from "@/lib/data";
 import { ProductBrowser } from "@/components/shop/product-browser";
 import { breadcrumbLd, dynamicAlternates, jsonLdScript } from "@/lib/seo";
@@ -26,7 +27,8 @@ export async function generateMetadata({
 }: {
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = decodeRouteParam(rawSlug);
   const category = await getCategoryBySlug(slug);
   if (!category) return { title: "ক্যাটাগরি পাওয়া যায়নি" };
 
@@ -44,7 +46,8 @@ export async function generateMetadata({
 }
 
 export default async function CategoryPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = decodeRouteParam(rawSlug);
   const category = await getCategoryBySlug(slug);
   if (!category) notFound();
 

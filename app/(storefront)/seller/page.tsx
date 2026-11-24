@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { Banknote, Eye, Package, ShoppingBag, Store, TrendingUp } from "lucide-react";
 import { currentUser } from "@/lib/api";
 import { db } from "@/lib/db";
-import { getSellerByUser, sellerStatusLabelBn, payoutStatusLabelBn } from "@/lib/sellers";
+import { getSellerByUser, approvePendingSellerProducts, sellerStatusLabelBn, payoutStatusLabelBn } from "@/lib/sellers";
 import { ensureSellerFarm, type SellerFarmLink } from "@/lib/seller-farm";
 import { SellerProductManager } from "@/components/seller/product-manager";
 
@@ -54,7 +54,17 @@ export default async function SellerDashboard() {
     .filter((p) => p.status === "paid")
     .reduce((n, p) => n + Number(p.amount ?? 0), 0);
 
-  const pendingCount = (products ?? []).filter((p) => p.approval_status === "pending").length;
+  // Products submitted before per-product review was removed — publish them
+  // now that the seller is verified (idempotent, pending rows only).
+  let productRows = products ?? [];
+  if (seller.status === "approved" && productRows.some((p) => p.approval_status === "pending")) {
+    const published = await approvePendingSellerProducts(seller.id).catch(() => 0);
+    if (published) {
+      productRows = productRows.map((p) =>
+        p.approval_status === "pending" ? { ...p, approval_status: "approved" } : p
+      );
+    }
+  }
 
   return (
     <div className="container-x py-8 sm:py-12">
@@ -150,14 +160,11 @@ export default async function SellerDashboard() {
           <div className="mb-3 flex items-center justify-between">
             <h2 className="flex items-center gap-2 text-[15px] font-bold text-neu-ink">
               <Package className="h-4 w-4 text-mint" /> আমার পণ্য
-              <span className="text-[11.5px] font-normal text-sand-100/40">
-                ({products?.length ?? 0}টি{pendingCount ? ` · ${pendingCount}টি অপেক্ষমাণ` : ""})
-              </span>
             </h2>
           </div>
 
           <SellerProductManager
-            initial={products ?? []}
+            initial={productRows}
             categories={(categories ?? []).map((c) => ({ id: c.id, name_bn: c.name_bn }))}
             canAdd={seller.status === "approved"}
           />

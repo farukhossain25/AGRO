@@ -72,6 +72,32 @@ export function relativeDaysBn(value: string | null | undefined): string {
   return `${toBn(diff)} দিন আগে`;
 }
 
+/**
+ * Next.js (App Router) hands a dynamic segment back exactly as it arrived in
+ * the URL — percent-encoded for anything outside ASCII. `/market/মধুপুর-ডেইরি`
+ * therefore reaches the page as "%E0%A6%AE%E0%A6%A7…" and never matched the
+ * database slug: every seller named in Bangla got a 404 on their own store.
+ * Decode defensively — a stray "%" must never throw inside a render.
+ */
+export function decodeRouteParam(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+/** ASCII-only slug: non-Latin names collapse to `fallback`. */
+export function slugifyAscii(input: string, fallback = "seller"): string {
+  const base = input
+    .normalize("NFKD")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+  return base || fallback;
+}
+
 /** Sanitise a string for safe file/slug usage. */
 export function slugify(input: string): string {
   return input

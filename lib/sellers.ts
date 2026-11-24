@@ -15,11 +15,14 @@ import type { Seller } from "./types";
 export type SellerSettings = {
   default_commission_percent: number;
   auto_approve: boolean;
+  /** A verified seller's products go live without a per-product review. */
+  auto_approve_products: boolean;
 };
 
 export const defaultSellerSettings: SellerSettings = {
   default_commission_percent: 10,
   auto_approve: false,
+  auto_approve_products: true,
 };
 
 export async function getSellerSettings(): Promise<SellerSettings> {
@@ -56,6 +59,23 @@ export async function getSellerByUser(userId: string): Promise<Seller | null> {
   const { data, error } = await db().from("sellers").select("*").eq("user_id", userId).maybeSingle();
   if (error) throw error;
   return (data as Seller) ?? null;
+}
+
+/**
+ * Products an approved seller submitted while the per-product review still
+ * existed. There is no admin screen that ever approved them, so they sat in
+ * `pending` forever — invisible on the seller's own store page. The seller is
+ * verified, so publish them (idempotent: touches pending rows only).
+ */
+export async function approvePendingSellerProducts(sellerId: string): Promise<number> {
+  if (!isDbConfigured()) return 0;
+  const { count, error } = await db()
+    .from("products")
+    .update({ approval_status: "approved" }, { count: "exact" })
+    .eq("seller_id", sellerId)
+    .eq("approval_status", "pending");
+  if (error) throw error;
+  return count ?? 0;
 }
 
 export async function getApprovedSellers(limit = 60): Promise<SellerWithStats[]> {

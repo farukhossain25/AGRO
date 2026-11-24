@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BadgeCheck, Eye, MapPin, Phone, ShieldCheck } from "lucide-react";
+import { decodeRouteParam } from "@/lib/format";
 import { currentUser } from "@/lib/api";
 import { getSellerBySlug, sellerStatusLabelBn } from "@/lib/sellers";
 import { ProductCard } from "@/components/product-card";
@@ -18,7 +19,8 @@ import { site } from "@/lib/site";
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = decodeRouteParam(rawSlug);
   const user = await currentUser().catch(() => null);
   const data =
     (await getSellerBySlug(slug).catch(() => null)) ??
@@ -47,7 +49,8 @@ const TYPES_BN: Record<string, string> = {
 };
 
 export default async function SellerStorePage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = decodeRouteParam(rawSlug);
 
   // Public first; if this is the seller's own store (any status) they still
   // get to see it — as a clearly marked preview, never a 404.
