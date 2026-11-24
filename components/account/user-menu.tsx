@@ -96,11 +96,12 @@ export function UserMenu({ premium = false }: { premium?: boolean }) {
       <Link
         href="/login"
         aria-label={t("লগইন / সাইন আপ", "Login / Sign up")}
-        className="neu-pill flex min-h-[40px] items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-neu-ink sm:px-3.5"
+        /* Phones: a 40px person icon only — the header wordmark needs the room
+           the "লগইন" label took (360px phones were truncating it). sm+: pill. */
+        className="neu-pill h-10 w-10 min-h-[40px] shrink-0 justify-center px-0 text-[12px] font-semibold text-neu-ink sm:h-auto sm:w-auto sm:px-3.5 sm:py-2"
       >
         <UserIcon className="h-4 w-4" />
         <span className="hidden sm:inline">{t("লগইন / সাইন আপ", "Login / Sign up")}</span>
-        <span className="sm:hidden">{t("লগইন", "Login")}</span>
         {loading ? <span className="sr-only">{t("লোড হচ্ছে", "Loading")}</span> : null}
       </Link>
     );

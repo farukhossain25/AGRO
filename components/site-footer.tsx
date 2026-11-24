@@ -177,7 +177,7 @@ export function SiteFooter({
           <div className="relative grid grid-cols-2 gap-x-6 gap-y-9 lg:grid-cols-[1.5fr_1fr_1fr_1fr] lg:gap-x-12 lg:gap-y-0">
             {/* ── brand ─────────────────────────────────────────────── */}
             <div className="col-span-2 lg:col-span-1">
-              <Logo tone="dark" size={44} />
+              <Logo variant="full" />
               <p className="mt-4 max-w-md text-[13.5px] leading-relaxed text-white/80">
                 {t(
                   "২০২১ সাল থেকে বিশ্বাস এগ্রো বাংলাদেশের কৃষকদের কাছ থেকে সরাসরি তাজা ও নিরাপদ খাবার পরিবারের কাছে পৌঁছে দিচ্ছে। কোনো মধ্যস্বত্বভোগী নেই, কোনো ক্ষতিকর কেমিক্যাল নেই।",

@@ -209,5 +209,5 @@ export async function middleware(req: NextRequest) {
    @supabase/ssr is fetch/WebCrypto based, so the session work above is fine
    there — nothing touches the Node filesystem or a database driver. */
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icons/|fonts/|images/|splash/).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icons/|brand/|fonts/|images/|splash/).*)"],
 };
