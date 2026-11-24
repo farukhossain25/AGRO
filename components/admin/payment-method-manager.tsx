@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   Banknote,
   CreditCard,
+  Image as ImageIcon,
   Link2,
   Plus,
   Power,
@@ -237,6 +238,13 @@ export function PaymentMethodManager({
               "Control which number customers send money to. Add, edit, or delete any method."
             )}
           </p>
+          <p className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-leaf-500/25 bg-leaf-500/10 px-2.5 py-1 text-[11.5px] text-leaf-200">
+            <ImageIcon className="h-3.5 w-3.5" />
+            {t(
+              "সক্রিয় মেথডের লোগো সাইটের ফুটারে ও চেকআউটে দেখানো হয় — সাদা বা স্বচ্ছ ব্যাকগ্রাউন্ডের PNG সবচেয়ে পরিষ্কার দেখায়।",
+              "Logos of active methods appear in the site footer and at checkout — a PNG on a white or transparent background looks cleanest."
+            )}
+          </p>
         </div>
         <button onClick={openCreate} className="btn-primary">
           <Plus className="h-4 w-4" /> {t("নতুন মেথড", "Add method")}
@@ -282,7 +290,8 @@ export function PaymentMethodManager({
                   <tr key={m.id} className="border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02]">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
-                        <span className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-lg bg-white/5 text-base">
+                        {/* white tile, the way the footer shows it */}
+                        <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-lg bg-white p-1 text-base ring-1 ring-black/10">
                           {m.logo_url ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={m.logo_url} alt={m.name_bn} className="h-full w-full object-contain" />
@@ -475,7 +484,10 @@ function MethodEditor({
               value={draft.logo_url}
               onChange={(url) => set("logo_url", url)}
               bucket="payment-logos"
-              hint={t("ছবি আপলোড করুন বা লিংক দিন", "Upload an image or paste a link")}
+              hint={t(
+                "সাইটের ফুটারে সাদা টাইলের ভেতরে এই লোগোই দেখাবে। সাদা/স্বচ্ছ ব্যাকগ্রাউন্ডের PNG, লম্বালেজি বা স্কয়ার — দুটোই চলে।",
+                "This is the logo shown in the white tiles in the site footer. PNG on a white or transparent background; wide or square both work."
+              )}
               ratio="square"
             />
           </div>

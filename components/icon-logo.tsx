@@ -1,6 +1,18 @@
 import Link from "next/link";
 
-export function Logo({ size = 40, href = "/", showText = true }: { size?: number; href?: string | null; showText?: boolean }) {
+export function Logo({
+  size = 40,
+  href = "/",
+  showText = true,
+  tone = "light",
+}: {
+  size?: number;
+  href?: string | null;
+  showText?: boolean;
+  /** `dark` = the logo sits on the deep-green footer panel: white wordmark. */
+  tone?: "light" | "dark";
+}) {
+  const onDark = tone === "dark";
   const mark = (
     <span
       className="relative inline-flex shrink-0 items-center justify-center rounded-2xl border border-white/40 bg-gradient-to-br from-leaf-400 to-leaf-700 shadow-neu-accent-sm"
@@ -31,10 +43,18 @@ export function Logo({ size = 40, href = "/", showText = true }: { size?: number
      wordmark shrinks and truncates instead of pushing the header sideways. */
   const text = (
     <span className="flex min-w-0 flex-col leading-none">
-      <span className="truncate text-[13px] font-bold tracking-tight text-neu-ink min-[400px]:text-[15px]">
+      <span
+        className={`truncate text-[13px] font-bold tracking-tight min-[400px]:text-[15px] ${
+          onDark ? "text-white" : "text-neu-ink"
+        }`}
+      >
         বিশ্বাস এগ্রো
       </span>
-      <span className="mt-1 truncate text-[8.5px] font-semibold uppercase tracking-[0.18em] text-neu-accent-strong/80 min-[400px]:text-[9.5px] min-[400px]:tracking-[0.22em]">
+      <span
+        className={`mt-1 truncate text-[8.5px] font-semibold uppercase tracking-[0.18em] min-[400px]:text-[9.5px] min-[400px]:tracking-[0.22em] ${
+          onDark ? "text-[#9fe3bf]" : "text-neu-accent-strong/80"
+        }`}
+      >
         Farm to Family
       </span>
     </span>

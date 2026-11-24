@@ -45,10 +45,13 @@ export async function SocialLinks({
   placement,
   className = "",
   size = "md",
+  tone = "light",
 }: {
   placement: SocialPlacement;
   className?: string;
   size?: "sm" | "md";
+  /** `dark` = rendered on the footer's deep-green panel. */
+  tone?: "light" | "dark";
   showLabel?: boolean;
 }) {
   const links = await getSocialLinks(placement);
@@ -71,7 +74,12 @@ export async function SocialLinks({
               rel={link.url.startsWith("http") ? "noopener noreferrer me" : undefined}
               aria-label={label}
               title={label}
-              className={`grid ${box} place-items-center rounded-full bg-white/[0.06] text-sand-100/60 transition hover:bg-leaf-600/25 hover:text-leaf-700`}
+              className={
+                tone === "dark"
+                  ? // arbitrary rgba: bg-white/* and text-sand-* are remapped by the light theme
+                    `grid ${box} place-items-center rounded-full bg-[rgba(255,255,255,0.08)] text-white/75 transition hover:bg-[rgba(255,255,255,0.18)] hover:text-white`
+                  : `grid ${box} place-items-center rounded-full bg-white/[0.06] text-sand-100/60 transition hover:bg-leaf-600/25 hover:text-leaf-700`
+              }
               style={link.color ? { color: link.color } : undefined}
             >
               <Icon className={icon} />
