@@ -26,9 +26,6 @@ import type { HeroSlide } from "@/lib/types";
      • arrows, dots, keyboard (← →), and a visible pause control
    ========================================================================== */
 
-const BLUR =
-  "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjMiPjxkZWZzPjxsaW5lYXJHcmFkaWVudCBpZD0iZyIgeDE9IjAiIHkxPSIwIiB4Mj0iMSIgeTI9IjEiPjxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iIzE4NjE0MCIvPjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzBkMzYyNSIvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjMiIGZpbGw9InVybCgjZykiLz48L3N2Zz4=";
-
 type Props = {
   slides: HeroSlide[];
   autoplayMs?: number;
@@ -54,11 +51,13 @@ export function HeroSlider({ slides, autoplayMs = 6000, showArrows = true, showD
     return () => query.removeEventListener("change", onChange);
   }, []);
 
+  /* The other slides mount on the FIRST transition, not on a timer. Mounting
+     them ~1.2 s in put five more hero images on the wire exactly while the
+     browser was still painting the first one — on a throttled phone that
+     alone pushed LCP out by more than a second. */
   useEffect(() => {
-    // Give the LCP image a clear run, then allow the rest to mount.
-    const timer = setTimeout(() => setHydratedAll(true), 1200);
-    return () => clearTimeout(timer);
-  }, []);
+    if (index !== 0) setHydratedAll(true);
+  }, [index]);
 
   const go = useCallback(
     (next: number) => setIndex(((next % count) + count) % count),
@@ -168,9 +167,13 @@ export function HeroSlider({ slides, autoplayMs = 6000, showArrows = true, showD
                     alt={item.alt_bn ?? item.title_bn}
                     fill
                     priority={i === 0}
+                    fetchPriority={i === 0 ? "high" : undefined}
+                    quality={70}
                     loading={i === 0 ? undefined : "lazy"}
-                    placeholder="blur"
-                    blurDataURL={BLUR}
+                    /* No blur placeholder on the LCP slide: it is preloaded and
+                       arrives before the first paint, while the blur→sharp swap
+                       forces a React state update and a second repaint — that
+                       repaint is what pushed LCP out on a throttled phone. */
                     sizes="(max-width: 640px) 100vw, (max-width: 1280px) 100vw, 1920px"
                     className="object-cover sm:object-center"
                   />
@@ -220,7 +223,7 @@ export function HeroSlider({ slides, autoplayMs = 6000, showArrows = true, showD
                 {slide.secondary_label_bn && slide.secondary_href ? (
                   <Link
                     href={slide.secondary_href}
-                    className="btn min-h-[44px] border border-white/40 bg-white/25 px-5 text-[13.5px] text-white backdrop-blur-md hover:bg-white/35"
+                    className="btn min-h-[44px] border border-white/40 bg-white/35 px-5 text-[13.5px] text-white hover:bg-white/45"
                   >
                     {slide.secondary_label_bn}
                   </Link>

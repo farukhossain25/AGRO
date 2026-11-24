@@ -6,7 +6,8 @@ import { useState } from "react";
 import { Mail, MapPin, Phone, Send } from "lucide-react";
 import { useLocale } from "@/lib/locale";
 import { useToast } from "@/lib/toast";
-import { footerLinks, site } from "@/lib/site";
+import { footerLinks } from "@/lib/site";
+import { useStoreInfo } from "@/lib/store-info";
 import { Logo } from "./icon-logo";
 import { Spinner } from "./ui";
 
@@ -19,6 +20,7 @@ export function SiteFooter({
 }) {
   const { t } = useLocale();
   const toast = useToast();
+  const store = useStoreInfo();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -72,7 +74,13 @@ export function SiteFooter({
                 aria-label={t("ইমেইল ঠিকানা", "Email address")}
               />
             </label>
-            <button type="submit" disabled={loading} className="btn-primary shrink-0 !px-5">
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-primary shrink-0 !px-5"
+              /* icon-only on a phone: the name must not disappear with the text */
+              aria-label={t("সাবস্ক্রাইব করুন", "Subscribe")}
+            >
               {loading ? <Spinner /> : <Send className="h-4 w-4" />}
               <span className="hidden sm:inline">{t("সাবস্ক্রাইব", "Subscribe")}</span>
             </button>
@@ -97,15 +105,15 @@ export function SiteFooter({
           <ul className="mt-5 space-y-2.5 text-[13px] text-neu-ink/70">
             <li className="flex items-start gap-2.5">
               <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-neu-accent" />
-              {t(site.addressBn, site.addressEn)}
+              {t(store.address_bn, store.address_en)}
             </li>
             <li className="flex items-center gap-2.5">
               <Phone className="h-4 w-4 shrink-0 text-neu-accent" />
-              <a href={`tel:${site.phone}`} className="transition hover:text-neu-accent-strong">{site.phoneDisplay}</a>
+              <a href={`tel:${store.phone}`} className="transition hover:text-neu-accent-strong">{store.phone_display}</a>
             </li>
             <li className="flex items-center gap-2.5">
               <Mail className="h-4 w-4 shrink-0 text-neu-accent" />
-              <a href={`mailto:${site.email}`} className="transition hover:text-neu-accent-strong">{site.email}</a>
+              <a href={`mailto:${store.email}`} className="transition hover:text-neu-accent-strong">{store.email}</a>
             </li>
           </ul>
 
@@ -163,8 +171,8 @@ export function SiteFooter({
         </div>
         <div className="divider" />
         <div className="py-5 text-center text-[11.5px] text-neu-faint">
-          © {new Date().getFullYear()} {t("বিশ্বাস এগ্রো", "Biswas Agro")} · {t("সর্বস্বত্ব সংরক্ষিত", "All rights reserved")} ·{" "}
-          <span className="text-neu-accent">{site.taglineBn}</span>
+          © {new Date().getFullYear()} {t(store.name, store.name_en)} · {t("সর্বস্বত্ব সংরক্ষিত", "All rights reserved")} ·{" "}
+          <span className="text-neu-accent">{t("বিশুদ্ধতার আস্থায়, খামার থেকে আপনার ঘরে", "Trust in purity — from our farms to your home")}</span>
         </div>
       </div>
     </footer>

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { TrackForm } from "@/components/track-form";
 import { PackageSearch, Phone } from "lucide-react";
-import { site } from "@/lib/site";
+import { defaultStoreSettings, getStoreSettings } from "@/lib/site-settings";
 import { alternatesFor } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -16,6 +16,7 @@ export default async function TrackPage({
   searchParams: Promise<{ order?: string }>;
 }) {
   const { order } = await searchParams;
+  const store = await getStoreSettings().catch(() => defaultStoreSettings);
 
   return (
     <div className="container-x py-10 sm:py-14">
@@ -39,11 +40,11 @@ export default async function TrackPage({
           <h2 className="text-[14px] font-semibold">সাহায্য দরকার?</h2>
           <p className="mt-1 text-[12.5px] leading-relaxed text-sand-100/55">
             অর্ডার নম্বর হারিয়ে গেলে বা কোনো সমস্যা হলে সরাসরি কল করুন —{" "}
-            <a href={`tel:${site.phone}`} className="inline-flex items-center gap-1 font-semibold text-leaf-300">
-              <Phone className="h-3.5 w-3.5" /> {site.phoneDisplay}
+            <a href={`tel:${store.phone}`} className="inline-flex items-center gap-1 font-semibold text-leaf-300">
+              <Phone className="h-3.5 w-3.5" /> {store.phone_display}
             </a>
           </p>
-          <p className="mt-1 text-[11.5px] text-sand-100/40">{site.hoursBn}</p>
+          <p className="mt-1 text-[11.5px] text-sand-100/40">{store.hours_bn}</p>
         </div>
       </div>
     </div>

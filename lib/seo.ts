@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { site } from "./site";
+import type { StoreSettings } from "./store-info-model";
 
 /* ==========================================================================
    lib/seo.ts — one place for everything Google reads
@@ -199,6 +200,26 @@ export const organizationLd = {
     },
   ],
 };
+
+/**
+ * The store's structured data, built from the admin-managed contact block so
+ * Google is told the same phone number and address the customer reads on the
+ * page. Kept as a function because the values now arrive at request time.
+ */
+export function localBusinessLdFrom(store: StoreSettings) {
+  return {
+    ...localBusinessLd,
+    name: store.name,
+    telephone: store.phone,
+    email: store.email,
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: store.address_en || store.address_bn,
+      addressLocality: "Dhaka",
+      addressCountry: "BD",
+    },
+  };
+}
 
 export const localBusinessLd = {
   "@context": "https://schema.org",

@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { createClient, readRememberSession, supabaseConfigured } from "@/lib/supabase/client";
+import { isSupabasePublicConfigured } from "@/lib/env";
 import type { SessionUser } from "@/lib/session";
 
 /* ==========================================================================
@@ -45,7 +45,7 @@ export function AuthProvider({
   children: ReactNode;
 }) {
   const [user, setUser] = useState<SessionUser | null>(initialUser);
-  const [loading, setLoading] = useState(!initialUser && supabaseConfigured);
+  const [loading, setLoading] = useState(!initialUser && isSupabasePublicConfigured);
 
   /*
    * "এই ডিভাইসে লগইন রাখুন" unchecked → session-only login.
@@ -54,19 +54,28 @@ export function AuthProvider({
    * here, not in the login form, also covers a tab that was merely reopened.
    */
   useEffect(() => {
-    if (!supabaseConfigured) return;
-    if (readRememberSession() !== false) return;
-    try {
-      if (sessionStorage.getItem("ba:boot") === "1") return;
-      sessionStorage.setItem("ba:boot", "1");
-    } catch {
-      return;
-    }
-    void createClient()
-      .auth.signOut()
-      .catch(() => {
-        /* nothing to end */
-      });
+    if (!isSupabasePublicConfigured) return;
+    let disposed = false;
+    // supabase-js is ~180 KB, so it is imported only when a session actually
+    // has to be ended — never on the first paint of a page.
+    void (async () => {
+      const { createClient, readRememberSession } = await import("@/lib/supabase/client");
+      if (disposed || readRememberSession() !== false) return;
+      try {
+        if (sessionStorage.getItem("ba:boot") === "1") return;
+        sessionStorage.setItem("ba:boot", "1");
+      } catch {
+        return;
+      }
+      await createClient()
+        .auth.signOut()
+        .catch(() => {
+          /* nothing to end */
+        });
+    })();
+    return () => {
+      disposed = true;
+    };
   }, []);
 
   const loadProfile = useCallback(async (authUser: { id: string; email?: string | null; user_metadata?: Record<string, unknown> }) => {
@@ -80,9 +89,10 @@ export function AuthProvider({
       isSeller: false,
     };
 
-    if (!supabaseConfigured) return fallback;
+    if (!isSupabasePublicConfigured) return fallback;
 
     try {
+      const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
       const { data } = await supabase
         .from("profiles")
@@ -111,13 +121,18 @@ export function AuthProvider({
   }, []);
 
   useEffect(() => {
-    if (!supabaseConfigured) {
+    if (!isSupabasePublicConfigured) {
       setLoading(false);
       return;
     }
 
-    const supabase = createClient();
     let disposed = false;
+    let unsubscribe: (() => void) | null = null;
+
+    void (async () => {
+      const { createClient } = await import("@/lib/supabase/client");
+      if (disposed) return;
+      const supabase = createClient();
 
     // Initial read: covers a page that was cached, or a session restored in
     // another tab before this one mounted.
@@ -160,15 +175,21 @@ export function AuthProvider({
       if (event === "SIGNED_IN") setLoading(false);
     });
 
+    unsubscribe = () => subscription.unsubscribe();
+    })().catch(() => {
+      if (!disposed) setLoading(false);
+    });
+
     return () => {
       disposed = true;
-      subscription.unsubscribe();
+      unsubscribe?.();
     };
   }, [initialUser?.id, loadProfile]);
 
   const refresh = useCallback(async () => {
-    if (!supabaseConfigured) return;
+    if (!isSupabasePublicConfigured) return;
     try {
+      const { createClient } = await import("@/lib/supabase/client");
       const {
         data: { user: authUser },
       } = await createClient().auth.getUser();

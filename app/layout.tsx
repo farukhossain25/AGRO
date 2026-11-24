@@ -2,11 +2,13 @@ import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import "./globals.css";
 import { Providers } from "@/components/providers";
+import { HeadMirror } from "@/components/head-mirror";
 import { PWARegister } from "@/components/pwa-register";
 import { Analytics } from "@/components/analytics";
 import { site } from "@/lib/site";
 import { getDeliverySettings } from "@/lib/site-settings";
-import { localBusinessLd, organizationLd, websiteLd } from "@/lib/seo";
+import { localBusinessLdFrom, organizationLd, websiteLd } from "@/lib/seo";
+import { defaultStoreSettings, getStoreSettings } from "@/lib/site-settings";
 
 export const metadata: Metadata = {
   metadataBase: new URL(site.url),
@@ -104,14 +106,8 @@ export const viewport: Viewport = {
    One @graph node keeps Organization, LocalBusiness and WebSite together so
    Google resolves the `@id` references (publisher, parentOrganization) without
    guessing. Page-level Product / Article / Breadcrumb / Person nodes are
-   emitted by the individual routes. See lib/seo.ts. */
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@graph": [organizationLd, localBusinessLd, websiteLd].map(
-    // the graph already carries @context at the top level
-    ({ "@context": _ctx, ...node }) => node
-  ),
-};
+   emitted by the individual routes. See lib/seo.ts. The LocalBusiness node is
+   built per request from the admin's contact block (see RootLayout). */
 
 /* iOS launch images -------------------------------------------------------
    Safari only honours apple-touch-startup-image with an exact device
@@ -159,13 +155,24 @@ export default async function RootLayout({ children }: { children: React.ReactNo
      drawer and checkout promise exactly what computeDelivery() will charge.
      Cached per request by lib/site-settings.ts. */
   const delivery = await getDeliverySettings();
+  /* Phone/address in the structured data must match what the page shows, so
+     the admin's contact block drives the LocalBusiness node too. */
+  const store = await getStoreSettings().catch(() => defaultStoreSettings);
+  const graph = [organizationLd, localBusinessLdFrom(store), websiteLd].map(
+    ({ "@context": _ctx, ...node }) => node
+  );
 
   return (
     <html lang="bn" data-theme="light" suppressHydrationWarning>
-      <head>
-        {/* Self-hosted fonts (app/fonts.css). Preload only the two weights the
-            first screen actually needs — 400 body copy and 700 headlines — so
-            LCP text paints as soon as the fonts land, without blocking. */}
+      {/* No manual <head> on purpose. Rendering one made React treat it as the
+          only head it owns, so every tag produced by the Metadata API (title,
+          description, og:…) was pushed into <body> after hydration — invalid
+          HTML, invisible to crawlers that read <head>, and the reason
+          Lighthouse kept reporting "no meta description" on a page that had
+          one. These tags are hoisted into <head> by React 19 instead. */}
+      {/* Self-hosted fonts (app/fonts.css). Preload only the two weights the
+          first screen actually needs — 400 body copy and 700 headlines — so
+          LCP text paints as soon as the fonts land, without blocking. */}
         <link
           rel="preload"
           href="/fonts/hind-siliguri-bn-400.woff2"
@@ -195,14 +202,22 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             media={`(device-width: ${w / dpr}px) and (device-height: ${h / dpr}px) and (-webkit-device-pixel-ratio: ${ratio}) and (orientation: portrait)`}
           />
         ))}
+
+      <body className="min-h-dvh">
+        {/* Mirrors the Metadata API's streamed tags into <head> — see
+            components/head-mirror.tsx. Renders nothing itself. */}
+        <HeadMirror />
+
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c"),
+            __html: JSON.stringify({ "@context": "https://schema.org", "@graph": graph }).replace(
+              /</g,
+              "\\u003c"
+            ),
           }}
         />
-      </head>
-      <body className="min-h-dvh">
+
         <a
           href="#main"
           className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-xl focus:bg-neu-accent focus:px-4 focus:py-2 focus:text-sm focus:text-white"

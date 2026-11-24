@@ -3,13 +3,29 @@ import Link from "next/link";
 import { ArrowRight, Clock, ShieldCheck, Snowflake } from "lucide-react";
 import { ProductGrid } from "@/components/product-card";
 import { SectionHeader, ViewAll } from "@/components/ui";
-import { CombosStrip } from "@/components/home/combos-strip";
-import { PackagesPreview } from "@/components/home/packages-preview";
-import { Testimonials } from "@/components/home/testimonials";
+import dynamic from "next/dynamic";
 import { TrustStrip } from "@/components/home/trust-strip";
 import { LiveFarmsStrip } from "@/components/home/live-farms";
-import { WhyChooseUs } from "@/components/home/why-choose-us";
-import { FaqAccordion } from "@/components/faq-accordion";
+
+/* Blocks that sit below the fold are code-split: they still render on the
+   server (identical HTML, nothing changes for SEO), but their JavaScript is
+   fetched after the first paint instead of competing with the hero for the
+   main thread — that is what moved LCP on a throttled phone. */
+const CombosStrip = dynamic(() =>
+  import("@/components/home/combos-strip").then((m) => m.CombosStrip)
+);
+const PackagesPreview = dynamic(() =>
+  import("@/components/home/packages-preview").then((m) => m.PackagesPreview)
+);
+const Testimonials = dynamic(() =>
+  import("@/components/home/testimonials").then((m) => m.Testimonials)
+);
+const WhyChooseUs = dynamic(() =>
+  import("@/components/home/why-choose-us").then((m) => m.WhyChooseUs)
+);
+const FaqAccordion = dynamic(() =>
+  import("@/components/faq-accordion").then((m) => m.FaqAccordion)
+);
 import { whyChooseUs } from "@/lib/site";
 import type { BlogPost, Category, Combo, Farmer, Package, Product, Review } from "@/lib/types";
 

@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
+import { defaultStoreSettings, getStoreSettings } from "@/lib/site-settings";
 import Link from "next/link";
 import { CheckCircle2, Package, Phone, Truck } from "lucide-react";
 import { getOrderByNo } from "@/lib/data";
 import { formatDateBn, money } from "@/lib/format";
-import { orderStatusSteps, site } from "@/lib/site";
+import { orderStatusSteps } from "@/lib/site";
 
 /* Private surface — keep it out of the index and out of snippets. */
 export const metadata: Metadata = {
@@ -20,6 +21,7 @@ export default async function OrderSuccessPage({
 }) {
   const { order: orderNo } = await searchParams;
   const order = orderNo ? await getOrderByNo(orderNo).catch(() => null) : null;
+  const store = await getStoreSettings().catch(() => defaultStoreSettings);
 
   return (
     <div className="container-x py-10 sm:py-16">
@@ -150,14 +152,14 @@ export default async function OrderSuccessPage({
             </Link>
           ) : null}
           <Link href="/products" className="btn-ghost">আরও কিনুন</Link>
-          <a href={`tel:${site.phone}`} className="btn-ghost">
+          <a href={`tel:${store.phone}`} className="btn-ghost">
             <Phone className="h-4 w-4" /> কল করুন
           </a>
         </div>
 
         <p className="mt-6 text-center text-[11.5px] leading-relaxed text-sand-100/40">
-          অর্ডার সংক্রান্ত কোনো প্রশ্ন থাকলে {site.phoneDisplay} নম্বরে কল করুন
-          ({site.hoursBn})।
+          অর্ডার সংক্রান্ত কোনো প্রশ্ন থাকলে {store.phone_display} নম্বরে কল করুন
+          ({store.hours_bn})।
         </p>
       </div>
     </div>

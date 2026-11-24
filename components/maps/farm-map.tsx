@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+// Loaded here, not in globals.css: ~82 KB of map CSS would otherwise block
+// rendering on every page of the site, including the storefront home page.
+import "leaflet/dist/leaflet.css";
 import type { Farm } from "@/lib/types";
 
 /* ==========================================================================

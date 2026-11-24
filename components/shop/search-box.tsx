@@ -151,6 +151,8 @@ export function SearchBox({
       >
         <label className="relative block">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neu-faint" />
+          {/* aria-controls only names the listbox while it is in the DOM —
+              pointing at a missing id is an ARIA violation. */}
           <input
             ref={inputRef}
             value={value}
@@ -164,7 +166,7 @@ export function SearchBox({
             placeholder={t("পণ্য খুঁজুন… (যেমন: আম, ইলিশ)", "Search products… (mango, fish)")}
             className="input !rounded-full !py-2.5 !pl-10 !pr-9 text-[16px] sm:text-[13px]"
             aria-label={t("পণ্য খুঁজুন", "Search products")}
-            aria-controls={listId}
+            aria-controls={showMenu ? listId : undefined}
             autoComplete="off"
             enterKeyHint="search"
             inputMode="search"
