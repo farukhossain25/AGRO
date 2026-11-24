@@ -586,6 +586,11 @@ export type PremiumSubscription = {
   payment_ref: string | null;
   auto_renew: boolean;
   device_limit: number;
+  /** why an admin rejected the payment (or the owner cancelled) — shown to the customer */
+  cancel_reason?: string | null;
+  /** who approved/rejected and when (migration 23) */
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
   created_at: string;
 };
 

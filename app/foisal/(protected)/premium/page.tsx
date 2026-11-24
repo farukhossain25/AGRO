@@ -2,37 +2,31 @@ import Link from "next/link";
 import { db, isDbConfigured } from "@/lib/db";
 import { premiumStatusLabelBn, tierLabelBn } from "@/lib/premium";
 import { adminHref } from "@/lib/paths";
+import { PremiumManager, type AdminPremiumSub } from "@/components/admin/premium-manager";
 
 export const dynamic = "force-dynamic";
 
-type Sub = {
-  id: string;
-  sub_no: string;
-  user_id: string | null;
-  plan_name_bn: string;
-  tier: string;
-  amount: number;
-  status: string;
+/* ==========================================================================
+   /foisal/premium — the premium subscription desk
+   --------------------------------------------------------------------------
+   Two halves:
+
+     1. the counters (active, on trial, devices, live viewers)
+     2. the payment queue — PremiumManager. Every premium purchase is a manual
+        payment, so this is where the owner verifies the TrxID and either puts
+        the plan live or rejects it with a reason the customer will read.
+        The row is only *rendered* here; the decision goes through
+        PATCH /api/foisal/premium-subscriptions (premium.manage permission,
+        audited, notifies the customer).
+   ========================================================================== */
+
+type Sub = AdminPremiumSub & {
   started_at: string | null;
   expires_at: string | null;
-  grace_until: string | null;
-  payment_method: string | null;
-  device_limit: number;
-  created_at: string;
-  customer_name?: string | null;
-  customer_phone?: string | null;
-};
-
-const STATUS_TONE: Record<string, string> = {
-  active: "bg-leaf-600/20 text-leaf-700",
-  grace: "bg-amber-500/15 text-amber-300",
-  pending: "bg-sky-500/15 text-sky-300",
-  expired: "bg-white/[0.07] text-sand-100/45",
-  cancelled: "bg-red-500/15 text-red-300",
 };
 
 export default async function AdminPremiumPage() {
-  let subs: Sub[] = [];
+  let subs: AdminPremiumSub[] = [];
   let trials = 0;
   let devices = 0;
   let sessions = 0;
@@ -42,7 +36,11 @@ export default async function AdminPremiumPage() {
       const client = db();
       const [{ data }, { count: trialCount }, { count: deviceCount }, { count: sessionCount }] =
         await Promise.all([
-          client.from("user_subscriptions").select("*").order("created_at", { ascending: false }).limit(200),
+          client
+            .from("user_subscriptions")
+            .select("id, sub_no, user_id, plan_name_bn, tier, amount, status, started_at, expires_at, payment_method, payment_ref, cancel_reason, created_at")
+            .order("created_at", { ascending: false })
+            .limit(200),
           client.from("trials").select("id", { count: "exact", head: true }),
           client.from("premium_devices").select("id", { count: "exact", head: true }),
           client
@@ -51,42 +49,48 @@ export default async function AdminPremiumPage() {
             .gt("expires_at", new Date().toISOString()),
         ]);
 
-      const raw = (data ?? []) as Sub[];
+      const raw = (data ?? []) as unknown as Sub[];
       trials = trialCount ?? 0;
       devices = deviceCount ?? 0;
       sessions = sessionCount ?? 0;
 
-      // hydrate customer names for the table
+      // hydrate customer names + phones for the payment cards
       const ids = Array.from(new Set(raw.map((r) => r.user_id).filter(Boolean))) as string[];
+      const map = new Map<string, { full_name: string | null; phone: string | null }>();
       if (ids.length) {
         const { data: users } = await client.from("profiles").select("id, full_name, phone").in("id", ids);
-        const map = new Map((users ?? []).map((u) => [u.id, u]));
-        subs = raw.map((r) => ({
-          ...r,
-          customer_name: r.user_id ? map.get(r.user_id)?.full_name ?? null : null,
-          customer_phone: r.user_id ? map.get(r.user_id)?.phone ?? null : null,
-        }));
-      } else {
-        subs = raw;
+        for (const u of users ?? []) map.set(u.id, { full_name: u.full_name, phone: u.phone });
       }
+      subs = raw.map((r) => ({
+        ...r,
+        amount: Number(r.amount),
+        customer_name: r.user_id ? map.get(r.user_id)?.full_name ?? null : null,
+        customer_phone: r.user_id ? map.get(r.user_id)?.phone ?? null : null,
+      }));
     } catch {
-      /* offline */
+      /* offline — the manager renders its empty state */
     }
   }
 
-  const active = subs.filter((s) => s.status === "active");
-  const mrr = active.reduce(
-    (n, s) => n + Number(s.amount) / Math.max(1, Math.round(daysBetween(s.started_at, s.expires_at) / 30)),
-    0
-  );
+  const active = subs.filter((s) => s.status === "active" || s.status === "grace");
+  const pending = subs.filter((s) => s.status === "pending");
+  /* Monthly run-rate: each active sub's amount spread over its own term. */
+  const mrr = active.reduce((n, s) => n + Number(s.amount) / Math.max(1, Math.round(daysBetween(s.started_at, s.expires_at) / 30)), 0);
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-bold">প্রিমিয়াম সাবস্ক্রিপশন</h1>
-        <p className="text-[12px] text-sand-100/45">
-          {active.length}টি সক্রিয় · আনুমানিক মাসিক আয় ৳{Math.round(mrr)}
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h1 className="text-xl font-bold">প্রিমিয়াম সাবস্ক্রিপশন</h1>
+          <p className="text-[12px] text-sand-100/45">
+            {active.length}টি সক্রিয় · আনুমানিক মাসিক আয় ৳{Math.round(mrr)}
+          </p>
+        </div>
+        {pending.length > 0 ? (
+          <span className="badge bg-sky-500/15 text-sky-200">
+            {pending.length}টি পেমেন্ট যাচাইয়ের অপেক্ষায়
+          </span>
+        ) : null}
       </div>
 
       {/* tiles */}
@@ -111,63 +115,22 @@ export default async function AdminPremiumPage() {
         <Link href={adminHref("codes")} className="btn-ghost btn-sm">
           অ্যাক্সেস কোড
         </Link>
+        <Link href="/account/premium" className="btn-ghost btn-sm">
+          গ্রাহক যা দেখেন
+        </Link>
       </div>
 
-      <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-[12px]">
-            <thead className="bg-white/[0.02] text-[10.5px] uppercase tracking-wider text-sand-100/40">
-              <tr>
-                <th className="px-3 py-2.5 font-medium">সাব নং</th>
-                <th className="px-3 py-2.5 font-medium">গ্রাহক</th>
-                <th className="px-3 py-2.5 font-medium">প্ল্যান</th>
-                <th className="px-3 py-2.5 font-medium">স্টেটাস</th>
-                <th className="px-3 py-2.5 font-medium">শুরু</th>
-                <th className="px-3 py-2.5 font-medium">শেষ</th>
-                <th className="px-3 py-2.5 font-medium">টাকা</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/[0.04]">
-              {subs.map((s) => (
-                <tr key={s.id} className="hover:bg-white/[0.02]">
-                  <td className="px-3 py-2.5 font-mono text-[11px]">{s.sub_no}</td>
-                  <td className="px-3 py-2.5">
-                    <p className="text-[12px] text-sand-100/80">{s.customer_name ?? "—"}</p>
-                    <p className="text-[10.5px] text-sand-100/40">{s.customer_phone ?? ""}</p>
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <p className="text-[11.5px]">{s.plan_name_bn}</p>
-                    <p className="text-[10px] text-sand-100/40">{tierLabelBn[s.tier] ?? s.tier}</p>
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] ${STATUS_TONE[s.status] ?? ""}`}>
-                      {premiumStatusLabelBn[s.status] ?? s.status}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2.5 text-[11px] text-sand-100/50">
-                    {s.started_at ? new Date(s.started_at).toLocaleDateString("bn-BD") : "—"}
-                  </td>
-                  <td className="px-3 py-2.5 text-[11px] text-sand-100/50">
-                    {s.expires_at ? new Date(s.expires_at).toLocaleDateString("bn-BD") : "—"}
-                  </td>
-                  <td className="px-3 py-2.5 text-[11.5px] text-mint">৳{Number(s.amount)}</td>
-                </tr>
-              ))}
-              {subs.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-3 py-10 text-center text-[12px] text-sand-100/40">
-                    এখনো কোনো প্রিমিয়াম সাবস্ক্রিপশন নেই —{" "}
-                    <Link href="/live/plans" className="text-mint hover:underline">
-                      প্ল্যান পেজ
-                    </Link>{" "}
-                    দেখুন
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {/* the payment queue — approve / reject with a reason */}
+      <PremiumManager initial={subs} />
+
+      {/* legend */}
+      <p className="px-1 text-[11px] leading-relaxed text-sand-100/35">
+        চালু করার নিয়ম: গ্রাহকের দেওয়া TrxID বিকাশ/নগদের এসএমএসের সাথে মিলিয়ে দেখুন → <b>যাচাই করে চালু করুন</b>{" "}
+        → গ্রাহক তাঁর প্ল্যানের পুরো মেয়াদ (৩০ / ১৮২ / ৩৬৫ দিন) পাবেন এবং সাথে সাথেই লাইভ ক্যামেরার অ্যাক্সেস
+        পাবেন। পেমেন্ট না মিললে <b>বাতিল করুন</b> — যে কারণ লিখবেন, গ্রাহক সেটি{" "}
+        {premiumStatusLabelBn.cancelled} হিসেবে নিজের অ্যাকাউন্ট পেজে দেখবেন। প্ল্যানের টায়ার:{" "}
+        {Object.values(tierLabelBn).join(" · ")}।
+      </p>
     </div>
   );
 }
