@@ -1,4 +1,5 @@
 import { db } from "./db";
+import { notify } from "./notify";
 import type { Database } from "./database.types";
 import type { Order, OrderItem, PaymentMethod } from "./types";
 
@@ -203,4 +204,127 @@ export async function createOrder(params: {
   };
 
   return { order, lines: orderItems };
+}
+
+/* ==========================================================================
+   Cancelling an order — undo what place_order() did
+   --------------------------------------------------------------------------
+   Checkout reserves stock, counts the coupon and writes one sub_order per
+   seller (that row IS the seller's money). Cancelling by flipping only
+   `orders.status` left all of that standing: the seller kept the sale and the
+   dashboard kept counting it, the stock never came back.
+
+   The caller flips `orders.status` FIRST, guarded so only one request can
+   ever win the transition into `cancelled`; this function then runs exactly
+   once. Every step is still written to tolerate a repeat.
+   ========================================================================== */
+
+export type CancelTarget = {
+  id: string;
+  order_no: string;
+  coupon_code: string | null;
+  user_id: string | null;
+};
+
+/** Steps never throw: a failing side effect must not stop the ones after it. */
+// PostgrestFilterBuilder is thenable but not a full Promise, hence PromiseLike.
+async function step(name: string, run: () => PromiseLike<unknown>) {
+  try {
+    await run();
+  } catch (error) {
+    console.error(`[cancel:${name}]`, error);
+  }
+}
+
+export async function applyOrderCancellation(order: CancelTarget, reason: string): Promise<void> {
+  const client = db();
+
+  // 1. the sellers' money: every open sub_order is voided, not deleted
+  await step("sub_orders", () =>
+    client
+      .from("sub_orders")
+      .update({ status: "cancelled", updated_at: new Date().toISOString() })
+      .eq("order_id", order.id)
+      .in("status", ["received", "packing", "shipped", "delivered"])
+  );
+
+  // 2. stock that was reserved at checkout goes back on the shelf
+  //    (combo lines carry no product_id — their stock is not tracked per item)
+  await step("stock", async () => {
+    const { data: items } = await client
+      .from("order_items")
+      .select("product_id, quantity")
+      .eq("order_id", order.id)
+      .not("product_id", "is", null);
+    for (const item of items ?? []) {
+      if (!item.product_id) continue;
+      const { data: product } = await client
+        .from("products")
+        .select("stock")
+        .eq("id", item.product_id)
+        .maybeSingle();
+      if (!product) continue;
+      await client
+        .from("products")
+        .update({ stock: Number(product.stock ?? 0) + Number(item.quantity ?? 0) })
+        .eq("id", item.product_id);
+    }
+  });
+
+  // 3. the coupon's used_count was bumped at checkout; give that use back
+  await step("coupon", async () => {
+    if (!order.coupon_code) return;
+    const { data: coupon } = await client
+      .from("coupons")
+      .select("id, used_count")
+      .eq("code", order.coupon_code)
+      .maybeSingle();
+    if (!coupon) return;
+    await client
+      .from("coupons")
+      .update({ used_count: Math.max(0, Number(coupon.used_count ?? 0) - 1) })
+      .eq("id", coupon.id);
+  });
+
+  // 4. tell the customer, then every seller who had a share in the order
+  const note = reason.trim() || "অ্যাডমিনের সিদ্ধান্তে";
+  if (order.user_id) {
+    await step("notify:customer", () =>
+      notify({
+        userId: order.user_id,
+        audience: "user",
+        kind: "order",
+        title: `অর্ডার ${order.order_no} বাতিল করা হয়েছে`,
+        body: note,
+        link: "/account/orders",
+      })
+    );
+  }
+
+  await step("notify:sellers", async () => {
+    // Two plain reads instead of an embedded join: explicit, and the seller's
+    // login id lives on `sellers.user_id`, not on the sub_order.
+    const { data: shares } = await client
+      .from("sub_orders")
+      .select("seller_id")
+      .eq("order_id", order.id);
+    const sellerIds = [...new Set((shares ?? []).map((s) => s.seller_id).filter((v): v is string => !!v))];
+    if (!sellerIds.length) return;
+
+    const { data: sellerRows } = await client
+      .from("sellers")
+      .select("id, user_id")
+      .in("id", sellerIds);
+    for (const seller of sellerRows ?? []) {
+      if (!seller.user_id) continue;
+      await notify({
+        userId: seller.user_id,
+        audience: "seller",
+        kind: "order",
+        title: `অর্ডার বাতিল — ${order.order_no}`,
+        body: "এই বিক্রয়টি আপনার হিসাব থেকে বাদ দেওয়া হয়েছে।",
+        link: "/seller",
+      }).catch(() => undefined);
+    }
+  });
 }

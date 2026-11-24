@@ -39,6 +39,15 @@ export async function getSellerSettings(): Promise<SellerSettings> {
   }
 }
 
+/** sub_orders.status / orders.status → Bangla (same enum on both). */
+export const orderStatusLabelBn: Record<string, string> = {
+  received: "গৃহীত",
+  packing: "প্যাকিং",
+  shipped: "ডেলিভারির পথে",
+  delivered: "সম্পন্ন",
+  cancelled: "বাতিল",
+};
+
 export const sellerStatusLabelBn: Record<string, string> = {
   pending: "যাচাই চলছে",
   approved: "অনুমোদিত",
@@ -106,13 +115,18 @@ async function queryApprovedSellers(limit: number): Promise<SellerWithStats[]> {
   const ids = sellers.map((s) => s.id);
 
   const [{ data: subs }, { data: prods }] = await Promise.all([
-    client.from("sub_orders").select("seller_id, subtotal, commission, seller_earning").in("seller_id", ids),
+    client
+      .from("sub_orders")
+      .select("seller_id, subtotal, commission, seller_earning, status")
+      .in("seller_id", ids),
     client.from("products").select("seller_id").in("seller_id", ids).eq("is_active", true),
   ]);
 
+  // A cancelled order is not a sale — the row stays for the record, the
+  // numbers must not count it.
   const agg = new Map<string, { orders: number; gross: number; commission: number; net: number }>();
   for (const row of subs ?? []) {
-    if (!row.seller_id) continue;
+    if (!row.seller_id || row.status === "cancelled") continue;
     const cur = agg.get(row.seller_id) ?? { orders: 0, gross: 0, commission: 0, net: 0 };
     cur.orders += 1;
     cur.gross += Number(row.subtotal ?? 0);

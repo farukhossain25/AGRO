@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { CheckCircle2, Download, Printer, QrCode, Search, X } from "lucide-react";
+import { Ban, CheckCircle2, Download, Printer, QrCode, Search, X, XCircle } from "lucide-react";
 import { useToast } from "@/lib/toast";
 import { formatDateTimeBn, money, toBn } from "@/lib/format";
 import type { Order } from "@/lib/types";
@@ -17,6 +17,14 @@ const statuses = [
   { key: "cancelled", label: "বাতিল", tone: "bg-red-500/15 text-red-300" },
 ];
 
+const PAYMENT_LABEL: Record<string, { label: string; tone: string }> = {
+  paid: { label: "পরিশোধিত", tone: "bg-leaf-600/20 text-leaf-700" },
+  pending: { label: "বাকি", tone: "bg-amber-500/15 text-amber-300" },
+  failed: { label: "বাতিল", tone: "bg-red-500/15 text-red-300" },
+  refunded: { label: "রিফান্ডড", tone: "bg-sky-500/15 text-sky-300" },
+};
+const paymentBadge = (status: string) => PAYMENT_LABEL[status] ?? PAYMENT_LABEL.pending;
+
 export function OrderManager({ initial, dbReady }: { initial: Order[]; dbReady: boolean }) {
   const router = useRouter();
   const toast = useToast();
@@ -26,6 +34,10 @@ export function OrderManager({ initial, dbReady }: { initial: Order[]; dbReady: 
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [selected, setSelected] = useState<Order | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  /* Why an order is being cancelled: "cancel" (admin decision) or
+     "reject_payment" (the reported TrxID did not check out). */
+  const [cancelling, setCancelling] = useState<{ order: Order; mode: "cancel" | "reject_payment" } | null>(null);
+  const [reason, setReason] = useState("");
 
   const filtered = useMemo(() => {
     let list = orders;
@@ -51,24 +63,76 @@ export function OrderManager({ initial, dbReady }: { initial: Order[]; dbReady: 
     [orders]
   );
 
-  async function updateStatus(order: Order, status: string) {
+  function requestStatus(order: Order, status: string) {
+    // Cancelling is never a one-click action: the reason is what the customer
+    // and every seller in the order will read.
+    if (status === "cancelled") {
+      setReason("");
+      setCancelling({ order, mode: "cancel" });
+      return;
+    }
+    void updateStatus(order, status);
+  }
+
+  async function updateStatus(order: Order, status: string, cancel_reason?: string) {
     setBusy(order.id);
     try {
       const res = await fetch("/api/foisal/orders", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: order.id, status }),
+        body: JSON.stringify({ id: order.id, status, ...(cancel_reason ? { cancel_reason } : {}) }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message ?? "আপডেট ব্যর্থ");
-      setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, status: status as Order["status"] } : o)));
-      toast.success("স্টেটাস আপডেট হয়েছে", order.order_no);
+      applyPatch(order.id, { status: status as Order["status"], ...(json.data?.cancel_reason ? { cancel_reason: json.data.cancel_reason } : {}) });
+      toast.success(status === "cancelled" ? "অর্ডার বাতিল — সেলার হিসাব ও স্টক ঠিক করা হয়েছে" : "স্টেটাস আপডেট হয়েছে", order.order_no);
       router.refresh();
     } catch (err) {
       toast.error("আপডেট ব্যর্থ", (err as Error).message);
     } finally {
       setBusy(null);
     }
+  }
+
+  /* Reject a reported payment: marks it failed, cancels the order, voids the
+     sellers' sub-orders, restores stock and tells both sides. */
+  async function confirmCancel() {
+    if (!cancelling) return;
+    const { order, mode } = cancelling;
+    setBusy(order.id);
+    try {
+      const res = await fetch("/api/foisal/orders", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          mode === "reject_payment"
+            ? { id: order.id, action: "reject_payment", cancel_reason: reason.trim() || undefined }
+            : { id: order.id, status: "cancelled", cancel_reason: reason.trim() || undefined }
+        ),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message ?? "ব্যর্থ");
+      applyPatch(order.id, {
+        status: "cancelled",
+        ...(mode === "reject_payment" ? { payment_status: "failed" as const } : {}),
+        ...(json.data?.cancel_reason ? { cancel_reason: json.data.cancel_reason } : {}),
+      });
+      toast.success(
+        mode === "reject_payment" ? "পেমেন্ট বাতিল ও অর্ডার বাতিল — সেলার হিসাব ও স্টক ঠিক করা হয়েছে" : "অর্ডার বাতিল — সেলার হিসাব ও স্টক ঠিক করা হয়েছে",
+        order.order_no
+      );
+      setCancelling(null);
+      router.refresh();
+    } catch (err) {
+      toast.error("ব্যর্থ", (err as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function applyPatch(id: string, patch: Partial<Order>) {
+    setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...patch } : o)));
+    setSelected((prev) => (prev && prev.id === id ? { ...prev, ...patch } : prev));
   }
 
   async function markPaid(order: Order) {
@@ -79,8 +143,9 @@ export function OrderManager({ initial, dbReady }: { initial: Order[]; dbReady: 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: order.id, payment_status: "paid" }),
       });
-      if (!res.ok) throw new Error("আপডেট ব্যর্থ");
-      setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, payment_status: "paid" } : o)));
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.message ?? "আপডেট ব্যর্থ");
+      applyPatch(order.id, { payment_status: "paid" });
       toast.success(
         order.payment_ref ? `ভেরিফাই হয়েছে — TrxID: ${order.payment_ref}` : "পেমেন্ট পরিশোধিত হিসেবে চিহ্নিত",
         order.order_no
@@ -166,7 +231,9 @@ export function OrderManager({ initial, dbReady }: { initial: Order[]; dbReady: 
 
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-[12px]">
+          {/* min-width makes the wrapper actually scroll instead of crushing
+              the order number into one character per line on a phone */}
+          <table className="w-full min-w-[760px] text-left text-[12px]">
             <thead className="bg-white/[0.02] text-[10.5px] uppercase tracking-wider text-sand-100/40">
               <tr>
                 <th className="px-3 py-2.5 font-medium">অর্ডার</th>
@@ -193,15 +260,21 @@ export function OrderManager({ initial, dbReady }: { initial: Order[]; dbReady: 
                     <p className="text-[9.5px] text-sand-100/30">{o.upazila}</p>
                   </td>
                   <td className="px-2 py-2.5">
-                    <span className={`badge !text-[9px] ${o.payment_status === "paid" ? "bg-leaf-600/20 text-leaf-700" : "bg-amber-500/15 text-amber-300"}`}>
-                      {o.payment_status === "paid" ? "পরিশোধিত" : "বাকি"}
+                    <span className={`badge !text-[9px] ${paymentBadge(o.payment_status).tone}`}>
+                      {paymentBadge(o.payment_status).label}
                     </span>
-                    <p className="mt-0.5 text-[9px] uppercase text-sand-100/30">{o.payment_method}</p>
+                    {o.payment_ref ? (
+                      <p className="mt-0.5 max-w-[140px] truncate font-mono text-[9px] text-sand-100/40" title={o.payment_ref}>
+                        {o.payment_ref.split(" | ")[0]}
+                      </p>
+                    ) : (
+                      <p className="mt-0.5 text-[9px] uppercase text-sand-100/30">{o.payment_method}</p>
+                    )}
                   </td>
                   <td className="px-2 py-2.5" onClick={(e) => e.stopPropagation()}>
                     <select
                       value={o.status}
-                      onChange={(e) => updateStatus(o, e.target.value)}
+                      onChange={(e) => requestStatus(o, e.target.value)}
                       disabled={busy === o.id}
                       className="input !w-auto !rounded-lg !px-2 !py-1 !text-[10.5px]"
                     >
@@ -220,6 +293,63 @@ export function OrderManager({ initial, dbReady }: { initial: Order[]; dbReady: 
           <p className="py-10 text-center text-[12px] text-sand-100/40">কোনো অর্ডার পাওয়া যায়নি</p>
         ) : null}
       </div>
+
+      {/* cancel / reject-payment dialog */}
+      {cancelling ? (
+        <div className="fixed inset-0 z-[95] flex items-center justify-center bg-ink-950/80 p-3 backdrop-blur-sm" role="dialog" aria-modal="true">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void confirmCancel();
+            }}
+            className="card w-full max-w-md p-5"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-[15px] font-bold text-neu-ink">
+                  {cancelling.mode === "reject_payment" ? "পেমেন্ট বাতিল ও অর্ডার বাতিল" : "অর্ডার বাতিল"}
+                </h2>
+                <p className="mt-0.5 font-mono text-[11px] text-neu-muted">{cancelling.order.order_no}</p>
+              </div>
+              <button type="button" onClick={() => setCancelling(null)} className="neu-icon-btn" aria-label="বন্ধ">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {cancelling.mode === "reject_payment" && cancelling.order.payment_ref ? (
+              <p className="mt-3 rounded-lg bg-neu-inset/60 px-3 py-2 text-[11.5px] text-neu-muted">
+                রিপোর্ট করা TrxID: <span className="font-mono text-neu-ink">{cancelling.order.payment_ref}</span>
+              </p>
+            ) : null}
+
+            <label className="mt-3 block">
+              <span className="label">কারণ (গ্রাহক ও সংশ্লিষ্ট সেলার দেখবেন)</span>
+              <textarea
+                rows={3}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                className="input resize-none"
+                placeholder={cancelling.mode === "reject_payment" ? "যেমন: bKash-এ এই TrxID পাওয়া যায়নি" : "যেমন: পণ্য স্টকে নেই"}
+                maxLength={300}
+              />
+            </label>
+
+            <div className="mt-3 rounded-lg border border-amber-500/25 bg-amber-500/8 px-3 py-2 text-[11px] leading-relaxed text-amber-200">
+              এতে সেলারদের সাব-অর্ডার বাতিল হবে (বিক্রয় থেকে বাদ), স্টক ফিরে আসবে, কুপনের ব্যবহার ফেরত যাবে এবং
+              গ্রাহক ও সেলার নোটিফিকেশন পাবেন।
+            </div>
+
+            <div className="mt-4 flex gap-2">
+              <button type="submit" disabled={busy === cancelling.order.id} className="btn-danger flex-1">
+                {busy === cancelling.order.id ? "হচ্ছে…" : cancelling.mode === "reject_payment" ? "পেমেন্ট বাতিল + অর্ডার বাতিল" : "অর্ডার বাতিল করুন"}
+              </button>
+              <button type="button" onClick={() => setCancelling(null)} className="btn-ghost">
+                ফিরে যান
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
 
       {/* invoice drawer */}
       {selected ? (
@@ -261,8 +391,8 @@ export function OrderManager({ initial, dbReady }: { initial: Order[]; dbReady: 
             <div className="mt-3 rounded-xl border border-white/[0.08] bg-white/[0.02] p-3 print:border-black/15 print:bg-black/[0.02]">
               <div className="flex items-center justify-between">
                 <p className="text-[9.5px] uppercase tracking-wider opacity-50">পেমেন্ট যাচাই</p>
-                <span className={`badge !text-[9px] ${selected.payment_status === "paid" ? "bg-leaf-600/20 text-leaf-700" : "bg-amber-500/15 text-amber-300"}`}>
-                  {selected.payment_status === "paid" ? "পরিশোধিত" : "বাকি"}
+                <span className={`badge !text-[9px] ${paymentBadge(selected.payment_status).tone}`}>
+                  {paymentBadge(selected.payment_status).label}
                 </span>
               </div>
               <div className="mt-1.5 flex items-center justify-between text-[11.5px]">
@@ -329,8 +459,19 @@ export function OrderManager({ initial, dbReady }: { initial: Order[]; dbReady: 
               </div>
             </div>
 
+            {selected.status === "cancelled" ? (
+              <div className="mt-3 flex items-start gap-2 rounded-xl border border-red-500/25 bg-red-500/8 p-3 text-[12px] text-red-200">
+                <Ban className="mt-0.5 h-4 w-4 shrink-0" />
+                <div>
+                  <p className="font-semibold">অর্ডার বাতিল</p>
+                  <p className="mt-0.5 text-red-200/80">{selected.cancel_reason ?? "কারণ লেখা হয়নি"}</p>
+                  <p className="mt-1 text-[10.5px] text-red-200/60">সেলারদের সাব-অর্ডার বাতিল, স্টক ফেরত ও নোটিফিকেশন পাঠানো হয়েছে।</p>
+                </div>
+              </div>
+            ) : null}
+
             <div className="mt-4 flex flex-wrap gap-2 print:hidden">
-              {selected.payment_status !== "paid" ? (
+              {selected.payment_status !== "paid" && selected.status !== "cancelled" ? (
                 <button
                   onClick={() => markPaid(selected)}
                   disabled={busy === selected.id}
@@ -338,11 +479,29 @@ export function OrderManager({ initial, dbReady }: { initial: Order[]; dbReady: 
                 >
                   <CheckCircle2 className="h-3.5 w-3.5" /> ভেরিফাই করুন (পরিশোধিত)
                 </button>
-              ) : (
+              ) : null}
+              {selected.payment_status === "paid" ? (
                 <span className="inline-flex items-center gap-1.5 rounded-lg bg-leaf-600/15 px-3 py-1.5 text-[11px] font-semibold text-leaf-700">
                   <CheckCircle2 className="h-3.5 w-3.5" /> পরিশোধিত
                 </span>
-              )}
+              ) : null}
+              {selected.payment_status === "failed" ? (
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-red-500/15 px-3 py-1.5 text-[11px] font-semibold text-red-300">
+                  <XCircle className="h-3.5 w-3.5" /> পেমেন্ট বাতিল
+                </span>
+              ) : null}
+              {selected.status !== "cancelled" ? (
+                <button
+                  onClick={() => {
+                    setReason("");
+                    setCancelling({ order: selected, mode: "reject_payment" });
+                  }}
+                  disabled={busy === selected.id}
+                  className="btn-ghost btn-sm !border-red-500/30 !text-red-300 hover:!bg-red-500/10"
+                >
+                  <XCircle className="h-3.5 w-3.5" /> {selected.payment_ref ? "পেমেন্ট বাতিল (ভুল/ফেক TrxID)" : "অর্ডার বাতিল"}
+                </button>
+              ) : null}
               <button onClick={() => window.print()} className="btn-ghost btn-sm">
                 <Printer className="h-3.5 w-3.5" /> ইনভয়েস প্রিন্ট
               </button>

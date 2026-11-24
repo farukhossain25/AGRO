@@ -4,8 +4,15 @@ import { redirect } from "next/navigation";
 import { Banknote, Eye, Package, ShoppingBag, Store, TrendingUp } from "lucide-react";
 import { currentUser } from "@/lib/api";
 import { db } from "@/lib/db";
-import { getSellerByUser, approvePendingSellerProducts, sellerStatusLabelBn, payoutStatusLabelBn } from "@/lib/sellers";
+import {
+  getSellerByUser,
+  approvePendingSellerProducts,
+  sellerStatusLabelBn,
+  payoutStatusLabelBn,
+  orderStatusLabelBn,
+} from "@/lib/sellers";
 import { ensureSellerFarm, type SellerFarmLink } from "@/lib/seller-farm";
+import { toBn } from "@/lib/format";
 import { SellerProductManager } from "@/components/seller/product-manager";
 
 export const dynamic = "force-dynamic";
@@ -46,7 +53,10 @@ export default async function SellerDashboard() {
     client.from("categories").select("id, name_bn").order("sort_order"),
   ]);
 
-  const orders = subs ?? [];
+  // Cancelled orders are not sales: they are listed (so the seller sees why)
+  // but never counted.
+  const orders = (subs ?? []).filter((o) => o.status !== "cancelled");
+  const cancelledCount = (subs ?? []).length - orders.length;
   const gross = orders.reduce((n, o) => n + Number(o.subtotal ?? 0), 0);
   const commission = orders.reduce((n, o) => n + Number(o.commission ?? 0), 0);
   const net = orders.reduce((n, o) => n + Number(o.seller_earning ?? 0), 0);
@@ -173,15 +183,29 @@ export default async function SellerDashboard() {
         {/* orders + payouts */}
         <aside className="space-y-5">
           <div className="card p-4">
-            <h2 className="mb-3 text-[13px] font-bold text-neu-ink">সাম্প্রতিক অর্ডার</h2>
+            <h2 className="mb-3 flex items-center justify-between text-[13px] font-bold text-neu-ink">
+              <span>সাম্প্রতিক অর্ডার</span>
+              {cancelledCount ? (
+                <span className="text-[10.5px] font-normal text-sand-100/45">{toBn(cancelledCount)}টি বাতিল (হিসাবে নেই)</span>
+              ) : null}
+            </h2>
             {orders.length === 0 ? (
               <p className="text-[11.5px] text-sand-100/40">এখনো কোনো অর্ডার আসেনি</p>
             ) : (
               <ul className="space-y-2">
                 {orders.slice(0, 8).map((o) => (
                   <li key={o.id} className="flex items-center justify-between gap-2 text-[11.5px]">
-                    <span className="font-mono text-sand-100/60">{o.sub_no}</span>
-                    <span className="text-mint">৳{Math.round(Number(o.seller_earning))}</span>
+                    <div className="min-w-0">
+                      <p className="truncate font-mono text-sand-100/60">{o.sub_no}</p>
+                      <p
+                        className={`text-[10px] font-medium ${
+                          o.status === "delivered" ? "text-leaf-300" : o.status === "shipped" ? "text-sky-300" : "text-amber-300"
+                        }`}
+                      >
+                        {orderStatusLabelBn[o.status] ?? o.status}
+                      </p>
+                    </div>
+                    <span className="shrink-0 font-semibold text-mint">৳{Math.round(Number(o.seller_earning))}</span>
                   </li>
                 ))}
               </ul>
