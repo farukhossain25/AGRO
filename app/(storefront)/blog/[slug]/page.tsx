@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Clock, Share2, User } from "lucide-react";
+import { decodeRouteParam } from "@/lib/format";
 import { getBlogPost, getBlogPosts } from "@/lib/data";
 import { formatDateBn } from "@/lib/format";
 import { site } from "@/lib/site";
@@ -22,7 +23,8 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = decodeRouteParam(rawSlug);
   const post = await getBlogPost(slug);
   if (!post) return { title: "লেখাটি পাওয়া যায়নি" };
   return {
@@ -110,7 +112,8 @@ function renderMarkdown(md: string) {
 }
 
 export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = decodeRouteParam(rawSlug);
   const post = await getBlogPost(slug);
   if (!post) notFound();
 

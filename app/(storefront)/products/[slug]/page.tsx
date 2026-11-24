@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronRight } from "lucide-react";
+import { decodeRouteParam } from "@/lib/format";
 import { getApprovedReviews, getCategories, getProductBySlug, getProducts, getRelatedProducts } from "@/lib/data";
 import { ProductDetail } from "@/components/shop/product-detail";
 import { SupplierCard } from "@/components/shop/supplier-card";
@@ -34,7 +35,8 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = decodeRouteParam(rawSlug);
   const product = await getProductBySlug(slug);
   if (!product) return { title: "পণ্য পাওয়া যায়নি" };
 
@@ -75,7 +77,8 @@ export default async function ProductPage({
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ rsort?: string | string[] }>;
 }) {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = decodeRouteParam(rawSlug);
   const sort = normaliseSort((await searchParams).rsort);
   const product = await getProductBySlug(slug);
   if (!product) notFound();

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FileText, ShieldCheck } from "lucide-react";
+import { decodeRouteParam } from "@/lib/format";
 import { formatDateBn } from "@/lib/format";
 import { getCmsPage } from "@/lib/cms";
 import { CmsBlocks } from "@/components/cms/blocks";
@@ -21,7 +22,8 @@ export function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = decodeRouteParam(rawSlug);
   const page = await getCmsPage(slug);
   if (!page) return { title: "পৃষ্ঠা পাওয়া যায়নি" };
   return {
@@ -33,7 +35,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 }
 
 export default async function PolicyPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = decodeRouteParam(rawSlug);
   const page = await getCmsPage(slug);
   if (!page) notFound();
 
