@@ -11,10 +11,16 @@ export default async function AdminOrdersPage() {
     try {
       const { data } = await db()
         .from("orders")
-        .select("*")
+        .select("*, order_items(*)")
         .order("created_at", { ascending: false })
         .limit(200);
-      orders = (data ?? []) as unknown as (Order & { order_items: [] })[];
+      // The table stores customer_phone/customer_email; the app's Order shape
+      // uses phone/email (the orders API does the same mapping).
+      orders = ((data ?? []) as unknown as Record<string, unknown>[]).map((row) => ({
+        ...row,
+        phone: row.customer_phone,
+        email: row.customer_email,
+      })) as unknown as (Order & { order_items: [] })[];
     } catch {
       orders = [];
     }

@@ -380,6 +380,34 @@
     filter: brightness(0.98);
   }
 
+  /* Destructive confirm — same neumorphic recipe as primary, red so it can
+     never be confused with the "verify payment" button next to it. */
+  .btn-danger {
+    @apply btn px-5 py-3 text-white;
+    background-image: linear-gradient(145deg, #dd5c5c 0%, #b93838 100%);
+    border-color: rgba(255, 255, 255, 0.24);
+    box-shadow:
+      7px 7px 16px rgba(163, 177, 198, 0.5),
+      -7px -7px 16px rgba(255, 255, 255, 0.9),
+      inset 0 1px 0 rgba(255, 255, 255, 0.32);
+  }
+
+  @media (hover: hover) {
+    .btn-danger:hover:not(:disabled) {
+      filter: brightness(1.05);
+      transform: translateY(-1px);
+      box-shadow:
+        9px 9px 20px rgba(163, 177, 198, 0.55),
+        -9px -9px 20px rgba(255, 255, 255, 0.95),
+        inset 0 1px 0 rgba(255, 255, 255, 0.38);
+    }
+  }
+
+  .btn-danger:active:not(:disabled) {
+    box-shadow: var(--neu-inset-sm);
+    filter: brightness(0.98);
+  }
+
   .btn-ghost {
     @apply btn px-5 py-3 text-neu-ink;
     background-image: linear-gradient(145deg, #eef2f8, #e3e8f0);
@@ -875,6 +903,21 @@
 /* amber-400 is also a badge background, so its text step is set explicitly */
 [data-theme="light"] .text-amber-400 {
   color: #a35c07 !important;
+}
+
+/* destructive / warning text used on the light admin surface — the pale steps
+   were tuned for a dark canvas and fall under 3:1 here */
+[data-theme="light"] .text-amber-200 {
+  color: #a35c07 !important;
+}
+[data-theme="light"] .text-red-200 {
+  color: #b42318 !important;
+}
+[data-theme="light"] .text-red-300 {
+  color: #b42318 !important;
+}
+[data-theme="light"] .text-sky-300 {
+  color: #0369a1 !important;
 }
 [data-theme="light"] .text-leaf-50,
 [data-theme="light"] .text-leaf-100 {

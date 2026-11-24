@@ -134,6 +134,8 @@ export type Order = {
   payment_status: PaymentStatus;
   payment_ref: string | null;
   status: OrderStatus;
+  cancel_reason?: string | null;
+  admin_note?: string | null;
   created_at: string;
   updated_at: string | null;
   order_items?: OrderItem[];
