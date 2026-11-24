@@ -98,6 +98,7 @@ const navGroups: { title: string; items: NavItem[] }[] = [
     items: [
       { href: adminHref("products"), label: "পণ্য", Icon: Package, perm: "products.read" },
       { href: adminHref("categories"), label: "ক্যাটাগরি", Icon: Tags, perm: "products.read" },
+      { href: adminHref("combos"), label: "কম্বো বক্স", Icon: Package, perm: "combos.write" },
       { href: adminHref("reviews"), label: "রিভিউ", Icon: MessageSquare, perm: "reviews.moderate" },
       { href: adminHref("complaints"), label: "অভিযোগ", Icon: AlertTriangle, perm: "complaints.handle" },
     ],
