@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 2026-11-24 — MediaMTX কনফিগ আধুনিকীকরণ + AWS টেস্ট গাইড
+
+- `mediamtx.yml`-এ পুরোনো কী-নাম ছিল যা নতুন MediaMTX চালু-ই হতে দিত না: `hlsAllowOrigin` →
+  `hlsAllowOrigins`, `webrtcAllowOrigin` → `webrtcAllowOrigins`, `record: no` → `false`,
+  `sourceOnDemand: yes` → `true`; বাদ পড়া `hlsAlwaysRemoveSegments` সরিয়ে `hlsMuxerCloseAfter`।
+- **RTMP (১৯৩৫) ও SRT (৮৮৯০) ইনজেস্ট চালু** — যে DVR রাউটারে পোর্ট খুলতে পারে না, সেটি নিজেই
+  RTMP push করতে পারে। তখন খামারে পাবলিক IP বা ফরওয়ার্ড কিছুই লাগে না।
+- `docker-compose.stream-vps.yml`-এ `MTX_HLS_ALLOWORIGINS` (নতুন নাম) + `MTX_HLS_MUXERCLOSEAFTER`।
+- নতুন `docs/live-camera-aws-test.md` — AWS Free Tier-এ ৫–৭ দিনের টেস্ট, ব্রাউজার-টার্মিনালসহ,
+  খরচের হিসাব এবং H.265 ফাঁদের সতর্কতা।
+
 ## 2026-11-24 — লাইভ ক্যামেরা এখন ভিপিএস ছাড়াই (Imou / EZVIZ ক্লাউড ব্রিজ)
 
 - **সমস্যা:** সেলাররা কেউ ল্যাপটপ/ডেস্কটপ খামারে রাখতে পারবেন না, আর ভিপিএস নিতে চান না। MediaMTX

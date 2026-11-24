@@ -52,10 +52,12 @@ services:
       MTX_HLS_VARIANT: lowLatency
       MTX_HLS_SEGMENTDURATION: 1s
       MTX_HLS_SEGMENTCOUNT: 7
-      MTX_HLS_ALWAYSREMOVESEGMENTS: "yes"
+      # MTX_HLS_ALWAYSREMOVESEGMENTS was removed upstream (now hlsMuxerCloseAfter)
+      MTX_HLS_MUXERCLOSEAFTER: 60s
+      MTX_HLS_ALWAYSREMOVESEGMENTS: "yes"   # kept for older images; ignored by new ones
       # HLS is consumed through the Caddy proxy, never straight from a browser,
       # so the origin itself does not need a wide CORS policy.
-      MTX_HLS_ALLOWORIGIN: "https://biswas-agro.vercel.app,https://bishwasagro.com"
+      MTX_HLS_ALLOWORIGINS: "['https://biswas-agro.vercel.app','https://bishwasagro.com']"
       MTX_RTSPTRANSPORTS: tcp
       MTX_AUTHINTERNALUSERS: "yes"
       MTX_HLSDIRECTORY: /tmp/hls

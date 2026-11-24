@@ -17,25 +17,38 @@ rtspAddress: :8554
 rtspTransports: [tcp]
 rtspEncryption: "no"
 
+# ---- RTMP ingest (a DVR/camera that can PUSH but cannot be reached) ------
+# Many Dahua/Hikvision recorders can push RTMP out of the box; that removes the
+# need for a port forward or a public IP at the farm at all.
+rtmp: yes
+rtmpAddress: :1935
+rtmpEncryption: "no"
+
 # ---- HLS playback (what the browser consumes via the app proxy) -----------
+# Booleans must be YAML `true`/`false` — `yes`/`no` are rejected by recent builds.
 hls: yes
 hlsAddress: :8888
-hlsAlwaysRemux: no
+hlsAlwaysRemux: false
 hlsVariant: lowLatency
 hlsSegmentDuration: 1s
 hlsPartDuration: 200ms
 hlsSegmentCount: 7
-hlsAlwaysRemoveSegments: yes
-hlsAllowOrigin: "*"
+# hlsAlwaysRemoveSegments was removed upstream; see hlsMuxerCloseAfter below.
+hlsAllowOrigins: ["*"]
 hlsDirectory: /tmp/hls
+hlsMuxerCloseAfter: 60s
 
 # ---- WebRTC playback (low latency, via go2rtc in front) ------------------
 webrtc: yes
 webrtcAddress: :8889
-webrtcAllowOrigin: "*"
+webrtcAllowOrigins: ["*"]
 webrtcICEServers2:
   - url: stun:stun.l.google.com:19302
 webrtcAdditionalHosts: []
+
+# ---- SRT ingest -----------------------------------------------------------
+srt: yes
+srtAddress: :8890
 
 # ---- No on-disk recording (privacy + disk) -------------------------------
 pathDefaults:
@@ -43,52 +56,52 @@ pathDefaults:
   publishUser: publisher
   publishPass: CHANGE_ME_PUBLISH_PASSWORD
   publishIPs: []
-  record: no
+  record: false
 
 paths:
   # --- Savar Greens (vegetables) ---
   savar-greens-field-01:
     source: rtsp://admin:CAM_PASSWORD@192.168.10.11:554/Streaming/Channels/101
-    sourceOnDemand: yes
+    sourceOnDemand: true
     sourceOnDemandStartTimeout: 10s
     sourceOnDemandCloseAfter: 30s
 
   savar-greens-field-02:
     source: rtsp://admin:CAM_PASSWORD@192.168.10.12:554/Streaming/Channels/101
-    sourceOnDemand: yes
+    sourceOnDemand: true
 
   savar-greens-packing-01:
     source: rtsp://admin:CAM_PASSWORD@192.168.10.13:554/Streaming/Channels/101
-    sourceOnDemand: yes
+    sourceOnDemand: true
 
   # --- Tangail Dairy ---
   tangail-dairy-milking-01:
     source: rtsp://admin:CAM_PASSWORD@192.168.20.11:554/Streaming/Channels/101
-    sourceOnDemand: yes
+    sourceOnDemand: true
 
   tangail-dairy-feed-01:
     source: rtsp://admin:CAM_PASSWORD@192.168.20.12:554/Streaming/Channels/101
-    sourceOnDemand: yes
+    sourceOnDemand: true
 
   tangail-dairy-coldroom-01:
     source: rtsp://admin:CAM_PASSWORD@192.168.20.13:554/Streaming/Channels/101
-    sourceOnDemand: yes
+    sourceOnDemand: true
 
   # --- Gazipur Poultry ---
   gazipur-poultry-shed-01:
     source: rtsp://admin:CAM_PASSWORD@192.168.30.11:554/Streaming/Channels/101
-    sourceOnDemand: yes
+    sourceOnDemand: true
 
   gazipur-poultry-egg-01:
     source: rtsp://admin:CAM_PASSWORD@192.168.30.12:554/Streaming/Channels/101
-    sourceOnDemand: yes
+    sourceOnDemand: true
 
   # --- Khulna Shrimp ---
   khulna-shrimp-pond-01:
     source: rtsp://admin:CAM_PASSWORD@192.168.40.11:554/Streaming/Channels/101
-    sourceOnDemand: yes
+    sourceOnDemand: true
 
   # --- Rajshahi Mango ---
   rajshahi-mango-orchard-01:
     source: rtsp://admin:CAM_PASSWORD@192.168.50.11:554/Streaming/Channels/101
-    sourceOnDemand: yes
+    sourceOnDemand: true
