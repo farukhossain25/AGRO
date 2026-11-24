@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Ban, CheckCircle2, Download, Printer, QrCode, Search, X, XCircle } from "lucide-react";
+import { AlertTriangle, Ban, CheckCircle2, Download, Printer, QrCode, Search, Trash2, X, XCircle } from "lucide-react";
 import { useToast } from "@/lib/toast";
 import { formatDateTimeBn, money, toBn } from "@/lib/format";
 import type { Order } from "@/lib/types";
@@ -38,6 +38,9 @@ export function OrderManager({ initial, dbReady }: { initial: Order[]; dbReady: 
      "reject_payment" (the reported TrxID did not check out). */
   const [cancelling, setCancelling] = useState<{ order: Order; mode: "cancel" | "reject_payment" } | null>(null);
   const [reason, setReason] = useState("");
+  /* Deleting is a separate, rarer step from cancelling: the row is gone, not
+     marked. It gets its own confirmation so the two can never be confused. */
+  const [deleting, setDeleting] = useState<Order | null>(null);
 
   const filtered = useMemo(() => {
     let list = orders;
@@ -125,6 +128,29 @@ export function OrderManager({ initial, dbReady }: { initial: Order[]; dbReady: 
       router.refresh();
     } catch (err) {
       toast.error("ব্যর্থ", (err as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /* Permanently remove the order (and its items / sub-orders / parcel) from the
+     history. Stock and coupon use are restored server-side when the order was
+     still live; nobody is notified. */
+  async function removeOrder() {
+    if (!deleting) return;
+    const order = deleting;
+    setBusy(order.id);
+    try {
+      const res = await fetch(`/api/foisal/orders?id=${order.id}`, { method: "DELETE" });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) throw new Error(json?.message ?? "মুছে ফেলা যায়নি");
+      setOrders((prev) => prev.filter((o) => o.id !== order.id));
+      toast.success(`অর্ডার ${order.order_no} মুছে ফেলা হয়েছে`, json.data?.restocked_items ? `স্টকে ${toBn(json.data.restocked_items)}টি ফেরত গেছে` : undefined);
+      setDeleting(null);
+      setSelected(null);
+      router.refresh();
+    } catch (err) {
+      toast.error("মুছে ফেলা ব্যর্থ", (err as Error).message);
     } finally {
       setBusy(null);
     }
@@ -283,7 +309,22 @@ export function OrderManager({ initial, dbReady }: { initial: Order[]; dbReady: 
                       ))}
                     </select>
                   </td>
-                  <td className="px-3 py-2.5 text-right font-semibold">{money(Number(o.total), true)}</td>
+                  <td className="px-3 py-2.5 text-right font-semibold">
+                    <span className="inline-flex items-center gap-1.5">
+                      {money(Number(o.total), true)}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleting(o);
+                        }}
+                        className="rounded-lg p-1.5 text-sand-100/30 hover:bg-red-500/15 hover:text-red-300"
+                        aria-label={`অর্ডার ${o.order_no} মুছুন`}
+                        title="অর্ডার মুছে ফেলুন"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -348,6 +389,72 @@ export function OrderManager({ initial, dbReady }: { initial: Order[]; dbReady: 
               </button>
             </div>
           </form>
+        </div>
+      ) : null}
+
+      {/* delete confirmation */}
+      {deleting ? (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-ink-950/80 p-3 backdrop-blur-sm"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="delete-order-title"
+        >
+          <div className="card w-full max-w-md p-5">
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-red-500/10 text-red-300">
+                <AlertTriangle className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <h2 id="delete-order-title" className="text-[15px] font-bold text-neu-ink">
+                  অর্ডার মুছে ফেলবেন?
+                </h2>
+                <p className="mt-0.5 font-mono text-[11px] text-neu-muted">{deleting.order_no}</p>
+              </div>
+              <button type="button" onClick={() => setDeleting(null)} className="neu-icon-btn ml-auto" aria-label="বন্ধ">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <p className="mt-3 text-[12px] leading-relaxed text-neu-muted">
+              অর্ডারটি হিস্ট্রি থেকে <span className="font-semibold text-neu-ink">স্থায়ীভাবে</span> মুছে যাবে —
+              আইটেম, সেলারদের সাব-অর্ডার ও পার্সেল/লেবেল সহ। এটি বাতিল নয়: গ্রাহক বা সেলার কেউ নোটিফিকেশন পাবেন না।
+            </p>
+
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-red-300">মুছে যাবে</p>
+                <ul className="mt-1.5 space-y-1 text-[11.5px] text-neu-ink">
+                  <li>· {toBn((deleting.order_items ?? []).length)}টি আইটেম</li>
+                  <li>· {money(Number(deleting.total), true)} এর অর্ডার রেকর্ড</li>
+                  {deleting.payment_status === "paid" ? <li className="text-red-300">· পরিশোধিত পেমেন্টের রেকর্ডও</li> : null}
+                </ul>
+              </div>
+              <div className="rounded-xl border border-leaf-600/20 bg-leaf-600/5 p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-leaf-700">স্বয়ংক্রিয়</p>
+                <ul className="mt-1.5 space-y-1 text-[11.5px] text-neu-ink">
+                  {deleting.status !== "delivered" && deleting.status !== "cancelled" ? (
+                    <>
+                      <li>· স্টক আগের জায়গায় ফেরত</li>
+                      <li>· কুপন ব্যবহার ফেরত (থাকলে)</li>
+                    </>
+                  ) : (
+                    <li>· {deleting.status === "delivered" ? "ডেলিভারি হয়ে গেছে — স্টক ফেরত দরকার নেই" : "বাতিল অর্ডারে স্টক আগেই ফেরত গেছে"}</li>
+                  )}
+                  <li>· অডিট লগে কপি থাকবে</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" onClick={() => setDeleting(null)} className="btn-ghost btn-sm min-h-[40px]" disabled={busy === deleting.id}>
+                বাতিল
+              </button>
+              <button type="button" onClick={() => void removeOrder()} disabled={busy === deleting.id} className="btn-danger btn-sm min-h-[40px] min-w-[140px]">
+                {busy === deleting.id ? "মুছে ফেলা হচ্ছে…" : "হ্যাঁ, মুছে ফেলুন"}
+              </button>
+            </div>
+          </div>
         </div>
       ) : null}
 
@@ -502,6 +609,13 @@ export function OrderManager({ initial, dbReady }: { initial: Order[]; dbReady: 
                   <XCircle className="h-3.5 w-3.5" /> {selected.payment_ref ? "পেমেন্ট বাতিল (ভুল/ফেক TrxID)" : "অর্ডার বাতিল"}
                 </button>
               ) : null}
+              <button
+                onClick={() => setDeleting(selected)}
+                disabled={busy === selected.id}
+                className="btn-ghost btn-sm !border-red-500/30 !text-red-300 hover:!bg-red-500/10"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> অর্ডার মুছুন
+              </button>
               <button onClick={() => window.print()} className="btn-ghost btn-sm">
                 <Printer className="h-3.5 w-3.5" /> ইনভয়েস প্রিন্ট
               </button>

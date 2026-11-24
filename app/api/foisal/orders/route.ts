@@ -154,6 +154,97 @@ export async function PATCH(req: Request) {
   }
 }
 
+/**
+ * DELETE /api/foisal/orders?id=<uuid>  — orders.write
+ *
+ * "Remove this order from the history": the owner asked for a way to delete
+ * an order outright (test orders, duplicates, a customer's request). Everything
+ * hanging off the row goes with it — order_items, sub_orders and the parcel are
+ * ON DELETE CASCADE. What checkout RESERVED is given back first, but only when
+ * the order was still live: a delivered order consumed its stock and a
+ * cancelled one already had it restored. Nobody is notified — there is no
+ * order left for the link to point at. The audit log keeps the deleted row.
+ */
+export async function DELETE(req: Request) {
+  try {
+    const actor = await requirePermission("orders.write");
+    const id = new URL(req.url).searchParams.get("id");
+    if (!id) return fail("আইডি দিন", 422);
+
+    const { data: before, error: loadError } = await db()
+      .from("orders")
+      .select("id, order_no, status, payment_status, payment_ref, user_id, coupon_code, total")
+      .eq("id", id)
+      .maybeSingle<OrderRow>();
+    if (loadError) throw loadError;
+    if (!before) return fail("অর্ডার পাওয়া যায়নি", 404);
+
+    let restockedItems = 0;
+    let couponRestored = false;
+    const live = before.status !== "delivered" && before.status !== "cancelled";
+    if (live) {
+      // 1. stock reserved at checkout goes back on the shelf
+      //    (combo lines carry no product_id — their stock is not tracked per item)
+      const { data: items, error: itemError } = await db()
+        .from("order_items")
+        .select("product_id, quantity")
+        .eq("order_id", id)
+        .not("product_id", "is", null);
+      if (itemError) throw itemError;
+      for (const item of items ?? []) {
+        if (!item.product_id) continue;
+        const { data: product } = await db().from("products").select("stock").eq("id", item.product_id).maybeSingle();
+        if (!product) continue;
+        const { error: stockError } = await db()
+          .from("products")
+          .update({ stock: Number(product.stock ?? 0) + Number(item.quantity ?? 0) })
+          .eq("id", item.product_id);
+        if (stockError) throw stockError;
+        restockedItems += Number(item.quantity ?? 0);
+      }
+      // 2. the coupon's used_count was bumped at checkout; give that use back
+      if (before.coupon_code) {
+        const { data: coupon } = await db()
+          .from("coupons")
+          .select("id, used_count")
+          .eq("code", before.coupon_code)
+          .maybeSingle();
+        if (coupon) {
+          const { error: couponError } = await db()
+            .from("coupons")
+            .update({ used_count: Math.max(0, Number(coupon.used_count ?? 0) - 1) })
+            .eq("id", coupon.id);
+          if (couponError) throw couponError;
+          couponRestored = true;
+        }
+      }
+    }
+
+    const { error } = await db().from("orders").delete().eq("id", id);
+    if (error) throw error;
+
+    await recordAudit({
+      actor,
+      action: "delete",
+      entity: "orders",
+      entityId: id,
+      diff: { deleted: { from: before, to: null }, restocked_items: restockedItems, coupon_restored: couponRestored },
+      ip: clientIp(req),
+      userAgent: req.headers.get("user-agent"),
+    }).catch(() => undefined);
+
+    return ok({
+      id,
+      order_no: before.order_no,
+      deleted: true,
+      restocked_items: restockedItems,
+      coupon_restored: couponRestored,
+    });
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
 /** Order counts + revenue grouped by day, used by the reports page. */
 export async function GET(req: Request) {
   try {

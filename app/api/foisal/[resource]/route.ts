@@ -1,5 +1,7 @@
+import { revalidatePath } from "next/cache";
 import { dbDynamic } from "@/lib/db";
 import { fail, handleError, ok, requirePermission } from "@/lib/api";
+import { slugifyAscii } from "@/lib/format";
 import { recordAudit, diffOf } from "@/lib/audit";
 import { notify } from "@/lib/notify";
 import { clientIp } from "@/lib/api";
@@ -117,6 +119,22 @@ const FARM_COLUMNS = [
 ];
 
 /** Real columns of `camera_requests` (seller/farm names are joined for display). */
+/** Real columns of `combos` — the storefront combo boxes (/combos). `contents`
+ *  is the jsonb list of {name, qty} lines printed on the card. */
+const COMBO_COLUMNS = [
+  "slug",
+  "name_bn",
+  "name_en",
+  "description_bn",
+  "kind",
+  "price",
+  "original_price",
+  "contents",
+  "image",
+  "is_active",
+  "sort_order",
+];
+
 const CAMERA_REQUEST_COLUMNS = [
   "seller_id",
   "farm_id",
@@ -178,6 +196,7 @@ const schemas: Record<string, LightSchema> = {
   sellers: lightSchema(["commission_percent"], ["approved_at"], SELLER_COLUMNS),
   payouts: lightSchema(["amount"], ["paid_at"]),
   "camera-requests": lightSchema(["camera_count"], [], CAMERA_REQUEST_COLUMNS),
+  combos: lightSchema(["price", "original_price", "sort_order"], [], COMBO_COLUMNS),
   notifications: lightSchema([]),
   seo: lightSchema([], []),
   "cms-pages": lightSchema([], []),
@@ -199,6 +218,7 @@ const tables: Record<string, string> = {
   sellers: "sellers",
   payouts: "seller_payouts",
   "camera-requests": "camera_requests",
+  combos: "combos",
   notifications: "notifications",
   seo: "seo_meta",
   "cms-pages": "static_pages",
@@ -227,6 +247,7 @@ const ACCESS: Record<string, { read: Permission; write: Permission }> = {
   sellers: { read: "sellers.read", write: "sellers.approve" },
   payouts: { read: "payouts.read", write: "payouts.write" },
   "camera-requests": { read: "cams.manage", write: "cams.manage" },
+  combos: { read: "products.read", write: "combos.write" },
   notifications: { read: "customers.read", write: "customers.read" },
   seo: { read: "seo.write", write: "seo.write" },
   "cms-pages": { read: "content.write", write: "content.write" },
@@ -248,6 +269,40 @@ function normalise(resource: string, input: Record<string, unknown>) {
   }
   if (resource === "blog") {
     out.is_active = out.is_active !== false;
+  }
+  if (resource === "combos") {
+    out.kind = ["daily", "weekly", "monthly"].includes(String(out.kind)) ? out.kind : "daily";
+    out.is_active = out.is_active !== false;
+    out.price = Number(out.price ?? 0);
+    if (out.original_price !== null && out.original_price !== undefined) {
+      out.original_price = Number(out.original_price) || null;
+    }
+    // `contents` arrives from the form as "name | qty" lines; store the
+    // {name, qty} shape the storefront card renders.
+    const raw = out.contents;
+    let lines: { name: string; qty: string }[] = [];
+    if (typeof raw === "string") {
+      lines = raw
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean)
+        .map((l) => {
+          const [name, ...rest] = l.split("|");
+          return { name: (name ?? "").trim(), qty: rest.join("|").trim() || "১টি" };
+        });
+    } else if (Array.isArray(raw)) {
+      lines = raw
+        .map((c) =>
+          c && typeof c === "object" && "name" in c
+            ? { name: String((c as { name: unknown }).name ?? ""), qty: String((c as { qty: unknown }).qty ?? "১টি") }
+            : null
+        )
+        .filter((c): c is { name: string; qty: string } => c !== null);
+    }
+    out.contents = lines.filter((l) => l.name);
+    if (!out.slug) {
+      out.slug = slugifyAscii(String(out.name_en || out.name_bn || "combo"), `combo-${Date.now().toString(36)}`);
+    }
   }
   if (resource === "cms-pages") {
     // blocks arrive as JSON text from the textarea
@@ -287,6 +342,15 @@ function normalise(resource: string, input: Record<string, unknown>) {
     if (out[key] === "") out[key] = null;
   }
   return out;
+}
+
+/** The storefront pages that read this resource are ISR-cached; drop their
+ *  cache after a write so the panel's change shows up on the next visit. */
+async function afterWrite(resource: string) {
+  if (resource !== "combos") return;
+  revalidatePath("/combos");
+  revalidatePath("/combos/[slug]", "page");
+  revalidatePath("/");
 }
 
 function errorResponse(error: unknown) {
@@ -330,6 +394,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ resourc
       .single();
 
     if (error) throw error;
+    await afterWrite(resource);
 
     await recordAudit({
       actor,
@@ -472,6 +537,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ resour
         }
       }
     }
+    await afterWrite(resource);
 
     return ok(data);
   } catch (error) {
@@ -492,6 +558,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ resou
     const { data: before } = await dbDynamic().from(table).select("*").eq("id", id).maybeSingle();
     const { error } = await dbDynamic().from(table).delete().eq("id", id);
     if (error) throw error;
+    await afterWrite(resource);
 
     await recordAudit({
       actor,

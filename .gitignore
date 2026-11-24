@@ -11,7 +11,9 @@ node_modules
 # next
 .next/
 out/
-build/
+# Root-only: a bare `build/` also swallowed app/(storefront)/combos/build/ —
+# the "build your own combo" page could never be committed and 404'd in prod.
+/build/
 dist/
 
 # misc

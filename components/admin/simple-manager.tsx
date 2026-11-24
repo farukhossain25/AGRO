@@ -6,11 +6,12 @@ import { Edit3, Plus, Trash2, X } from "lucide-react";
 import { useToast } from "@/lib/toast";
 import { formatDateBn, money, toBn } from "@/lib/format";
 import { Spinner } from "@/components/ui";
+import { ImageField } from "@/components/admin/image-field";
 
 export type Field = {
   name: string;
   label: string;
-  type: "text" | "number" | "textarea" | "select" | "checkbox" | "date";
+  type: "text" | "number" | "textarea" | "select" | "checkbox" | "date" | "image" | "lines";
   required?: boolean;
   options?: { value: string; label: string }[];
   placeholder?: string;
@@ -42,13 +43,21 @@ export type Column = {
     | "coupon_value"
     | "usage"
     | "scope"
-    | "link";
+    | "link"
+    /** small square image (value = url) */
+    | "thumb"
+    /** "Nটি" — the length of an array value */
+    | "count";
   subKey?: string;
   subPrefix?: string;
   trueLabel?: string;
   falseLabel?: string;
+  /** for plain text: display labels for stored values (e.g. daily → ডেইলি) */
+  map?: Record<string, string>;
   /** for "link": the anchor text (the cell value is the href) */
   linkLabel?: string;
+  /** for "link": build the href from the value, e.g. "/combos/{v}" */
+  linkPath?: string;
   /** for "link": open in a new tab (default true) */
   external?: boolean;
   /** keep short values (status, dates, counts) on one line; the table scrolls instead */
@@ -67,7 +76,8 @@ function Cell({ row, col }: { row: Record<string, unknown>; col: Column }) {
       return <span className="text-lg">{String(raw ?? "🌿")}</span>;
 
     case "money":
-      return <>{money(Number(raw ?? 0), true)}</>;
+      // null is "not set" (e.g. no original price) — not zero taka
+      return <>{raw === null || raw === undefined || raw === "" ? "—" : money(Number(raw), true)}</>;
 
     case "number":
       return <>{toBn(Number(raw ?? 0))}</>;
@@ -116,10 +126,21 @@ function Cell({ row, col }: { row: Record<string, unknown>; col: Column }) {
         </span>
       );
 
+    case "thumb":
+      return raw ? (
+        // eslint-disable-next-line @next/next/no-img-element -- admin may paste any host
+        <img src={String(raw)} alt="" className="h-9 w-12 rounded-lg bg-white object-cover ring-1 ring-black/10" />
+      ) : (
+        <span className="grid h-9 w-12 place-items-center rounded-lg bg-white/[0.07] text-sand-100/30">—</span>
+      );
+
+    case "count":
+      return <>{toBn(Array.isArray(raw) ? raw.length : 0)}টি</>;
+
     case "link":
       return raw ? (
         <a
-          href={String(raw)}
+          href={col.linkPath ? col.linkPath.replace("{v}", String(raw)) : String(raw)}
           target={col.external === false ? undefined : "_blank"}
           rel={col.external === false ? undefined : "noopener noreferrer"}
           className="text-leaf-300 underline-offset-2 hover:text-leaf-200 hover:underline"
@@ -131,7 +152,11 @@ function Cell({ row, col }: { row: Record<string, unknown>; col: Column }) {
       );
 
     default:
-      return <>{raw === null || raw === undefined || raw === "" ? "—" : label(row) && String(raw)}</>;
+      return (
+        <>
+          {raw === null || raw === undefined || raw === "" ? "—" : label(row) && String(col.map?.[String(raw)] ?? raw)}
+        </>
+      );
   }
 }
 
@@ -290,10 +315,45 @@ export function SimpleManager({
               {fields.map((f) => {
                 const value = form[f.name];
                 const set = (v: unknown) => setForm((prev) => (prev ? { ...prev, [f.name]: v } : prev));
+                /* An image field carries its own upload button and file input,
+                   so it must not sit inside a <label> (a click would open the
+                   picker twice). Everything else stays a label for a11y. */
+                const Wrapper = f.type === "image" ? "div" : "label";
                 return (
-                  <label key={f.name} className={f.colSpan === 2 ? "sm:col-span-2" : ""}>
-                    <span className="label">{f.label}{f.required ? " *" : ""}</span>
-                    {f.type === "textarea" ? (
+                  <Wrapper key={f.name} className={f.colSpan === 2 ? "sm:col-span-2" : ""}>
+                    {/* ImageField brings its own label; the others get one here */}
+                    {f.type !== "image" ? <span className="label">{f.label}{f.required ? " *" : ""}</span> : null}
+                    {f.type === "image" ? (
+                      <ImageField
+                        value={String(value ?? "")}
+                        onChange={set}
+                        label={`${f.label}${f.required ? " *" : ""}`}
+                        hint={f.hint}
+                        ratio="banner"
+                        allowUrl
+                      />
+                    ) : f.type === "lines" ? (
+                      <textarea
+                        rows={5}
+                        value={Array.isArray(value)
+                          ? (value as { name?: string; qty?: string }[]).map((l) => [l.name, l.qty].filter(Boolean).join(" | ")).join("\n")
+                          : String(value ?? "")}
+                        onChange={(e) =>
+                          set(
+                            e.target.value
+                              .split("\n")
+                              .map((l) => l.trim())
+                              .filter(Boolean)
+                              .map((l) => {
+                                const [name, ...rest] = l.split("|");
+                                return { name: (name ?? "").trim(), qty: rest.join("|").trim() || "১টি" };
+                              })
+                          )
+                        }
+                        className="input resize-y font-[inherit]"
+                        placeholder={f.placeholder}
+                      />
+                    ) : f.type === "textarea" ? (
                       <textarea rows={4} value={String(value ?? "")} onChange={(e) => set(e.target.value)} className="input resize-none" placeholder={f.placeholder} />
                     ) : f.type === "select" ? (
                       <select value={String(value ?? "")} onChange={(e) => set(e.target.value)} className="input">
@@ -323,11 +383,11 @@ export function SimpleManager({
                         placeholder={f.placeholder}
                       />
                     )}
-                    {f.hint && f.type !== "checkbox" ? (
+                    {f.hint && f.type !== "checkbox" && f.type !== "image" ? (
                       <p className="mt-1 text-[10.5px] leading-relaxed text-sand-100/40">{f.hint}</p>
                     ) : null}
                     {errors[f.name] ? <p className="mt-1 text-[11px] text-red-300">{errors[f.name]}</p> : null}
-                  </label>
+                  </Wrapper>
                 );
               })}
             </div>
