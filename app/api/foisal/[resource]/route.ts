@@ -1,6 +1,7 @@
 import { dbDynamic } from "@/lib/db";
 import { fail, handleError, ok, requirePermission } from "@/lib/api";
 import { recordAudit, diffOf } from "@/lib/audit";
+import { notify } from "@/lib/notify";
 import { clientIp } from "@/lib/api";
 import type { Permission } from "@/lib/permissions";
 import { ZodError } from "zod";
@@ -27,12 +28,48 @@ type LightSchema = {
   parse: (input: unknown) => Record<string, unknown>;
 };
 
-/** Coerce empty strings to null and numeric strings to numbers. */
-function lightSchema(numeric: string[] = [], dates: string[] = []): LightSchema {
+/** Every real column of `sellers`. The admin UI used to decorate each row with
+ *  a display-only `contact` key (phone · email) and then PATCH the whole row
+ *  back, so Postgres answered "column contact does not exist". A whitelist
+ *  keeps display helpers out of the write path for good. */
+const SELLER_COLUMNS = [
+  "user_id",
+  "slug",
+  "farm_id",
+  "name_bn",
+  "phone",
+  "email",
+  "nid",
+  "farm_address_bn",
+  "division",
+  "district",
+  "upazila",
+  "farm_photos",
+  "product_types",
+  "payout_method",
+  "payout_number",
+  "bank_name",
+  "bank_account",
+  "commission_percent",
+  "status",
+  "rejection_reason",
+  "approved_at",
+  "created_at",
+  "updated_at",
+];
+
+/** Coerce empty strings to null and numeric strings to numbers. When
+ *  `allowed` is given, anything that is not a column is dropped — a
+ *  display-only key must never reach the table. */
+function lightSchema(numeric: string[] = [], dates: string[] = [], allowed?: string[]): LightSchema {
   return {
     parse(input) {
-      const out = { ...(input as Record<string, unknown>) };
-      delete out.id;
+      const out: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
+        if (key === "id") continue;
+        if (allowed && !allowed.includes(key)) continue;
+        out[key] = value;
+      }
       for (const key of Object.keys(out)) {
         if (out[key] === "") out[key] = null;
         if (numeric.includes(key) && out[key] !== null && out[key] !== undefined) {
@@ -63,7 +100,7 @@ const schemas: Record<string, LightSchema> = {
   ),
   "premium-plans": lightSchema(["price", "compare_price", "duration_days", "max_devices", "sort_order"]),
   "access-codes": lightSchema([], ["expires_at"]),
-  sellers: lightSchema(["commission_percent"], ["approved_at"]),
+  sellers: lightSchema(["commission_percent"], ["approved_at"], SELLER_COLUMNS),
   payouts: lightSchema(["amount"], ["paid_at"]),
   "camera-requests": lightSchema(["camera_count"]),
   notifications: lightSchema([]),
@@ -252,6 +289,24 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ resour
 
     const { data: before } = await dbDynamic().from(table).select("*").eq("id", id).maybeSingle();
 
+    /* Approving / rejecting a seller carries meaning beyond the status column:
+       `approved_at` is what /market/<slug> and the payout report read, and a
+       rejection is meaningless without its reason. Keep those in sync here so
+       every client (this panel or a future one) can't get it half-right. */
+    if (resource === "sellers") {
+      const status = patch.status as string | undefined;
+      if (status === "approved") {
+        patch.rejection_reason = null;
+        const previous = before as { approved_at?: string | null } | null;
+        if (!previous?.approved_at) patch.approved_at = new Date().toISOString();
+      } else if (status === "rejected") {
+        patch.approved_at = null;
+      } else if (status === "pending") {
+        patch.approved_at = null;
+        patch.rejection_reason = null;
+      }
+    }
+
     const { data, error } = await dbDynamic()
       .from(table)
       .update(patch)
@@ -270,6 +325,29 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ resour
       ip: clientIp(req),
       userAgent: req.headers.get("user-agent"),
     });
+
+    /* A decision the seller can't see is not a decision — tell them. */
+    if (resource === "sellers") {
+      const beforeRow = before as { user_id?: string | null; status?: string; name_bn?: string } | null;
+      const afterRow = data as { status?: string; rejection_reason?: string | null };
+      if (beforeRow?.user_id && afterRow?.status && afterRow.status !== beforeRow.status) {
+        const approved = afterRow.status === "approved";
+        const suspended = afterRow.status === "suspended";
+        await notify({
+          userId: beforeRow.user_id,
+          kind: "seller",
+          title: approved
+            ? "আপনার সেলার অ্যাকাউন্ট অনুমোদিত"
+            : suspended
+              ? "আপনার সেলার অ্যাকাউন্ট স্থগিত করা হয়েছে"
+              : "আপনার সেলার আবেদন বাতিল হয়েছে",
+          body: approved
+            ? "এখন পণ্য যোগ করে বিক্রি শুরু করতে পারবেন।"
+            : afterRow.rejection_reason || "বিস্তারিত জানতে সাপোর্টে যোগাযোগ করুন।",
+          link: "/seller",
+        }).catch(() => undefined);
+      }
+    }
 
     return ok(data);
   } catch (error) {
