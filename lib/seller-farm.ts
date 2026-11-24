@@ -134,8 +134,9 @@ async function createFarmForSeller(
       upazila: seller.upazila ?? null,
       address_bn: seller.farm_address_bn ?? null,
       description_bn: `${seller.district} জেলার ${seller.name_bn} — বিশ্বাস এগ্রো মার্কেটপ্লেসের যাচাইকৃত বিক্রেতা।`,
-      cover: photos[0] ?? null,
-      images: photos,
+      // the banner the seller already uploaded from the dashboard wins
+      cover: seller.banner || photos[0] || null,
+      images: seller.banner ? [seller.banner, ...photos.filter((p) => p !== seller.banner)] : photos,
       // Live the moment the seller is approved; a request-driven farm (admin
       // installing cameras) goes live with its cameras.
       is_active: approved,

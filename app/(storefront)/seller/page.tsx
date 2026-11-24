@@ -269,8 +269,8 @@ export default async function SellerDashboard() {
               <>
                 <p className="mt-1 text-[12px] font-semibold text-mint">{farm.name_bn}</p>
                 <p className="mt-0.5 text-[11px] leading-relaxed text-sand-100/50">
-                  অনুমোদনের সাথে সাথে "আমাদের খামার"-এ স্বয়ংক্রিয়ভাবে যুক্ত হয়েছে। কভার ছবি ও বিবরণ পরে আমাদের
-                  টিম যোগ করে দেবে।
+                  অনুমোদনের সাথে সাথে "আমাদের খামার"-এ স্বয়ংক্রিয়ভাবে যুক্ত হয়েছে। উপরের "স্টোরের লোগো ও
+                  ব্যানার" থেকে দেওয়া ছবি এখানেও দেখা যাবে।
                 </p>
                 <div className="mt-3 grid gap-1.5">
                   <Link href={`/live/farms/${farm.slug}`} className="btn-ghost btn-sm w-full">

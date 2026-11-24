@@ -25,6 +25,43 @@ const PUBLIC_CAMERA_COLUMNS = [
   "sort_order",
 ].join(", ");
 
+/* The seller who owns a farm uploads a logo and a banner from /seller. A farm
+   row only has `cover`, so the seller's banner is copied there on save — and
+   read here as well, so a store branded before that sync existed still shows
+   the right picture. `sellers` is a to-many embed (sellers.farm_id → farms). */
+const SELLER_BRAND_EMBED = "sellers(slug, logo, banner)";
+
+type FarmWithSeller = Farm & {
+  sellers?: { slug: string; logo: string | null; banner: string | null }[] | null;
+};
+
+/** True when the database predates migration 22 (no sellers.logo/banner yet). */
+function isMissingBrandColumns(error: unknown): boolean {
+  const message = (error as { message?: string })?.message ?? "";
+  const code = (error as { code?: string })?.code;
+  return code === "42703" || /column .*sellers\.(logo|banner)|sellers\.(logo|banner).*does not exist/i.test(message);
+}
+
+/** Run `withBrand`; if the columns are missing, fall back to the plain select. */
+type QueryResult = PromiseLike<{
+  data: unknown[] | null;
+  error: { code?: string; message: string } | null;
+}>;
+async function selectFarms(withBrand: () => QueryResult, withoutBrand: () => QueryResult) {
+  // supabase-js reports a bad column as `{ data: null, error }`, not as a throw
+  const first = await withBrand();
+  if (first.error && isMissingBrandColumns(first.error)) return withoutBrand();
+  return first;
+}
+
+function applySellerBrand(row: FarmWithSeller): Farm {
+  const seller = Array.isArray(row.sellers) ? row.sellers[0] : null;
+  if (seller?.banner) row.cover = seller.banner;
+  row.logo = seller?.logo ?? null;
+  delete row.sellers;
+  return row;
+}
+
 export type FarmFilters = {
   type?: FarmType | "all";
   district?: string;
@@ -44,27 +81,34 @@ export async function listFarms(filters: FarmFilters = {}): Promise<Farm[]> {
   if (!dbUsable()) return [];
 
   try {
-    let q = db()
-      .from("farms")
-      .select(`*, cameras (${PUBLIC_CAMERA_COLUMNS})`)
-      .eq("is_active", true)
-      .order("sort_order");
+    const run = (select: string) => {
+      let q = db()
+        .from("farms")
+        .select(select)
+        .eq("is_active", true)
+        .order("sort_order");
 
-    if (filters.type && filters.type !== "all") q = q.eq("type", filters.type);
-    if (filters.district) q = q.eq("district", filters.district);
-    if (filters.search) {
-      const term = filters.search.replace(/[%,]/g, " ").trim();
-      if (term) q = q.or(`name_bn.ilike.%${term}%,district.ilike.%${term}%,owner_name_bn.ilike.%${term}%`);
-    }
-    if (filters.limit) q = q.limit(filters.limit);
+      if (filters.type && filters.type !== "all") q = q.eq("type", filters.type);
+      if (filters.district) q = q.eq("district", filters.district);
+      if (filters.search) {
+        const term = filters.search.replace(/[%,]/g, " ").trim();
+        if (term) q = q.or(`name_bn.ilike.%${term}%,district.ilike.%${term}%,owner_name_bn.ilike.%${term}%`);
+      }
+      if (filters.limit) q = q.limit(filters.limit);
+      return q;
+    };
 
-    const { data, error } = await q;
+    const plain = `*, cameras (${PUBLIC_CAMERA_COLUMNS})`;
+    const { data, error } = await selectFarms(
+      () => run(`${plain}, ${SELLER_BRAND_EMBED}`),
+      () => run(plain)
+    );
     if (error) throw error;
 
     if (!data?.length) return [];
 
     return data.map((row) => {
-      const farm = stripFarm(row as unknown as Record<string, unknown>);
+      const farm = applySellerBrand(stripFarm(row as unknown as Record<string, unknown>) as FarmWithSeller);
       const cams = (farm.cameras ?? []).sort((a, b) => a.sort_order - b.sort_order);
       farm.cameras = cams;
       farm.camera_count = cams.length;
@@ -81,16 +125,27 @@ export async function listFarms(filters: FarmFilters = {}): Promise<Farm[]> {
 export async function getFarmBySlug(slug: string): Promise<Farm | null> {
   if (dbUsable()) {
     try {
-      const { data, error } = await db()
-        .from("farms")
-        .select(`*, cameras (${PUBLIC_CAMERA_COLUMNS})`)
-        .eq("slug", slug)
-        .eq("is_active", true)
-        .maybeSingle();
+      const plain = `*, cameras (${PUBLIC_CAMERA_COLUMNS})`;
+      const { data, error } = await selectFarms(
+        () =>
+          db()
+            .from("farms")
+            .select(`${plain}, ${SELLER_BRAND_EMBED}`)
+            .eq("slug", slug)
+            .eq("is_active", true)
+            .maybeSingle(),
+        () =>
+          db()
+            .from("farms")
+            .select(plain)
+            .eq("slug", slug)
+            .eq("is_active", true)
+            .maybeSingle()
+      );
 
       if (error) throw error;
       if (data) {
-        const farm = stripFarm(data as unknown as Record<string, unknown>);
+        const farm = applySellerBrand(stripFarm(data as unknown as Record<string, unknown>) as FarmWithSeller);
         farm.cameras = (farm.cameras ?? []).sort((a, b) => a.sort_order - b.sort_order);
         farm.camera_count = farm.cameras.length;
         farm.online_cameras = farm.cameras.filter((c) => c.status === "online").length;
