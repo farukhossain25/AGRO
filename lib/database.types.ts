@@ -334,6 +334,9 @@ export type Database = {
         protocol: Database["public"]["Enums"]["camera_protocol"]
         stream_key: string | null
         stream_url: string | null
+        cloud_provider: string
+        cloud_serial: string | null
+        cloud_channel: number
         poster: string | null
         location_lat: number | null
         location_lng: number | null
@@ -354,6 +357,9 @@ export type Database = {
         protocol?: Database["public"]["Enums"]["camera_protocol"]
         stream_key?: string | null
         stream_url?: string | null
+        cloud_provider?: string
+        cloud_serial?: string | null
+        cloud_channel?: number
         poster?: string | null
         location_lat?: number | null
         location_lng?: number | null
@@ -374,6 +380,9 @@ export type Database = {
         protocol?: Database["public"]["Enums"]["camera_protocol"]
         stream_key?: string | null
         stream_url?: string | null
+        cloud_provider?: string
+        cloud_serial?: string | null
+        cloud_channel?: number
         poster?: string | null
         location_lat?: number | null
         location_lng?: number | null

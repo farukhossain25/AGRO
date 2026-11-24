@@ -31,6 +31,7 @@ const EXTRA_FILES = [
   "21_payments_seed.sql",
   "22_seller_logo_banner.sql",
   "23_premium_payment_approval.sql",
+  "24_camera_cloud_bridge.sql",
 ];
 
 async function run(file, round) {

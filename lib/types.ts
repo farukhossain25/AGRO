@@ -530,12 +530,20 @@ export type CameraStatus = "online" | "offline" | "maintenance";
  * Public camera shape. stream_key / stream_url are NEVER included — the browser
  * only receives a signed playback URL from /api/stream/token.
  */
+export type CameraCloudProvider = "none" | "hls" | "imou" | "ezviz";
+
 export type Camera = {
   id: string;
   farm_id: string;
   name_bn: string;
   zone_bn: string;
-  protocol: "hls" | "webrtc";
+  protocol: "hls" | "webrtc" | "cloud";
+  /** where the picture comes from — 'none' keeps the MediaMTX/RTSP path */
+  cloud_provider?: CameraCloudProvider;
+  /** device serial the seller sees in their own camera app (never sent to a browser) */
+  cloud_serial?: string | null;
+  /** 0 for a single camera, 1..16 for a DVR channel */
+  cloud_channel?: number;
   poster: string | null;
   location_lat: number | null;
   location_lng: number | null;
