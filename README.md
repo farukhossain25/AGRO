@@ -392,7 +392,11 @@ npm run dev                     # http://localhost:3000
 
 ## ১০. আরও
 
-- **লাইভ ক্যামেরা**: MediaMTX/go2rtc নিজের VPS-এ চালান, `STREAM_PROXY_TARGET`
+- **লাইভ ক্যামেরা (ভিপিএস ছাড়া — প্রস্তাবিত)**: Imou Life / EZVIZ অ্যাপে ক্যামেরা যোগ করে
+  `IMOU_APP_ID`/`IMOU_APP_SECRET` (বা `EZVIZ_APP_KEY`/`EZVIZ_APP_SECRET`) ও
+  `STREAM_TOKEN_SECRET` দিন, তারপর অ্যাডমিনে ক্যামেরার **স্ট্রিম সোর্স** বেছে নিন।
+  দেখুন `docs/live-camera-no-vps.md`।
+- **লাইভ ক্যামেরা (ভিপিএস পথ)**: MediaMTX/go2rtc নিজের VPS-এ চালান, `STREAM_PROXY_TARGET`
   দিন। Vercel ক্যামেরা রেকর্ড রাখে, স্ট্রিম প্রক্সি করে (`app/api/stream/*`)।
   টোকেন স্বল্পমেয়াদি (`STREAM_TOKEN_SECRET`), প্রতি ইউজার ডিভাইস-লিমিট
   `premium_devices`-এ থাকে।
