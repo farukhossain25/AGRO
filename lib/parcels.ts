@@ -6,9 +6,12 @@ import { db } from "./db";
    Parcels + QR labels
    --------------------------------------------------------------------------
    Every order gets one parcel row with an unguessable qr_token. The label is
-   an A6 shipping slip (printed 4-up on A4). Scanning the QR opens
-   /p/<token> — a rider-facing page that shows the delivery details and lets
-   staff mark the parcel delivered (requires an admin session).
+   an A6 receipt — the SAME sheet the seller prints (components/receipt/
+   receipt-sheet.tsx), so the box never carries two different documents.
+   Scanning the QR opens /p/<token> — an order-details page (marketplace →
+   vendor → products → what was paid) readable on any phone; for staff it also
+   lets them mark the parcel delivered. `?s=<subNo>` narrows it to the one
+   vendor whose slip was scanned.
 
    The QR itself is rendered from the token, so reprinting never changes it.
    ========================================================================== */
@@ -23,9 +26,17 @@ export type ParcelLabel = {
   division: string;
   delivery_note?: string | null;
   item_count: number;
+  /** what the customer paid — the receipt's money block */
+  subtotal: number;
+  delivery_charge: number;
+  discount: number;
   total: number;
+  coupon_code: string | null;
+  status: string;
   payment_method: string;
   payment_status: string;
+  /** the lines on the receipt, in order */
+  items: { name_bn: string; unit: string | null; quantity: number; price: number }[];
   /** farm/seller names on this order — shown so the rider knows the source */
   sources: string[];
   created_at: string;
@@ -87,7 +98,11 @@ export async function buildLabel(orderNo: string): Promise<{ parcel: ParcelLabel
   if (!order) return null;
 
   const [{ data: items }, { data: subs }] = await Promise.all([
-    client.from("order_items").select("quantity, name_bn").eq("order_id", order.id),
+    client
+      .from("order_items")
+      .select("name_bn, unit, quantity, price")
+      .eq("order_id", order.id)
+      .order("created_at", { ascending: true }),
     client.from("sub_orders").select("seller_name").eq("order_id", order.id),
   ]);
 
@@ -103,9 +118,17 @@ export async function buildLabel(orderNo: string): Promise<{ parcel: ParcelLabel
     division: order.division,
     delivery_note: order.delivery_note,
     item_count: (items ?? []).reduce((n, i) => n + Number(i.quantity ?? 0), 0),
+    subtotal: Number(order.subtotal ?? 0),
+    delivery_charge: Number(order.delivery_charge ?? 0),
+    discount: Number(order.discount ?? 0),
     total: Number(order.total),
+    coupon_code: order.coupon_code ?? null,
+    status: order.status,
     payment_method: order.payment_method,
     payment_status: order.payment_status,
+    items: ((items ?? []) as { name_bn: string; unit: string | null; quantity: number; price: number | string }[]).map(
+      (i) => ({ name_bn: i.name_bn, unit: i.unit, quantity: Number(i.quantity ?? 0), price: Number(i.price ?? 0) })
+    ),
     sources: Array.from(new Set((subs ?? []).map((s) => s.seller_name).filter(Boolean) as string[])),
     created_at: order.created_at,
   };
@@ -177,10 +200,5 @@ export async function markDelivered(token: string, userId?: string | null) {
   return parcel;
 }
 
-export const paymentLabelBn: Record<string, string> = {
-  cod: "ক্যাশ অন ডেলিভারি",
-  bkash: "bKash",
-  nagad: "Nagad",
-  sslcommerz: "কার্ড / SSLCommerz",
-  code: "অ্যাক্সেস কোড",
-};
+// Moved to lib/format.ts (client-safe). Re-exported so existing imports keep working.
+export { paymentLabelBn } from "./format";
