@@ -1,5 +1,24 @@
 # CHANGELOG
 
+## 2026-11-25 — স্ট্রিম এজ: গোপন প্রিফিক্স + প্রকৃত Caddyfile
+
+- **নিরাপত্তা:** ডাইরেক্ট মোডে আগে `STREAM_PUBLIC_BASE` ছিল খালি হোস্টনেম — মানে
+  MediaMTX-এর সব path ইন্টারনেটে খোলা। এখন URL-এ `STREAM_EDGE_SECRET` প্রিফিক্স
+  (`/live-<secret>/hls/...`), বাকি সব 404। এজে টোকেনের সিগনেচার ভেরিফাই হয় না —
+  এটা ডকে স্পষ্ট লেখা (শেয়ার করা লিংক সর্বোচ্চ ৫ মিনিট চলে)।
+- `Caddyfile` এখন সত্যিই TLS টার্মিনেট করে (80/443, Let's Encrypt) + `handle_path`
+  দিয়ে `/hls` প্রিফিক্স কাটে + `/health-<secret>` (probe ও WHEP signaling)।
+  আগের ফাইলটি `:8080`-এ শুধু shared-secret ছিল — `mediamtx:8888` DNS-ও ভুল ছিল।
+- পুরোনো proxy-মোড কনফিগ `Caddyfile.proxy` নামে আলাদা; compose-এ `proxy` profile
+  (`caddy-proxy`)। `public` profile এখন পোর্ট ৮০/৪৪৩ প্রকাশ করে।
+- `mediamtx` থেকে `network_mode: host` সরানো — host নেটওয়ার্কে `expose` পোর্ট
+  থাকে না, ফলে `reverse_proxy mediamtx:8888` রিজলভই করত না।
+- `go2rtc`-এর `:1984` আর হোস্টে প্রকাশ্য নয় (ওর API-তে auth নেই)।
+- `middleware.ts`: CSP-তে `STREAM_PUBLIC_BASE` থেকে শুধু **origin** নেওয়া হয়
+  (path থাকলে CSP ভাঙত)।
+- `.env.example`: `STREAM_PUBLIC_BASE`/`STREAM_PROXY_TARGET`-এর উদাহরণ প্রিফিক্সসহ,
+  `STREAM_EDGE_SECRET` ডকুমেন্টেড।
+
 ## 2026-11-25 — ২৪/৭ গাইড সংশোধন + ই-কমার্স ট্রাফিক (১ লাখ ভিজিট)
 
 - `docs/live-camera-vps-24x7.md`: **ধাপ ২** এখন "VPS কি ক্যামেরা পর্যন্ত পৌঁছাবে?"

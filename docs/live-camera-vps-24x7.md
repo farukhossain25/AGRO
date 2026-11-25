@@ -115,18 +115,37 @@ paths:
 
 1. ডোমেইনে A রেকর্ড: `stream.yourdomain.com → <VPS-IP>`
 2. VPS firewall-এ শুধু **80, 443** খোলা রাখুন (২২ SSH ছাড়া বাকি বন্ধ)
-3. `Caddyfile` (repo-তে `docker-compose.stream-vps.yml`-এর `public` profile):
-```
-stream.yourdomain.com {
-    encode zstd gzip
-    handle_path /hls/* { reverse_proxy mediamtx:8888 }
-}
+3. `.env` ফাইলে (repo-র রুটে):
+```bash
+STREAM_PUBLIC_HOST=stream.yourdomain.com
+STREAM_EDGE_SECRET=k7Qm2vXp9LrT4wZb      # openssl rand -hex 8
+ACME_EMAIL=you@yourdomain.com
 ```
 4. চালু:
 ```bash
 docker compose -f docker-compose.stream-vps.yml --profile public up -d
+docker logs ba-caddy --tail 20      # সার্টিফিকেট এসেছে? "certificate obtained" দেখুন
 ```
-5. বন্ধ থাকলে অবশ্যই চেক করুন `docker logs ba-caddy` → সার্টিফিকেট এসেছে কি না
+
+**URL-এ একটা গোপন প্রিফিক্স থাকে কেন?**
+ব্রাউজার ভিডিও ডাউনলোড করে এই ঠিকানা থেকে:
+```
+https://stream.yourdomain.com/live-k7Qm2vXp9LrT4wZb/hls/farm-savar-01/index.m3u8?t=<token>
+                          └──── STREAM_EDGE_SECRET ────┘
+```
+- প্রিফিক্স ছাড়া MediaMTX-এর সমস্ত path (`/`,`/api`,`/config`) ইন্টারনেটে খোলা
+  থাকত — কেউ অনুমান করে ঢুকে পড়ত।
+- ১৬+ র‍্যান্ডম অক্ষর অনুমান করা অসম্ভব; ভুল হলে **404**।
+- ভেতরের স্তর: `?t=` টোকেন — ৫ মিনিটের, revocable, শুধু প্রিমিয়াম/ট্রায়াল
+  ইউজারের জন্য.
+
+> **এজ টোকেনের সিগনেচার ভেরিফাই করে না — এটা কি ঝুঁকি?**
+> স্টক Caddy HS256 JWT চেক করতে পারে না; এজে ভেরিফায়ার বসালে আলাদা সার্ভিস/খরচ।
+> তাই সীমাটা স্পষ্ট করে বলে রাখি: কেউ লাইভ URL বন্ধুকে পাঠালে বন্ধু **সর্বোচ্চ ৫
+> মিনিট** দেখতে পারবে (টোকেনের মেয়াদ)। মেয়াদ শেষে প্লেয়ার নতুন টোকেন চায়, সেটা
+> পায় শুধু পেইড ইউজার। সেগমেন্ট ফাইলের নিজের টোকেন নেই — কিন্তু তাদের নাম জানা
+> যায় শুধু টোকেন-যুক্ত প্লেলিস্ট থেকে, আর ৬০ সেকেন্ড কেউ না দেখলে MediaMTX সেগুলো
+> মুছে ফেলে। অর্থাৎ **স্কেলে চুরি হয় না**, একটা লিংক শেয়ার হলে ৫ মিনিট।
 
 > ### ❌ Cloudflare Tunnel দিয়ে ভিডিও — এখন আর সুপারিশ করছি না
 > Cloudflare-এর Free প্ল্যানের শর্তে (Service-Specific Terms → CDN) **ভিডিও/বড়
@@ -135,7 +154,7 @@ docker compose -f docker-compose.stream-vps.yml --profile public up -d
 > জন্য সোজা HTTPS ব্যবহার করুন (`public` profile)।
 >
 > Tunnel তখনই ঠিক আছে যদি Cloudflare-এ **paid প্ল্যান** থাকে বা শুধু পেজ/API
-> সার্ভ করেন — ভিডিও নয়।
+> সার্ভ করেন — ভিডিও নয়। (দরকার হলে `--profile tunnel` + `Caddyfile.proxy`)
 
 > ### 💰 VPS কেনার আগে "মাসিক ট্রান্সফার" দেখুন
 > সব VPS-এ ব্যান্ডউইথ আনলিমিটেড নয়! প্রতি দর্শক ২৪/৭ (৫১২ kbps) = **~১৫৮ GB/মাস**।
@@ -152,10 +171,15 @@ docker compose -f docker-compose.stream-vps.yml --profile public up -d
 
 ### ধাপ ৫ — Vercel env
 ```
-STREAM_PROXY_TARGET = https://stream.yourdomain.com
-STREAM_PROXY_SECRET = <লম্বা র‍্যান্ডম স্ট্রিং>
-STREAM_PUBLIC_BASE  = https://stream.yourdomain.com   # ← ভিডিও Vercel bypass করবে
+STREAM_PUBLIC_BASE  = https://stream.yourdomain.com/live-k7Qm2vXp9LrT4wZb  # ← ভিডিও Vercel bypass
+STREAM_PROXY_TARGET = https://stream.yourdomain.com/health-k7Qm2vXp9LrT4wZb # ← শুধু অনলাইন প্রোব
+STREAM_PROXY_SECRET = <লম্বা র‍্যান্ডম স্ট্রিং>   # শুধু proxy মোডে দরকার
+STREAM_TOKEN_SECRET = <আলাদা র‍্যান্ডম স্ট্রিং>   # ঐচ্ছিক, ভালো
 ```
+- **`STREAM_PUBLIC_BASE`** — প্লেয়ার এখান থেকেই ভিডিও নেবে (Caddy-র `live-` রুট)
+- **`STREAM_PROXY_TARGET`** — এখন শুধু অ্যাডমিন প্যানেলের "ক্যামেরা অনলাইন?" প্রোব
+  আর WebRTC signaling-এ ব্যবহৃত হয়; HLS-এ আর ভিডিও টানে না
+- env বদলানোর পর **অবশ্যই Redeploy** — `middleware.ts`-এর CSP বিল্ডের সময় বসে
 
 > ### ⚠️ এই লাইনটাই সবচেয়ে জরুরি (খরচের জন্য)
 >
@@ -170,35 +194,6 @@ STREAM_PUBLIC_BASE  = https://stream.yourdomain.com   # ← ভিডিও Verc
 > `STREAM_PUBLIC_BASE` সেট করলে ভিডিও **সরাসরি VPS থেকে** যায় → Vercel বিল **৳০**।
 > টোকেন একই থাকে (৫ মিনিটের সাইন করা), তাই নিরাপত্তা কমে না।
 
-#### Caddy-কে টোকেন যাচাই করতে বলুন (নিরাপত্তার জন্য)
-`Caddyfile`-এ stream host-এর জন্য:
-```caddyfile
-stream.yourdomain.com {
-    # প্লেলিস্টে ?t= টোকেন না থাকলে ৪০১
-    @bad {
-        path *.m3u8
-        not query t=*
-    }
-    respond @bad "unauthorized" 401
-
-    # MediaMTX-এর HLS: /<key>/index.m3u8  →  /hls/<key>/index.m3u8
-    handle_path /hls/* {
-        reverse_proxy mediamtx:8888
-    }
-}
-```
-> MediaMTX ডিফল্টে HLS `/<key>/index.m3u8`-এ দেয়, তাই `handle_path /hls/*` দিয়ে
-> প্রিফিক্স কেটে দিলেই আমাদের কোডের URL-এর সাথে মিলে যাবে।
-
-> **শুধু প্লেলিস্টে টোকেন লাগছে কেন?** HLS প্লেলিস্টের ভেতরের সেগমেন্টের লিংক
-> (`segment-17.m4s`) তুলনামূলক — সেখানে আলাদা `?t=` বসাতে হলে প্লেয়ার ভাঙবে।
-> তাই টোকেন চেক হয় প্লেলিস্টে, আর সেগমেন্টের নাম **টোকেন ছাড়া কেউ জানতে পারে না**।
-> উপরন্তু ৬০ সেকেন্ড কেউ না দেখলে MediaMTX সেগমেন্টগুলো মুছে ফেলে, পুরোনো লিংক
-> নিজে থেকেই মৃত হয়ে যায়।
-
-> ⚠️ `STREAM_PUBLIC_BASE` সেট করলে **আবার deploy করতে হবে** — CSP-তে স্ট্রিম হোস্ট
-> (`connect-src` / `media-src`) বিল্ডের সময়ই বসে যায়, নাহলে ব্রাউজার ভিডিও ব্লক করবে।
-
 ### ধাপ ৬ — অ্যাডমিন প্যানেলে ক্যামেরা
 `/foisal/cameras` → নতুন ক্যামেরা:
 
@@ -210,11 +205,13 @@ stream.yourdomain.com {
 
 ### ধাপ ৭ — যাচাই
 ```bash
-# ১) টোকেন ছাড়া → 401 আসা উচিত
-curl -s -o /dev/null -w '%{http_code}\n' https://stream.yourdomain.com/hls/farm-savar-01/index.m3u8
+H=https://stream.yourdomain.com/live-k7Qm2vXp9LrT4wZb
 
-# ২) সাইটে লাইভ খুলে browser → DevTools → Network → .m3u8 রিকোয়েস্টে ?t= আছে কি না
-# ৩) VPS-এ কত ডেটা গেল:  vnstat -m
+curl -s -o /dev/null -w '%{http_code}\n' "$H/hls/farm-savar-01/index.m3u8"        # → 401 (টোকেন নেই)
+curl -s -o /dev/null -w '%{http_code}\n' https://stream.yourdomain.com/hls/x/index.m3u8  # → 404 (প্রিফিক্স নেই)
+
+# তারপর সাইটে লাইভ খুলুন → DevTools → Network → .m3u8-এ ?t= আছে?
+# VPS-এ কত ডেটা গেল:  vnstat -m
 ```
 তারপর সাইটে ক্যামেরা পেজ খুলুন → "লাইভ দেখুন" → ছবি আসা উচিত।
 
@@ -330,8 +327,8 @@ Oracle-এর ১০ TB কোটা ছোঁয় না।
 - [ ] VPS নিন — Oracle Free চেষ্টা, না হলে ~$৫; **মাসিক ট্রান্সফার কোটা দেখুন**
 - [ ] Imou Bullet 2E কিনুন (RTSP চালু করুন Imou Life → Advanced)
 - [ ] Imou Life-এ ক্যামেরা যোগ (safety code নোট করুন)
-- [ ] VPS-এ MediaMTX + Caddy (`--profile public`) চালু
-- [ ] Vercel env (`STREAM_PROXY_TARGET`, `STREAM_PROXY_SECRET`, **`STREAM_PUBLIC_BASE`**) → redeploy
+- [ ] VPS-এ MediaMTX + Caddy (`--profile public`) চালু + `STREAM_EDGE_SECRET`
+- [ ] Vercel env (`STREAM_PUBLIC_BASE`, `STREAM_PROXY_TARGET`, `STREAM_TOKEN_SECRET`) → **redeploy**
 - [ ] অ্যাডমিন প্যানেলে ক্যামেরা + যাচাই
 
 ---

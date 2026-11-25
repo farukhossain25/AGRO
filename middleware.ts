@@ -47,7 +47,14 @@ function isStaticAsset(pathname: string): boolean {
  */
 function streamOrigin(): string[] {
   const base = (process.env.STREAM_PUBLIC_BASE ?? "").replace(/\/$/, "");
-  return base ? [base] : [];
+  if (!base) return [];
+  // STREAM_PUBLIC_BASE may carry a path (https://host/live-<secret>); CSP
+  // source expressions want the origin only.
+  try {
+    return [new URL(base).origin];
+  } catch {
+    return [];
+  }
 }
 
 function supabaseOrigins(): { http: string[]; ws: string[] } {
