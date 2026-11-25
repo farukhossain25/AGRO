@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2026-11-25 — ভিডিও Vercel bypass: `STREAM_PUBLIC_BASE`
+
+- নতুন optional env `STREAM_PUBLIC_BASE` — সেট থাকলে `/api/stream/token` প্লেয়ারকে
+  **স্ট্রিম এজের ডাইরেক্ট URL** দেয় (`https://stream…/hls/<key>/index.m3u8?t=<token>`)।
+  ভিডিও বাইট আর Vercel-এর ভেতর দিয়ে যায় না।
+- **কেন:** এখন প্রতিটা ভিডিও বাইট Vercel-এর Fast Data Transfer-এ গোনা হয় — Pro-তে ১ TB
+  ফ্রি, তারপর **$0.15/GB**। ১০ জন প্রিমিয়াম ২৪/৭ দেখলেই ১.৫ TB = **$৭৩/মাস**, যার
+  এক টাকাও প্রোডাক্ট পেজের ট্রাফিক নয়। ৫০ জন হলে **$৯৭৮/মাস**।
+- নিরাপত্তা অপরিবর্তিত: একই ৫ মিনিটের সাইন করা টোকেন URL-এ থাকে; Caddy-কে টোকেন
+  যাচাইয়ের কনফিগ ডকুমেন্টে দেওয়া আছে। সেট না করলে আগের মতোই same-origin proxy।
+- WebRTC এখনো proxy হয় (bulk media নয়, সিগন্যালিং)।
+
 ## 2026-11-25 — VPS ভিত্তিক ২৪/৭ লাইভ গাইড (রেকর্ডিং ছাড়া)
 
 - নতুন `docs/live-camera-vps-24x7.md`: Imou ক্যামেরা → MediaMTX VPS → Cloudflare Tunnel →

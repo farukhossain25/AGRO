@@ -19,6 +19,33 @@ import type { Camera } from "./types";
 
 export const STREAM_PROXY_TARGET = process.env.STREAM_PROXY_TARGET ?? "";
 
+/**
+ * Optional PUBLIC base of the stream edge, e.g. https://stream.bishwasagro.com
+ *
+ * When set, the player is handed a direct URL to the stream edge and the video
+ * bytes never pass through Vercel. That matters on an e-commerce site: Vercel
+ * bills Fast Data Transfer ($0.15/GB past 1 TB on Pro) and a handful of
+ * all-day premium viewers is enough to cross it — 10 viewers × 24 h ≈ 1.5 TB
+ * ≈ $73/month, none of which is product-page traffic.
+ *
+ * Entitlement is still enforced: the URL carries the same 5-minute signed
+ * token, and the edge (Caddy/nginx in front of MediaMTX) can be asked to
+ * verify it. Leave this unset and everything keeps flowing through the
+ * same-origin proxy exactly as before.
+ */
+export const STREAM_PUBLIC_BASE = (process.env.STREAM_PUBLIC_BASE ?? "").replace(/\/$/, "");
+
+/** True when video should bypass the Vercel proxy (see STREAM_PUBLIC_BASE). */
+export function directVideoEnabled(): boolean {
+  return Boolean(STREAM_PUBLIC_BASE);
+}
+
+/** Direct-to-edge playback URL for a camera, token included. Empty if unset. */
+export function directHlsUrl(streamKey: string, token: string): string {
+  if (!STREAM_PUBLIC_BASE) return "";
+  return `${STREAM_PUBLIC_BASE}/hls/${encodeURIComponent(streamKey)}/index.m3u8?t=${token}`;
+}
+
 /** go2rtc WHEP endpoint used for low-latency WebRTC playback. */
 export const GO2RTC_WHEP = process.env.GO2RTC_WHEP_URL ?? "";
 

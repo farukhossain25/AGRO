@@ -93,7 +93,38 @@ docker compose -f docker-compose.stream-vps.yml --profile tunnel up -d
 ```
 STREAM_PROXY_TARGET = https://stream.yourdomain.com
 STREAM_PROXY_SECRET = <লম্বা র‍্যান্ডম স্ট্রিং>
+STREAM_PUBLIC_BASE  = https://stream.yourdomain.com   # ← ভিডিও Vercel bypass করবে
 ```
+
+> ### ⚠️ এই লাইনটাই সবচেয়ে জরুরি (খরচের জন্য)
+>
+> `STREAM_PUBLIC_BASE` সেট না করলে **প্রতিটা ভিডিও বাইট Vercel-এর ভেতর দিয়ে যায়**।
+> Vercel Pro: ১ TB ফ্রি, তারপর **$0.15/GB**।
+>
+> | দৃশ্যপট | ভিডিও/মাস | Vercel বিল |
+> |---|---|---|
+> | ১০ জন প্রিমিয়াম ২৪/৭ | ১,৫০৯ GB | **$৭৩ ≈ ৳৮,৮৭১** |
+> | ৫০ জন প্রিমিয়াম ২৪/৭ | ৭,৫৪৪ GB | **$৯৭৮ ≈ ৳১,১৯,৩১১** |
+>
+> `STREAM_PUBLIC_BASE` সেট করলে ভিডিও **সরাসরি VPS থেকে** যায় → Vercel বিল **৳০**।
+> টোকেন একই থাকে (৫ মিনিটের সাইন করা), তাই নিরাপত্তা কমে না।
+
+#### Caddy-কে টোকেন যাচাই করতে বলুন (নিরাপত্তার জন্য)
+`Caddyfile`-এ stream host-এর জন্য:
+```caddyfile
+stream.yourdomain.com {
+    # token ছাড়া কোনো HLS রিকোয়েস্ট নয়
+    @noToken not query t=*
+    respond @noToken "unauthorized" 401
+
+    # MediaMTX-এর HLS. root path: /<key>/index.m3u8  → /hls/<key>/index.m3u8
+    handle_path /hls/* {
+        reverse_proxy mediamtx:8888
+    }
+}
+```
+> MediaMTX ডিফল্টে HLS `/<key>/index.m3u8`-এ দেয়, তাই `handle_path /hls/*` দিয়ে
+> প্রিফিক্স কেটে দিলেই আমাদের কোডের URL-এর সাথে মিলে যাবে।
 
 ### ধাপ ৫ — অ্যাডমিন প্যানেলে ক্যামেরা
 `/foisal/cameras` → নতুন ক্যামেরা:
