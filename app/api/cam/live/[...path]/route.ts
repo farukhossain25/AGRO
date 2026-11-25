@@ -57,8 +57,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ path?: string[]
   if (upstreamPath.endsWith(".m3u8") || upstreamPath === "") {
     let resolved: { url: string };
     try {
-      const { resolveCloudHls } = await import("@/lib/camera-cloud");
-      resolved = await resolveCloudHls(camera);
+      /* Cached briefly: a player re-fetches this playlist every few seconds and
+         the vendor bills per call (Imou: 30k calls + 2 GB/month free, then
+         paid). See resolveCloudHlsCached for the arithmetic. */
+      const { resolveCloudHlsCached } = await import("@/lib/camera-cloud");
+      resolved = await resolveCloudHlsCached(camera);
     } catch (err) {
       const message = err instanceof Error ? err.message : "স্ট্রিম শুরু করা যাচ্ছে না";
       return NextResponse.json({ ok: false, message }, { status: 502 });
