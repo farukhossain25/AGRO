@@ -154,14 +154,27 @@ type ImouLiveInfo = {
  * URLs. The SD stream (streamId 1) is the one a phone on mobile data can
  * actually afford; we prefer it and fall back to HD.
  */
+/**
+ * Which Imou stream to serve: 0 = HD main, 1 = SD sub.
+ *
+ * Default is the SD sub-stream because a phone on mobile data is what most
+ * visitors use. A Dahua XVR/NVR is the exception: its sub-stream can be as
+ * small as CIF 352×288 @ 7 fps, which is unusable on a product page — those
+ * recorders need IMOU_STREAM_ID=0.
+ */
+function imouPreferredStream(): 0 | 1 {
+  return Number(process.env.IMOU_STREAM_ID ?? 1) === 0 ? 0 : 1;
+}
+
 async function imouLiveUrl(camera: CloudCamera): Promise<string> {
   const token = await imouAccessToken();
   const serial = camera.cloud_serial;
   if (!serial) throw new CloudError("এই ক্যামেরার সিরিয়াল নম্বর দেওয়া নেই", "device");
 
   const channelId = String(camera.cloud_channel ?? 0);
+  const wantStream = imouPreferredStream();
 
-  await imouCall("bindDeviceLive", { deviceId: serial, channelId, streamId: 1, token }).catch(
+  await imouCall("bindDeviceLive", { deviceId: serial, channelId, streamId: wantStream, token }).catch(
     () => null // already bound is a normal answer; getLiveStreamInfo below is the real test
   );
 
@@ -172,8 +185,11 @@ async function imouLiveUrl(camera: CloudCamera): Promise<string> {
   });
 
   const streams = info.streams ?? [];
-  const pick =
-    streams.find((s) => s.streamId === 1 && /^https?:/i.test(s.hls ?? "")) ??
+  const playable = (id: number) =>
+    streams.find((s) => s.streamId === id && /^https?:/i.test(s.hls ?? ""));
+  // Ask for the configured stream first, then fall back to whatever the
+  // vendor did publish — a recorder often only returns the stream we bound.
+  const pick = playable(wantStream) ?? playable(0) ?? playable(1) ??
     streams.find((s) => /^https?:/i.test(s.hls ?? ""));
 
   if (!pick?.hls) throw new CloudError("ক্যামেরাটি এখন লাইভ দিচ্ছে না", "device");
