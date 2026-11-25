@@ -113,11 +113,14 @@ STREAM_PUBLIC_BASE  = https://stream.yourdomain.com   # ← ভিডিও Verc
 `Caddyfile`-এ stream host-এর জন্য:
 ```caddyfile
 stream.yourdomain.com {
-    # token ছাড়া কোনো HLS রিকোয়েস্ট নয়
-    @noToken not query t=*
-    respond @noToken "unauthorized" 401
+    # প্লেলিস্টে ?t= টোকেন না থাকলে ৪০১
+    @bad {
+        path *.m3u8
+        not query t=*
+    }
+    respond @bad "unauthorized" 401
 
-    # MediaMTX-এর HLS. root path: /<key>/index.m3u8  → /hls/<key>/index.m3u8
+    # MediaMTX-এর HLS: /<key>/index.m3u8  →  /hls/<key>/index.m3u8
     handle_path /hls/* {
         reverse_proxy mediamtx:8888
     }
@@ -125,6 +128,15 @@ stream.yourdomain.com {
 ```
 > MediaMTX ডিফল্টে HLS `/<key>/index.m3u8`-এ দেয়, তাই `handle_path /hls/*` দিয়ে
 > প্রিফিক্স কেটে দিলেই আমাদের কোডের URL-এর সাথে মিলে যাবে।
+
+> **শুধু প্লেলিস্টে টোকেন লাগছে কেন?** HLS প্লেলিস্টের ভেতরের সেগমেন্টের লিংক
+> (`segment-17.m4s`) তুলনামূলক — সেখানে আলাদা `?t=` বসাতে হলে প্লেয়ার ভাঙবে।
+> তাই টোকেন চেক হয় প্লেলিস্টে, আর সেগমেন্টের নাম **টোকেন ছাড়া কেউ জানতে পারে না**।
+> উপরন্তু ৬০ সেকেন্ড কেউ না দেখলে MediaMTX সেগমেন্টগুলো মুছে ফেলে, পুরোনো লিংক
+> নিজে থেকেই মৃত হয়ে যায়।
+
+> ⚠️ `STREAM_PUBLIC_BASE` সেট করলে **আবার deploy করতে হবে** — CSP-তে স্ট্রিম হোস্ট
+> (`connect-src` / `media-src`) বিল্ডের সময়ই বসে যায়, নাহলে ব্রাউজার ভিডিও ব্লক করবে।
 
 ### ধাপ ৫ — অ্যাডমিন প্যানেলে ক্যামেরা
 `/foisal/cameras` → নতুন ক্যামেরা:
