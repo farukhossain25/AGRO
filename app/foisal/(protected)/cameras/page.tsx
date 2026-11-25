@@ -127,7 +127,8 @@ export default async function AdminCamerasPage() {
             name: "cloud_channel",
             label: "চ্যানেল নম্বর",
             type: "number",
-            hint: "একক ক্যামেরা হলে ০ · Dahua/Hikvision DVR-এ ১–১৬",
+            hint:
+              "গুরুত্বপূর্ণ: Imou/Dahua ক্লাউডে গোনা শুরু হয় ০ থেকে — DVR-এর ১ নম্বর চ্যানেল = ০, ২ নম্বর = ১। EZVIZ-এ শুরু ১ থেকে।",
           },
           {
             name: "protocol",
