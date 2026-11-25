@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## 2026-11-25 — সিদ্ধান্ত: XVR ওয়েবসাইটে আনা সম্ভব নয়, Imou ক্যামেরাই পথ
+
+- **Imou পথ বন্ধ প্রমাণিত:** Imou Life-এ পাসওয়ার্ড দেওয়ার পর `Error1000 — Failed to link this
+  device. Please download the correct App and try again.` — Imou-র ক্লাউড Dahua-ব্র্যান্ডের
+  রেকর্ডার লিংক করতে দেয় না।
+- **RTMP পথও বন্ধ:** DH-XVR1B16-I-এর ডেটাশিটে Network Protocol-এ RTMP নেই
+  (`HTTP; HTTPS; TCP/IP; IPv4; RTSP; UDP; SMTP; NTP; DHCP; DNS; DDNS; P2P`)।
+- **সিদ্ধান্ত:** XVR আগের মতোই লোকাল রেকর্ডিং + DMSS রিমোট ভিউয়ের জন্য থাকবে। ওয়েবসাইটে
+  ফার্মের লাইভ দেখাতে Imou ক্যামেরা লাগবে (নিজেরাই ক্লাউডে পুশ করে, VPS নেই)। প্রথমে একটা
+  ক্যামেরা দিয়ে পাইলট, তারপর বাকি সেলারদের জন্য।
+- `docs/live-camera-xvr-imou.md`-এর শুরুতেই সিদ্ধান্তের টেবিল যোগ করা হলো; বাকি অংশ ঐতিহাসিক
+  রেফারেন্স (Open Platform, অ্যাডমিন ফিল্ড, যাচাই — Imou ক্যামেরার ক্ষেত্রেও একই)।
+
 ## 2026-11-25 — XVR → Imou ক্লাউড গাইড (মনিটর/ল্যাপটপ ছাড়া)
 
 - নতুন `docs/live-camera-xvr-imou.md`: Dahua XVR-কে Imou ক্লাউডে নিয়ে ওয়েবঅ্যাপে লাইভ দেখানোর
