@@ -9,34 +9,44 @@
 #
 #  Two ways to expose it. Pick ONE.
 #
-#  ── OPTION A: Cloudflare Tunnel (recommended, no open ports, free) ─────────
-#    1. Add your domain to Cloudflare (free plan is fine).
-#    2. Cloudflare Zero Trust → Networks → Tunnels → Create tunnel.
-#    3. Copy the token into .env on the VPS as CF_TUNNEL_TOKEN.
-#    4. In the tunnel's Public Hostname tab:
-#         stream.example.com   → http://caddy:8080
-#    5. Run:  docker compose -f docker-compose.stream-vps.yml --profile tunnel up -d
-#    No inbound ports, no TLS certificate to renew, the VPS is unreachable from
-#    the internet except through Cloudflare.
+#  ── OPTION B: public HTTPS with a real certificate  ✅ RECOMMENDED ────────
+#    1. Point an A record (stream.example.com) at the VPS IP.
+#    2. Open 80 and 443 only.
+#    3. Run:  docker compose -f docker-compose.stream-vps.yml --profile public up -d
+#    Caddy fetches and renews the Let's Encrypt certificate itself.
 #
-#  ── OPTION B: public HTTPS with a real certificate ────────────────────────
-#    1. Point an A record at the VPS IP.
-#    2. Run the proxy profile below (Caddy gets a Let's Encrypt cert itself).
-#    3. Open 80 and 443 only.
-#    Run:  docker compose -f docker-compose.stream-vps.yml --profile public up -d
+#  ── OPTION A: Cloudflare Tunnel (no open ports) ───────────────────────────
+#    Works, but do NOT use it for a commercial video stream on the Free plan:
+#    Cloudflare's Service-Specific Terms (CDN section) restrict continuous
+#    video / large-file delivery over the free CDN, and a public tunnel
+#    hostname counts as CDN traffic. Enforcement is throttling / a notice page,
+#    not an instant ban — but it is the wrong foundation for paid viewing.
+#    Fine if you are on a paid Cloudflare plan, or if the hostname only serves
+#    pages and the token API.
+#    1. Add your domain to Cloudflare.
+#    2. Zero Trust → Networks → Tunnels → Create; copy the token to .env as
+#       CF_TUNNEL_TOKEN.
+#    3. Public Hostname:  stream.example.com  →  http://caddy:8080
+#    4. Run:  docker compose -f docker-compose.stream-vps.yml --profile tunnel up -d
 #
 #  THEN, in Vercel → Settings → Environment Variables:
 #        STREAM_PROXY_TARGET = https://stream.example.com
 #        GO2RTC_WHEP_URL     = https://stream.example.com/webrtc
 #        STREAM_PROXY_SECRET = <same long random string as below>
-#    Reusing STREAM_PROXY_TARGET's host in CSP: middleware.ts reads
-#    NEXT_PUBLIC_SUPABASE_URL for Supabase, and app/api/stream/* proxies the
-#    media itself, so the browser never talks to the VPS directly. That is why
-#    the CSP does not need stream.example.com in connect-src or media-src.
+#        STREAM_PUBLIC_BASE  = https://stream.example.com   ← video bypasses Vercel
+#
+#  WHY STREAM_PUBLIC_BASE MATTERS: without it every video byte is billed as
+#  Vercel Fast Data Transfer (Pro: 1 TB included, then ~$0.15/GB). Ten
+#  all-day viewers ≈ 1.5 TB ≈ $73/month of pure camera traffic. With it the
+#  player is handed https://stream.example.com/hls/<key>/index.m3u8?t=<token>,
+#  so the bytes flow VPS → browser and Vercel only serves pages and the token.
+#  middleware.ts adds that origin to connect-src and media-src automatically
+#  from the same env var, so no CSP edit is needed.
 #
 #  VERIFY
 #    curl -s -o /dev/null -w '%{http_code}\n' https://stream.example.com/hls/test/index.m3u8
-#    403 without X-Proxy-Secret = correct (Caddy rejected it)
+#    401 without ?t= = correct (Caddy rejected it)
+#    With ?t=... Caddy strips /hls and proxies /test/index.m3u8 to MediaMTX.
 # ============================================================================
 
 services:

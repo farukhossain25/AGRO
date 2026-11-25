@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## 2026-11-25 — ২৪/৭ গাইড সংশোধন + ই-কমার্স ট্রাফিক (১ লাখ ভিজিট)
+
+- `docs/live-camera-vps-24x7.md`: **ধাপ ২** এখন "VPS কি ক্যামেরা পর্যন্ত পৌঁছাবে?"
+  প্রমাণ করার ধাপ — VLC + মোবাইল ডাটা টেস্ট, CGNAT হলে ৩টা সমাধান। আগের ডকে
+  `rtsp://192.168.x.x` লেখা ছিল, যা কোনো VPS থেকে অসম্ভব।
+- Cloudflare Tunnel আর "recommended" নয় — Free প্ল্যানের শর্তে ভিডিও স্ট্রিমিং
+  সীমিত। সুপারিশ এখন `--profile public` (VPS IP + Caddy + Let's Encrypt)।
+  `docker-compose.stream-vps.yml`-এর হেডার কমেন্টও একইভাবে বদলানো।
+- নতুন **§৮ ই-কমার্স ট্রাফিক**: ১ লাখ ভিজিটে concurrency ≈ ০.২ জন, পেজ ট্রাফিক
+  ৩৪০ GB (Vercel Pro), ক্যামেরা ক্লিক ৭.৭ GB, ২৫০ প্রিমিয়াম × ৩০ মিনিট/দিন
+  = ৮৬৪ GB — Oracle-এর ১০ TB-র অনেক নিচে।
+- "মাসিক ট্রান্সফার কোটা" সতর্কতা — ১ TB কোটার VPS-এ ২৪/৭ মাত্র ~৬ জন।
+
 ## 2026-11-25 — ভিডিও Vercel bypass: `STREAM_PUBLIC_BASE`
 
 - নতুন optional env `STREAM_PUBLIC_BASE` — সেট থাকলে `/api/stream/token` প্লেয়ারকে
