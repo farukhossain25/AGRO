@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Send } from "lucide-react";
-import { useAuth } from "@/components/auth/auth-provider";
+import { useAuth } from "@/components/auth/auth-context";
 import { useLocale } from "@/lib/locale";
 import { useToast } from "@/lib/toast";
 import { StarRating, Spinner } from "./ui";
