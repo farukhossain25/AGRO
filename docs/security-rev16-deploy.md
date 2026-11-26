@@ -7,11 +7,16 @@ Vercel-এ আমি কিছু চালাইনি (§10)।
 
 ## ১. কোন SQL চালাতে হবে
 
-**একটাই ফাইল:**
+**দুটো ফাইল, এই ক্রমে:**
 
 ```
-supabase/sql/29_security_hardening.sql
+supabase/sql/29_security_hardening.sql      ← সিকিউরিটি হার্ডেনিং
+supabase/sql/30_team_permission_console.sql ← প্যানেল অ্যাক্সেস কনসোল
 ```
+
+> **30 কেন আলাদা:** ২৯ সিকিউরিটি, ৩০ ফিচার (অ্যাডমিন প্যানেল থেকে সেট করা
+> রোল-অ্যাক্সেস)। আলাদা রাখলে একটা চালিয়ে অন্যটা পরে চালানো যায়, আর কোনোটা
+> সমস্যা করলে বোঝা যায় কোনটা। দুটোই স্বাধীনভাবে rollback করা যায়।
 
 Supabase Dashboard → **SQL Editor** → পুরো ফাইল পেস্ট → **Run**।
 
@@ -56,6 +61,22 @@ select public.payment_ref_key('bkash123 | 01700000000');                    -- B
 
 তারপর **`13_verify_setup.sql`** চালান — ৫টি নতুন `SECURITY` সারি যোগ হয়েছে,
 সবগুলো `PASS` দেখাবে।
+
+### ৩০ চালানোর পর
+
+`/+ADMIN+/access` (ডিফল্ট `/foisal/access`) খুলুন — স্টাফ ও ম্যানেজারের জন্য
+চেকবক্স দেখবেন। শুরুতে সবকিছু কোডের ডিফল্টেই থাকবে, অর্থাৎ **কিছু না বদলালে
+আচরণ হুবহু আগের মতোই**।
+
+```sql
+-- ডিফল্ট তালিকা (lib/permissions.ts-এর সাথে মিলতে হবে)
+select * from public.role_permission_defaults() order by 1,2;
+
+-- অ্যাডমিন কিছু বদলেছে কি?
+select * from public.role_permissions order by role, permission;
+```
+
+`npm run db:permissions` এই দুটো তালিকা মিলিয়ে দেখে — না মিললে deploy আটকে যাবে।
 
 ---
 
@@ -128,6 +149,6 @@ drop index if exists public.wallet_transactions_one_per_order_kind;
 
 ## ৫. সংক্ষেপে
 
-> **চালাতে হবে: শুধু `supabase/sql/29_security_hardening.sql`।**
-> তারপর `13_verify_setup.sql` দিয়ে যাচাই, তারপর PR #76 merge → deploy।
+> **চালাতে হবে: `29_security_hardening.sql` তারপর `30_team_permission_console.sql`।**
+> তারপর `13_verify_setup.sql` দিয়ে যাচাই, তারপর PR merge → deploy।
 > নতুন env variable লাগবে না। কিছু ভাঙলে §3-এর rollback।
