@@ -15,12 +15,13 @@
     "budget:report": "node scripts/check-bundle-budget.mjs --report",
     "lighthouse": "node scripts/lighthouse-audit.mjs",
     "security": "node scripts/security-scan.mjs",
-    "verify": "npm run typecheck && npm run lint && npm run db:check && npm run db:chat && npm run db:columns && npm run test:security && npm run security && npm run budget",
+    "verify": "npm run typecheck && npm run lint && npm run db:check && npm run db:chat && npm run db:columns && npm run db:permissions && npm run test:security && npm run security && npm run budget",
     "db:types": "node scripts/generate-db-types.mjs",
     "db:check": "node scripts/check-sql.mjs",
     "db:chat": "node scripts/test-live-chat.mjs",
     "db:columns": "node scripts/check-columns.mjs",
-    "test:security": "node scripts/test-security-hardening.mjs"
+    "test:security": "node scripts/test-security-hardening.mjs",
+    "db:permissions": "node scripts/check-permissions.mjs"
   },
   "dependencies": {
     "@fontsource/hind-siliguri": "^5.3.0",

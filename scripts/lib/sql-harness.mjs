@@ -119,6 +119,7 @@ const CHAIN_FILES = [
   "27_live_chat.sql",
   "28_security_hardening.sql",
   "29_security_hardening.sql",
+  "30_team_permission_console.sql",
 ];
 
 export { CHAIN_FILES };

@@ -117,8 +117,13 @@ export const PANEL_PAGE_PERMISSIONS: Record<string, Permission> = {
   coupons: "coupons.write",
   "seller-sales": "payouts.read",
   audit: "audit.read",
+  /* who may reach which panel page — reading it is manager-and-up, changing it
+     is admin-only (team.role). It sits under the same permission as the team
+     screen because that is what it configures. */
+  access: "team.read",
+  team: "team.read",
   /* admin only, deliberately absent: payment-methods, delivery, settings,
-     wallet-settings, premium, plans, codes, premium plans, team, system-check */
+     wallet-settings, premium, plans, codes, premium plans, system-check */
 };
 
 /**

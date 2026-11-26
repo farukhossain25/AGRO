@@ -606,8 +606,128 @@ async function balanceOf(id) {
   check("service_role can still execute wallet_apply()", server.rows[0].ok === true);
 }
 
+/* ==========================================================================
+   11. the admin's per-role access console (migration 30)
+   --------------------------------------------------------------------------
+   The owner's rule: an admin decides what staff and manager can reach — but
+   nobody can use that console to change the ADMIN role, and a manager cannot
+   widen its own remit.
+   ========================================================================== */
+{
+  await actAsServer();
+
+  const before = (
+    await db.query(`select public.role_permissions_effective('staff') as p`)
+  ).rows[0].p;
+  check("staff starts with the code defaults", before.length > 0 && !before.includes("settings.write"));
+
+  /* grant something that is not a default */
+  await db.query(`select public.role_permissions_set('staff', array['settings.write'], '{}', $1)`, [
+    ADMIN,
+  ]);
+  const granted = (
+    await db.query(`select public.role_permissions_effective('staff') as p`)
+  ).rows[0].p;
+  check("an admin grant reaches the staff role", granted.includes("settings.write"));
+
+  /* revoke a default */
+  await db.query(`select public.role_permissions_set('staff', '{}', array['products.write'], $1)`, [
+    ADMIN,
+  ]);
+  const revoked = (
+    await db.query(`select public.role_permissions_effective('staff') as p`)
+  ).rows[0].p;
+  check("an admin revoke takes a default away", !revoked.includes("products.write"));
+  check("…and does not disturb the rest", revoked.includes("orders.write") === false);
+
+  /* reverting to the default must not leave a row behind */
+  await db.query(`select public.role_permissions_set('staff', array['products.write', 'settings.write'], '{}', $1)`, [
+    ADMIN,
+  ]);
+  const leftover = (
+    await db.query(`select permission, is_granted from public.role_permissions where role = 'staff'`)
+  ).rows;
+  check(
+    "a permission put back to its default is not stored as an override",
+    leftover.length === 1 &&
+      leftover[0].permission === "settings.write" &&
+      leftover[0].is_granted === true,
+    JSON.stringify(leftover)
+  );
+
+  /* ---- the guards -------------------------------------------------------- */
+  async function refused(label, sql, params) {
+    try {
+      await db.query(sql, params);
+      check(label, false, "the call was allowed");
+    } catch (error) {
+      check(label, true, error.message);
+    }
+  }
+
+  await refused(
+    "the admin role can never be configured",
+    `select public.role_permissions_set('admin', array['settings.write'], '{}', $1)`,
+    [ADMIN]
+  );
+  await refused(
+    "a customer cannot configure roles",
+    `select public.role_permissions_set('staff', array['settings.write'], '{}', $1)`,
+    [ALICE]
+  );
+  await refused(
+    "an unknown permission is refused",
+    `select public.role_permissions_set('staff', array['root.everything'], '{}', $1)`,
+    [ADMIN]
+  );
+  await refused(
+    "granting and revoking the same permission is refused",
+    `select public.role_permissions_set('staff', array['audit.read'], array['audit.read'], $1)`,
+    [ADMIN]
+  );
+
+  /* A browser must not be able to run the RPC at all. */
+  await actAsClient(ADMIN);
+  let browserBlocked = false;
+  try {
+    await db.query(`select public.role_permissions_set('staff', array['settings.write'], '{}', $1)`, [
+      ADMIN,
+    ]);
+  } catch {
+    browserBlocked = true;
+  }
+  check("a browser cannot call role_permissions_set() even as admin", browserBlocked);
+
+  /* reset restores the defaults and clears every override */
+  await actAsServer();
+  await db.query(`select public.role_permissions_set('manager', array['settings.write'], '{}', $1)`, [
+    ADMIN,
+  ]);
+  await db.query(`select public.role_permissions_reset('manager', $1)`, [ADMIN]);
+  const afterReset = (
+    await db.query(`select count(*)::int as n from public.role_permissions where role = 'manager'`)
+  ).rows[0].n;
+  check("reset clears the role's overrides", afterReset === 0);
+
+  /* ---- the catalogue must not be writable from a browser ---------------- */
+  /* `actAsClient` only sets the JWT claim. PostgREST also switches the session
+     role, so the test does the same — otherwise it would be running as the
+     table owner and the REVOKE would never be exercised. */
+  await actAsClient(ADMIN);
+  await db.exec(`begin`);
+  await db.exec(`set local role authenticated`);
+  let catalogBlocked = false;
+  try {
+    await db.query(`update public.permission_catalog set label_bn = 'hacked' where true`);
+  } catch (error) {
+    catalogBlocked = /permission denied/i.test(error.message);
+  }
+  await db.exec(`rollback`);
+  check("the permission catalogue is not client-writable", catalogBlocked);
+}
+
 /* ---------------------------------------------------------------------------
-   Sanity: 29 is actually part of the chain this test just built.
+   Sanity: 30 is part of the chain too.
    --------------------------------------------------------------------------- */
 check(
   "29_security_hardening.sql is registered in the SQL chain",
