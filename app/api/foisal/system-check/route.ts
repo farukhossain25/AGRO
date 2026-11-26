@@ -255,6 +255,73 @@ export async function GET() {
     checks.push({ id: "db:settings", label: "সেটিংস গ্রুপ আছে", group: "db", status: "fail", detail: (error as Error).message });
   }
 
+  /* ------------------------------------------------- db:checkout readiness --
+     A read-only mirror of the four things place_order() needs, because a
+     missing one of them is exactly what makes "অর্ডার দিলেই failed" happen and
+     nothing in the panel used to say so:
+       1. at least one ACTIVE payment method (place_order refuses otherwise)
+       2. its code is what the checkout page posts
+       3. at least one products row is active + approved
+       4. some product actually has stock left
+     Nothing is written, so this check is safe to run any time. */
+  try {
+    const { data: methods, error: methodError } = await db()
+      .from("payment_methods")
+      .select("code, is_active, min_amount")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true });
+    if (methodError) throw methodError;
+
+    const activeCount = (methods ?? []).length;
+    checks.push({
+      id: "db:checkout:methods",
+      label: "অর্ডার নেওয়ার পেমেন্ট মাধ্যম আছে",
+      group: "db",
+      status: activeCount > 0 ? "pass" : "fail",
+      detail:
+        activeCount > 0
+          ? `${activeCount}টি চালু · ${(methods ?? []).map((m) => m.code).join(", ")}`
+          : "কোনো মাধ্যম চালু নেই — place_order সব অর্ডার PAYMENT_METHOD_UNAVAILABLE দিয়ে ফেরত দেবে। /foisal/payment-methods থেকে একটি চালু করুন।",
+    });
+
+    const cod = (methods ?? []).some((m) => m.code === "cod");
+    checks.push({
+      id: "db:checkout:cod",
+      label: "ক্যাশ অন ডেলিভারি চালু",
+      group: "db",
+      status: cod ? "pass" : "fail",
+      detail: cod
+        ? "cod চালু ✓"
+        : "cod নেই! নতুন গ্রাহকের প্রথম অর্ডারটাই ব্যর্থ হবে — একটি cod রো চালু করুন।",
+    });
+
+    const [{ count: sellable, error: sellError }, { count: inStock, error: stockError }] = await Promise.all([
+      db().from("products").select("id", { count: "exact", head: true }).eq("is_active", true).eq("approval_status", "approved"),
+      db().from("products").select("id", { count: "exact", head: true }).eq("is_active", true).eq("approval_status", "approved").gt("stock", 0),
+    ]);
+    if (sellError) throw sellError;
+    if (stockError) throw stockError;
+
+    checks.push({
+      id: "db:checkout:catalogue",
+      label: "বিক্রয়যোগ্য পণ্য স্টকে আছে",
+      group: "db",
+      status: (inStock ?? 0) > 0 ? "pass" : "fail",
+      detail:
+        (inStock ?? 0) > 0
+          ? `${inStock}টি পণ্যে স্টক আছে (মোট চালু ${sellable ?? 0}টি)`
+          : `স্টকে কিছু নেই (চালু ${sellable ?? 0}টি) — গ্রাহক OUT_OF_STOCK পাবে, অর্ডার সম্পন্ন হবে না।`,
+    });
+  } catch (error) {
+    checks.push({
+      id: "db:checkout:methods",
+      label: "চেকআউটের জন্য ডেটাবেস তৈরি",
+      group: "db",
+      status: "fail",
+      detail: (error as Error).message,
+    });
+  }
+
   /* ----------------------------------------------------------- auth:admin */
   try {
     const [{ count, error: countError }, admin] = await Promise.all([

@@ -720,11 +720,31 @@ declare
   v_wallet_balance numeric := 0;
   v_method_floor numeric := 0;
 begin
+  -- the app posts `phone` too; older callers posted only that — accept both
+  v_customer := v_customer || jsonb_build_object(
+    'customer_phone',
+    coalesce(nullif(v_customer ->> 'customer_phone', ''), v_customer ->> 'phone', '')
+  );
+
   -- -------------------------------------------------------------- customer --
   if nullif(trim(coalesce(v_customer ->> 'customer_name', '')), '') is null
      or nullif(trim(coalesce(v_customer ->> 'customer_phone', '')), '') is null
      or nullif(trim(coalesce(v_customer ->> 'address', '')), '') is null then
     raise exception 'CUSTOMER_INCOMPLETE';
+  end if;
+
+  if p_items is null or jsonb_typeof(p_items) <> 'array' or jsonb_array_length(p_items) = 0 then
+    raise exception 'CART_EMPTY';
+  end if;
+
+  /* The payment method must exist AND be enabled. `v_method` is later written
+     to orders.payment_method — a NOT NULL column — so this lookup is not
+     cosmetic: without it a valid cart dies on a raw constraint error. */
+  select * into v_method from public.payment_methods
+   where lower(code) = v_method_code and is_active
+   limit 1;
+  if not found then
+    raise exception 'PAYMENT_METHOD_UNAVAILABLE';
   end if;
 
   -- ------------------------------------------------------------------ lines --
@@ -737,7 +757,7 @@ begin
        where id = nullif(v_item ->> 'id', '')::uuid and is_active
        limit 1;
       if not found then
-        raise exception 'PRODUCT_UNAVAILABLE:%', coalesce(v_item ->> 'name', '');
+        raise exception 'COMBO_UNAVAILABLE:%', coalesce(v_item ->> 'name', '');
       end if;
       v_price := v_combo.price;
       v_subtotal := v_subtotal + v_price * v_qty;
@@ -916,14 +936,52 @@ begin
   )
   returning id into v_order_id;
 
-  -- order_items
+  -- --------------------------------------------------------- sub-orders -----
+  for v_group in
+    select (l ->> 'seller_id')::uuid as seller_id,
+           sum((l ->> 'price')::numeric * (l ->> 'quantity')::int) as gross
+      from jsonb_array_elements(v_lines) l
+     where nullif(l ->> 'seller_id', '') is not null
+     group by 1
+  loop
+    v_seller_pct := null;
+    select commission_percent into v_seller_pct from public.sellers where id = v_group.seller_id;
+    if v_seller_pct is null then
+      v_seller_pct := coalesce(
+        (select (value ->> 'default_commission_percent')::numeric
+           from public.site_settings where key = 'seller'),
+        10
+      );
+    end if;
+
+    v_sub_no := v_order_no || '-' || upper(substr(replace(v_group.seller_id::text, '-', ''), 1, 4));
+
+    insert into public.sub_orders (
+      order_id, sub_no, seller_id, farm_id, seller_name, seller_phone,
+      subtotal, commission, seller_earning, status
+    )
+    select v_order_id, v_sub_no, s.id, s.farm_id, s.name_bn, s.phone,
+           v_group.gross,
+           round(v_group.gross * coalesce(v_seller_pct, 10) / 100.0, 2),
+           v_group.gross - round(v_group.gross * coalesce(v_seller_pct, 10) / 100.0, 2),
+           'received'
+      from public.sellers s where s.id = v_group.seller_id;
+
+    v_sub_map := v_sub_map || jsonb_build_object(v_group.seller_id::text, v_sub_no);
+  end loop;
+
+  -- order_items (each seller line carries the sub-order it belongs to, so the
+  -- seller panel, the seller receipt and the payout report can find it)
   for v_line in select * from jsonb_array_elements(v_lines)
   loop
     insert into public.order_items (
       order_id, sub_order_id, product_id, seller_id, name_bn, unit, price, quantity, image
     ) values (
       v_order_id,
-      null,
+      (select id from public.sub_orders
+        where order_id = v_order_id
+          and seller_id = nullif(v_line ->> 'seller_id', '')::uuid
+        limit 1),
       nullif(v_line ->> 'product_id', '')::uuid,
       nullif(v_line ->> 'seller_id', '')::uuid,
       v_line ->> 'name_bn',
