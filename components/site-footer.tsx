@@ -8,7 +8,6 @@ import { footerLinks } from "@/lib/site";
 import { useStoreInfo } from "@/lib/store-info";
 import { toBn } from "@/lib/format";
 import { Logo } from "./icon-logo";
-import { NewsletterSignup } from "./newsletter-signup";
 import { FooterPayments, type FooterPaymentMethod as FooterPaymentMethodType } from "./footer-payments";
 
 /* ==========================================================================
@@ -78,98 +77,65 @@ export function SiteFooter({
             </svg>
           </div>
 
-          {/* ── 1 · brand + newsletter ─────────────────────────────── */}
-          <div className="relative grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-start lg:gap-14">
-            <div className="min-w-0">
-              <Logo variant="full" width={132} priority={false} />
+          {/* ── 1 · brand ──────────────────────────────────────────── */}
+          {/* The newsletter card and the "230+ farm families" tile are gone:
+              the signup is already the closing band of the page and the number
+              already sits in the home sections — a footer that repeats both
+              was the single tallest block on a phone screen. */}
+          <div className="relative min-w-0">
+            <Logo variant="full" width={132} priority={false} />
 
-              <p className="mt-5 max-w-md text-[13.5px] leading-relaxed text-neu-muted">
-                {t(
-                  "২০২১ সাল থেকে বিশ্বাস এগ্রো বাংলাদেশের কৃষকদের কাছ থেকে সরাসরি তাজা ও নিরাপদ খাবার পরিবারের কাছে পৌঁছে দিচ্ছে। কোনো মধ্যস্বত্বভোগী নেই, কোনো ক্ষতিকর কেমিক্যাল নেই।",
-                  "Since 2021 Biswas Agro has delivered safe, traceable food from Bangladeshi farmers directly to families — no middlemen, no harmful chemicals."
-                )}
-              </p>
-              <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-neu-accent-soft px-3.5 py-1.5 text-[12.5px] font-semibold text-neu-accent-strong">
-                <Sprout className="h-3.5 w-3.5" aria-hidden />
-                {t("বিশুদ্ধতার আস্থায়, খামার থেকে আপনার ঘরে", "Trust in purity — from our farms to your home")}
-              </p>
+            <p className="mt-5 max-w-md text-[13.5px] leading-relaxed text-neu-muted">
+              {t(
+                "২০২১ সাল থেকে বিশ্বাস এগ্রো বাংলাদেশের কৃষকদের কাছ থেকে সরাসরি তাজা ও নিরাপদ খাবার পরিবারের কাছে পৌঁছে দিচ্ছে। কোনো মধ্যস্বত্বভোগী নেই, কোনো ক্ষতিকর কেমিক্যাল নেই।",
+                "Since 2021 Biswas Agro has delivered safe, traceable food from Bangladeshi farmers directly to families — no middlemen, no harmful chemicals."
+              )}
+            </p>
+            <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-neu-accent-soft px-3.5 py-1.5 text-[12.5px] font-semibold text-neu-accent-strong">
+              <Sprout className="h-3.5 w-3.5" aria-hidden />
+              {t("বিশুদ্ধতার আস্থায়, খামার থেকে আপনার ঘরে", "Trust in purity — from our farms to your home")}
+            </p>
 
-              {/* two-up on phones: four stacked address rows made the footer
-                  half a screen longer than it had to be */}
-              <ul className="mt-5 grid gap-1.5 text-[12.5px] text-neu-ink/80 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-2">
-                <li className="col-span-2 flex items-start gap-3">
+            {/* two-up on phones: four stacked address rows made the footer
+                half a screen longer than it had to be. max-w-md keeps that
+                two-up compact now that the column is full width — without it
+                the opening hours drifted 400px away from the phone number. */}
+            <ul className="mt-5 grid max-w-md gap-1.5 text-[12.5px] text-neu-ink/80 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-2">
+              <li className="col-span-2 flex items-start gap-3">
+                <ContactIcon>
+                  <MapPin className="h-3.5 w-3.5" />
+                </ContactIcon>
+                <span className="pt-1.5">{t(store.address_bn, store.address_en)}</span>
+              </li>
+              <li>
+                <a href={`tel:${store.phone}`} className="flex items-center gap-3 transition hover:text-neu-accent-strong">
                   <ContactIcon>
-                    <MapPin className="h-3.5 w-3.5" />
+                    <Phone className="h-3.5 w-3.5" />
                   </ContactIcon>
-                  <span className="pt-1.5">{t(store.address_bn, store.address_en)}</span>
-                </li>
-                <li>
-                  <a href={`tel:${store.phone}`} className="flex items-center gap-3 transition hover:text-neu-accent-strong">
-                    <ContactIcon>
-                      <Phone className="h-3.5 w-3.5" />
-                    </ContactIcon>
-                    <span className="tabular-nums">{store.phone_display}</span>
-                  </a>
-                </li>
-                <li className="flex items-center gap-3">
+                  <span className="tabular-nums">{store.phone_display}</span>
+                </a>
+              </li>
+              <li className="flex items-center gap-3">
+                <ContactIcon>
+                  <Clock className="h-3.5 w-3.5" />
+                </ContactIcon>
+                <span>{t(store.hours_bn, store.hours_en)}</span>
+              </li>
+              {/* email gets the full width: at 360 a half column cuts the
+                  address in the middle — an address must never wrap mid-word */}
+              <li className="col-span-2">
+                <a href={`mailto:${store.email}`} className="flex items-center gap-3 transition hover:text-neu-accent-strong">
                   <ContactIcon>
-                    <Clock className="h-3.5 w-3.5" />
+                    <Mail className="h-3.5 w-3.5" />
                   </ContactIcon>
-                  <span>{t(store.hours_bn, store.hours_en)}</span>
-                </li>
-                {/* email gets the full width: at 360 a half column cuts the
-                    address in the middle — an address must never wrap mid-word */}
-                <li className="col-span-2">
-                  <a href={`mailto:${store.email}`} className="flex items-center gap-3 transition hover:text-neu-accent-strong">
-                    <ContactIcon>
-                      <Mail className="h-3.5 w-3.5" />
-                    </ContactIcon>
-                    <span className="break-all">{store.email}</span>
-                  </a>
-                </li>
-              </ul>
+                  <span className="break-all">{store.email}</span>
+                </a>
+              </li>
+            </ul>
 
-              {/* Social icons come from the `social_links` table — reorder, hide or
-                  add platforms in /foisal/social without touching this file. */}
-              {socials}
-            </div>
-
-            {/* newsletter — a raised card on the raised panel; the input is the
-                inset well, the same three depths as the header's search */}
-            {/* on desktop the card is pinned to the top of the column and the
-                stat strip fills the height beneath it, so no dead space */}
-            {/* the card, then the farm-family counter right under it — no
-                stretched gaps, the whitespace falls to the bottom of the
-                column where it reads as breathing room */}
-            <div className="flex flex-col gap-4">
-              {/* The card lives in <NewsletterSignup variant="card"> so the
-                  homepage band and the footer share one form, one endpoint and
-                  one copy — they used to be two copies of the same code that
-                  could drift apart. */}
-              <NewsletterSignup variant="card" />
-
-            {/* farm family counter — the same number the home page brags about,
-                as a raised tile that closes the column on desktop */}
-            <div className="card hidden items-center justify-between gap-4 !rounded-2xl px-5 py-4 sm:flex">
-              <div>
-                <p className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-neu-faint">
-                  {t("আমাদের খামার পরিবার", "Our farm families")}
-                </p>
-                <p className="mt-1 text-lg font-bold leading-none text-neu-ink">
-                  {toBn(230)}
-                  <span className="ml-1 text-[13px] font-semibold text-neu-accent-strong">
-                    {t("পরিবার", "families")}
-                  </span>
-                </p>
-              </div>
-              <span
-                className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-leaf-600/15 text-neu-accent-strong"
-                aria-hidden
-              >
-                <Sprout className="h-5 w-5" />
-              </span>
-            </div>
-            </div>
+            {/* Social icons come from the `social_links` table — reorder, hide or
+                add platforms in /foisal/social without touching this file. */}
+            {socials}
           </div>
 
           {/* ── 2 · link columns — accordion on phones, grid from md ──── */}
