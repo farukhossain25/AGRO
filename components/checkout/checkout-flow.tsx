@@ -158,6 +158,9 @@ export function CheckoutFlow({
    *  neither an influencer's promo code nor an admin-only personal code belongs
    *  in a public-looking list — see pickableCoupons below. */
   const [couponPickerOpen, setCouponPickerOpen] = useState(false);
+  /** true until /api/coupons/mine answers — the list used to be "empty" and
+   *  "still loading" at the same time, so nothing could tell them apart. */
+  const [couponListLoading, setCouponListLoading] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [unavailable, setUnavailable] = useState<
@@ -216,6 +219,8 @@ export function CheckoutFlow({
         }
       } catch {
         /* the manual code box still works */
+      } finally {
+        if (alive) setCouponListLoading(false);
       }
     })();
     return () => {
@@ -1089,8 +1094,13 @@ export function CheckoutFlow({
                   <input
                     value={coupon}
                     onChange={(e) => setCoupon(e.target.value)}
-                    className="input !py-2.5 text-[13px]"
+                    /* `min-w-0` + `!w-auto`: `.input` is `w-full`, and inside
+                       this flex row its min-content width pushed the Apply
+                       button out of the card. The box now shrinks instead. */
+                    className="input !w-auto min-w-0 flex-1 !py-2.5 text-[13px]"
                     placeholder={t("কুপন কোড (ঐচ্ছিক)", "Coupon code (optional)")}
+                    autoComplete="off"
+                    aria-label={t("কুপন কোড", "Coupon code")}
                   />
                   <button
                     type="button"
@@ -1107,13 +1117,20 @@ export function CheckoutFlow({
               {/* The account's own usable codes. Four tiny chips used to be
                   the whole story — a customer could not see what the shop
                   actually offers, could not see how much they would save, and
-                  had no way to browse. "সব কুপন" opens the list. */}
-              {!appliedCoupon && pickableCoupons.length ? (
+                  had no way to browse.
+
+                  This used to render ONLY when `pickableCoupons.length > 0`,
+                  which is why it vanished on a real checkout: any hiccup in
+                  /api/coupons/mine (or a shop with no public code yet) hid the
+                  one way to browse coupons. It is now always here; the count
+                  line is what changes. */}
+              {!appliedCoupon ? (
                 <div className="mt-2 flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => setCouponPickerOpen(true)}
                     aria-haspopup="dialog"
+                    aria-expanded={couponPickerOpen}
                     className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-neu-accent/25 bg-neu-accent/[0.06] px-3 py-2 text-left transition hover:bg-neu-accent/[0.12]"
                   >
                     <Ticket className="h-4 w-4 shrink-0 text-neu-accent-strong" />
@@ -1122,10 +1139,17 @@ export function CheckoutFlow({
                         {t("সব কুপন দেখুন", "See all coupons")}
                       </span>
                       <span className="block text-[10.5px] text-neu-muted">
-                        {t(
-                          `${pickableCoupons.length}টি কুপন আপনার অর্ডারে প্রযোজ্য`,
-                          `${pickableCoupons.length} coupons apply to this order`
-                        )}
+                        {couponListLoading
+                          ? t("কুপন খোঁজা হচ্ছে…", "Looking up coupons…")
+                          : pickableCoupons.length
+                            ? t(
+                                `${pickableCoupons.length}টি কুপন আপনার অর্ডারে প্রযোজ্য`,
+                                `${pickableCoupons.length} coupons apply to this order`
+                              )
+                            : t(
+                                "এখন কোনো পাবলিক কুপন নেই — কোড থাকলে উপরে লিখুন",
+                                "No public coupon right now — type a code above"
+                              )}
                       </span>
                     </span>
                     <span className="shrink-0 rounded-full bg-neu-accent px-2 py-0.5 text-[10.5px] font-bold text-white">
@@ -1286,9 +1310,21 @@ export function CheckoutFlow({
             </ul>
 
             {!pickableCoupons.length ? (
-              <p className="py-8 text-center text-[12px] text-neu-muted">
-                {t("এই অর্ডারে প্রযোজ্য কোনো কুপন নেই", "No coupons apply to this order")}
-              </p>
+              <div className="rounded-xl border border-dashed border-neu-line/70 px-3 py-6 text-center">
+                <p className="text-[12px] font-semibold text-neu-ink">
+                  {couponListLoading
+                    ? t("কুপন খোঁজা হচ্ছে…", "Looking up coupons…")
+                    : myCoupons.length
+                      ? t("এই অর্ডারের জন্য কোনো কুপন এখন প্রযোজ্য নয়", "No coupon applies to this order yet")
+                      : t("এখন কোনো পাবলিক কুপন নেই", "No public coupon right now")}
+                </p>
+                <p className="mt-1 text-[11px] leading-relaxed text-neu-muted">
+                  {t(
+                    "ইনফ্লুয়েন্সার বা ব্যক্তিগত কোড পেলে উপরের ঘরে লিখে প্রয়োগ করুন।",
+                    "If you have an influencer or personal code, type it in the box and apply."
+                  )}
+                </p>
+              </div>
             ) : null}
 
             <p className="mt-3 rounded-xl bg-neu-sunken/60 p-2.5 text-[10.5px] leading-relaxed text-neu-muted">

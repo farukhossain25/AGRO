@@ -120,6 +120,11 @@ const navGroups: { title: string; items: NavItem[] }[] = [
     title: "মার্কেটিং",
     items: [
       { href: adminHref("coupons"), label: "কুপন", Icon: Percent, perm: "coupons.write" },
+      /* The two percentages that move money on every order. They also exist
+         inside সাইট সেটিংস → রেফারেল ও ওয়ালেট, but the owner asked where to
+         set "how much of an order a customer may pay from the referral
+         balance" — so it gets its own door instead of a scroll position. */
+      { href: adminHref("wallet-settings"), label: "ওয়ালেটের সীমা ও কমিশন", Icon: Wallet, perm: "settings.write" },
       { href: adminHref("banners"), label: "ব্যানার", Icon: ImageIcon, perm: "content.write" },
       { href: adminHref("blog"), label: "ব্লগ", Icon: FileText, perm: "content.write" },
       { href: adminHref("cms"), label: "সাইড পেজ", Icon: BookOpen, perm: "content.write" },
