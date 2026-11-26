@@ -1,0 +1,43 @@
+# ============================================================================
+# Stream edge in PROXY mode — only the Vercel proxy talks to this.
+# ----------------------------------------------------------------------------
+# Vercel's proxy calls this with the shared secret from STREAM_PROXY_SECRET.
+# Anything without the secret is dropped before it reaches MediaMTX.
+#
+#   Caddyfile.proxy → :8080   (STREAM_PROXY_TARGET=http://<vps>:8080)
+#
+# This is NOT the direct-video setup. Use it when STREAM_PUBLIC_BASE is unset
+# (video transits Vercel) or behind the Cloudflare Tunnel profile. For the
+# recommended direct-video edge see ./Caddyfile.
+# ============================================================================
+
+{
+	admin off
+	auto_https off
+}
+
+:8080 {
+	@noSecret {
+		not header X-Proxy-Secret {env.STREAM_PROXY_SECRET}
+	}
+
+	handle @noSecret {
+		respond @noSecret "forbidden" 403
+	}
+
+	# HLS playlists and segments
+	handle_path /hls/* {
+		reverse_proxy 127.0.0.1:8888
+	}
+
+	# anything else (playlist keys, ll-hls parts) goes straight to MediaMTX
+	handle {
+		reverse_proxy 127.0.0.1:8888
+	}
+
+	encode gzip
+	log {
+		output stdout
+		format console
+	}
+}

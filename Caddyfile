@@ -1,37 +1,78 @@
 # ============================================================================
-# Stream edge — the only port your VPS exposes to the internet
+# Stream edge in DIRECT-VIDEO mode — the recommended setup
 # ----------------------------------------------------------------------------
-# Vercel's proxy calls this with the shared secret from STREAM_PROXY_SECRET.
-# Anything without the secret is dropped before it reaches MediaMTX.
+# The browser plays  https://<STREAM_PUBLIC_HOST>/live-<EDGE_SECRET>/hls/<key>/index.m3u8?t=<token>
+# so video bytes go VPS → viewer and never touch Vercel's bandwidth meter.
 #
-#   Caddyfile → :8080  (STREAM_PROXY_TARGET=http://<vps>:8080)
+# Two locks protect it, in this order:
+#   1. the /live-<EDGE_SECRET>/ prefix — a random 16+ character string that
+#      nobody can guess. Without it every path 404s.
+#   2. ?t=<signed token> — 5 minutes, revocable, minted only for a subscriber
+#      or a trial device. No token, no playlist.
+#
+# WHAT CADDY DOES *NOT* DO: verify the token's signature. Stock Caddy cannot
+# check an HS256 JWT, and adding a verifier that runs on the edge costs money
+# and complexity. The consequence is bounded and deliberate: if a viewer copies
+# a live playlist URL and sends it to a friend, that friend can watch until the
+# token expires — at most 5 minutes, after which the player requests a fresh
+# one and only the paying viewer gets it. Segments have no token of their own
+# (the player cannot append one), but their names are only known from a
+# playlist that required a token, and MediaMTX deletes them ~60 s after the
+# last viewer leaves. Paid viewing is therefore not circumventable at scale;
+# a single shared screenshot-level leak is.
+#
+# Set these in .env next to this file:
+#   STREAM_PUBLIC_HOST=stream.yourdomain.com
+#   STREAM_EDGE_SECRET=16-plus-random-characters
+# and the matching Vercel var:
+#   STREAM_PUBLIC_BASE=https://stream.yourdomain.com/live-<EDGE_SECRET>
+#   STREAM_PROXY_TARGET=https://stream.yourdomain.com/health-<EDGE_SECRET>
+#
+# TLS is Caddy's job here: point the A record at the VPS, open 80 + 443, run
+#   docker compose -f docker-compose.stream-vps.yml --profile public up -d
 # ============================================================================
 
 {
 	admin off
-	auto_https off
+	email {$ACME_EMAIL:admin@example.com}
 }
 
-:8080 {
-	@noSecret {
-		not header X-Proxy-Secret {env.STREAM_PROXY_SECRET}
+{$STREAM_PUBLIC_HOST:stream.example.com} {
+	encode zstd gzip
+
+	# /live-<secret>/hls/<key>/index.m3u8?t=<token>  →  MediaMTX /<key>/index.m3u8
+	handle_path /live-{$STREAM_EDGE_SECRET}/hls/* {
+		# Only PLAYLISTS need the token. Segments/parts carry no query string —
+		# hls.js resolves them relatively, so demanding ?t= here would break
+		# playback. Their names are only known from a token-gated playlist.
+		@playlistNoToken {
+			path *.m3u8
+			not query t=*
+		}
+		respond @playlistNoToken "unauthorized" 401
+
+		reverse_proxy mediamtx:8888
 	}
 
-	handle @noSecret {
-		respond @noSecret "forbidden" 403
+	# Vercel → edge control routes (never video):
+	#   GET  /health-<secret>/<key>/index.m3u8   admin "camera online?" probe
+	#   POST /health-<secret>/api/webrtc?src=…   WebRTC signalling (go2rtc)
+	# Set STREAM_PROXY_TARGET=https://<host>/health-<EDGE_SECRET> in Vercel.
+	handle_path /health-{$STREAM_EDGE_SECRET}/* {
+		@whep path /api/webrtc*
+		handle @whep {
+			reverse_proxy go2rtc:1984
+		}
+		handle {
+			reverse_proxy mediamtx:8888
+		}
 	}
 
-	# HLS playlists and segments
-	handle_path /hls/* {
-		reverse_proxy 127.0.0.1:8888
-	}
-
-	# anything else (playlist keys, ll-hls parts) goes straight to MediaMTX
+	# nothing else exists on this hostname
 	handle {
-		reverse_proxy 127.0.0.1:8888
+		respond "not found" 404
 	}
 
-	encode gzip
 	log {
 		output stdout
 		format console

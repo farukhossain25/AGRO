@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { fail, handleError, ok, rateLimit, currentUser } from "@/lib/api";
 import { deviceFingerprint, signStreamToken, STREAM_TOKEN_TTL } from "@/lib/stream-auth";
 import { resolvePremiumState, getPremiumSettings } from "@/lib/premium";
-import { hlsPath, webrtcPath } from "@/lib/streams";
+import { directHlsUrl, hlsPath, webrtcPath } from "@/lib/streams";
 
 export const dynamic = "force-dynamic";
 
@@ -150,11 +150,16 @@ export async function POST(req: Request) {
       return fail("এই ক্যামেরার স্ট্রিম কনফিগার করা হয়নি", 503);
     }
 
+    /* Direct-video mode: HLS bytes go to the stream edge, not through Vercel.
+       WebRTC keeps proxying (it is a live signalling exchange, not bulk media).
+       If STREAM_PUBLIC_BASE is unset this is "" and nothing changes. */
+    const direct = camera.protocol === "webrtc" ? "" : directHlsUrl(camera.stream_key, token);
     const path =
       camera.protocol === "webrtc" ? webrtcPath(camera.stream_key) : hlsPath(camera.stream_key);
 
     return ok({
-      url: `${path}?t=${token}`,
+      url: direct || `${path}?t=${token}`,
+      proxied: !direct,
       protocol: camera.protocol,
       expiresIn: STREAM_TOKEN_TTL,
       mode: state.reason,

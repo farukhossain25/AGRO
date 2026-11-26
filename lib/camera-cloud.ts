@@ -154,14 +154,27 @@ type ImouLiveInfo = {
  * URLs. The SD stream (streamId 1) is the one a phone on mobile data can
  * actually afford; we prefer it and fall back to HD.
  */
+/**
+ * Which Imou stream to serve: 0 = HD main, 1 = SD sub.
+ *
+ * Default is the SD sub-stream because a phone on mobile data is what most
+ * visitors use. A Dahua XVR/NVR is the exception: its sub-stream can be as
+ * small as CIF 352×288 @ 7 fps, which is unusable on a product page — those
+ * recorders need IMOU_STREAM_ID=0.
+ */
+function imouPreferredStream(): 0 | 1 {
+  return Number(process.env.IMOU_STREAM_ID ?? 1) === 0 ? 0 : 1;
+}
+
 async function imouLiveUrl(camera: CloudCamera): Promise<string> {
   const token = await imouAccessToken();
   const serial = camera.cloud_serial;
   if (!serial) throw new CloudError("এই ক্যামেরার সিরিয়াল নম্বর দেওয়া নেই", "device");
 
   const channelId = String(camera.cloud_channel ?? 0);
+  const wantStream = imouPreferredStream();
 
-  await imouCall("bindDeviceLive", { deviceId: serial, channelId, streamId: 1, token }).catch(
+  await imouCall("bindDeviceLive", { deviceId: serial, channelId, streamId: wantStream, token }).catch(
     () => null // already bound is a normal answer; getLiveStreamInfo below is the real test
   );
 
@@ -172,8 +185,11 @@ async function imouLiveUrl(camera: CloudCamera): Promise<string> {
   });
 
   const streams = info.streams ?? [];
-  const pick =
-    streams.find((s) => s.streamId === 1 && /^https?:/i.test(s.hls ?? "")) ??
+  const playable = (id: number) =>
+    streams.find((s) => s.streamId === id && /^https?:/i.test(s.hls ?? ""));
+  // Ask for the configured stream first, then fall back to whatever the
+  // vendor did publish — a recorder often only returns the stream we bound.
+  const pick = playable(wantStream) ?? playable(0) ?? playable(1) ??
     streams.find((s) => /^https?:/i.test(s.hls ?? ""));
 
   if (!pick?.hls) throw new CloudError("ক্যামেরাটি এখন লাইভ দিচ্ছে না", "device");
@@ -281,6 +297,52 @@ export async function resolveCloudHls(camera: CloudCamera): Promise<{ url: strin
   }
 
   throw new CloudError("এই ক্যামেরাটি ক্লাউড ব্রিজে সেট করা নেই", "config");
+}
+
+/* --------------------------------------------------------- playlist cache */
+/*
+ * HLS players re-fetch the playlist every few seconds while a stream is open —
+ * hls.js does it on every segment boundary. Each of those hits used to call the
+ * vendor (bindDeviceLive + getLiveStreamInfo), and the Imou Open Platform bills
+ * the App ID: 30,000 requests and 2 GB of media flow per month, then
+ * $0.02/10,000 calls and $0.25/GB. One viewer for one hour would burn ~1,200 of
+ * those calls; ten viewers would exhaust the month in a single afternoon and the
+ * stream would die with LV1003 / FL1004 ("insufficient traffic").
+ *
+ * A resolved vendor URL is stable for far longer than a few seconds, so we hold
+ * it briefly. This is a cache in ONE serverless instance only — it is a saving,
+ * not a correctness guarantee, and it never serves a dead URL for long.
+ */
+const PLAYLIST_TTL_MS = Number(process.env.CAM_PLAYLIST_TTL_MS ?? 20_000);
+
+// Keyed by camera + the fields that change the answer, so re-pointing a camera
+// in the admin panel takes effect on the next request instead of minutes later.
+const playlistCache = new Map<string, { url: string; origin: string; expires: number }>();
+
+function playlistKey(camera: CloudCamera): string {
+  return [
+    camera.id,
+    camera.cloud_provider,
+    camera.cloud_serial ?? "",
+    camera.cloud_channel ?? "",
+    camera.stream_url ?? "",
+  ].join("|");
+}
+
+export async function resolveCloudHlsCached(
+  camera: CloudCamera
+): Promise<{ url: string; origin: string }> {
+  const key = playlistKey(camera);
+  const hit = playlistCache.get(key);
+  if (hit && hit.expires > Date.now()) return { url: hit.url, origin: hit.origin };
+
+  const resolved = await resolveCloudHls(camera);
+
+  // Bound the map: a serverless instance serves a handful of cameras, but never
+  // let a pathological caller grow it without limit.
+  if (playlistCache.size > 200) playlistCache.clear();
+  playlistCache.set(key, { ...resolved, expires: Date.now() + PLAYLIST_TTL_MS });
+  return resolved;
 }
 
 /* ------------------------------------------------- signed segment addresses */

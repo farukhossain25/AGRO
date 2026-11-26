@@ -9,34 +9,44 @@
 #
 #  Two ways to expose it. Pick ONE.
 #
-#  ── OPTION A: Cloudflare Tunnel (recommended, no open ports, free) ─────────
-#    1. Add your domain to Cloudflare (free plan is fine).
-#    2. Cloudflare Zero Trust → Networks → Tunnels → Create tunnel.
-#    3. Copy the token into .env on the VPS as CF_TUNNEL_TOKEN.
-#    4. In the tunnel's Public Hostname tab:
-#         stream.example.com   → http://caddy:8080
-#    5. Run:  docker compose -f docker-compose.stream-vps.yml --profile tunnel up -d
-#    No inbound ports, no TLS certificate to renew, the VPS is unreachable from
-#    the internet except through Cloudflare.
+#  ── OPTION B: public HTTPS with a real certificate  ✅ RECOMMENDED ────────
+#    1. Point an A record (stream.example.com) at the VPS IP.
+#    2. Open 80 and 443 only.
+#    3. Run:  docker compose -f docker-compose.stream-vps.yml --profile public up -d
+#    Caddy fetches and renews the Let's Encrypt certificate itself.
 #
-#  ── OPTION B: public HTTPS with a real certificate ────────────────────────
-#    1. Point an A record at the VPS IP.
-#    2. Run the proxy profile below (Caddy gets a Let's Encrypt cert itself).
-#    3. Open 80 and 443 only.
-#    Run:  docker compose -f docker-compose.stream-vps.yml --profile public up -d
+#  ── OPTION A: Cloudflare Tunnel (no open ports) ───────────────────────────
+#    Works, but do NOT use it for a commercial video stream on the Free plan:
+#    Cloudflare's Service-Specific Terms (CDN section) restrict continuous
+#    video / large-file delivery over the free CDN, and a public tunnel
+#    hostname counts as CDN traffic. Enforcement is throttling / a notice page,
+#    not an instant ban — but it is the wrong foundation for paid viewing.
+#    Fine if you are on a paid Cloudflare plan, or if the hostname only serves
+#    pages and the token API.
+#    1. Add your domain to Cloudflare.
+#    2. Zero Trust → Networks → Tunnels → Create; copy the token to .env as
+#       CF_TUNNEL_TOKEN.
+#    3. Public Hostname:  stream.example.com  →  http://caddy-proxy:8080
+#    4. Run:  docker compose -f docker-compose.stream-vps.yml --profile tunnel up -d
 #
 #  THEN, in Vercel → Settings → Environment Variables:
 #        STREAM_PROXY_TARGET = https://stream.example.com
 #        GO2RTC_WHEP_URL     = https://stream.example.com/webrtc
 #        STREAM_PROXY_SECRET = <same long random string as below>
-#    Reusing STREAM_PROXY_TARGET's host in CSP: middleware.ts reads
-#    NEXT_PUBLIC_SUPABASE_URL for Supabase, and app/api/stream/* proxies the
-#    media itself, so the browser never talks to the VPS directly. That is why
-#    the CSP does not need stream.example.com in connect-src or media-src.
+#        STREAM_PUBLIC_BASE  = https://stream.example.com   ← video bypasses Vercel
+#
+#  WHY STREAM_PUBLIC_BASE MATTERS: without it every video byte is billed as
+#  Vercel Fast Data Transfer (Pro: 1 TB included, then ~$0.15/GB). Ten
+#  all-day viewers ≈ 1.5 TB ≈ $73/month of pure camera traffic. With it the
+#  player is handed https://stream.example.com/hls/<key>/index.m3u8?t=<token>,
+#  so the bytes flow VPS → browser and Vercel only serves pages and the token.
+#  middleware.ts adds that origin to connect-src and media-src automatically
+#  from the same env var, so no CSP edit is needed.
 #
 #  VERIFY
-#    curl -s -o /dev/null -w '%{http_code}\n' https://stream.example.com/hls/test/index.m3u8
-#    403 without X-Proxy-Secret = correct (Caddy rejected it)
+#    curl -s -o /dev/null -w '%{http_code}\n' "https://stream.example.com/live-$STREAM_EDGE_SECRET/hls/test/index.m3u8"
+#    → 401  (no ?t= token: Caddy refused before touching MediaMTX)
+#    → 404 for any path outside /live-<secret>/  (the prefix is the outer lock)
 # ============================================================================
 
 services:
@@ -71,9 +81,12 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-    # Cameras live on the LAN, so only the RTSP side needs host networking.
-    # If the cameras are reachable by IP from another VLAN, delete this block.
-    network_mode: host
+    # NOTE: no network_mode: host — with host networking none of the `expose`
+    # ports exist on the compose bridge and `reverse_proxy mediamtx:8888`
+    # cannot resolve. Cameras are reached by the source URLs you put in
+    # mediamtx.yml (a public IP or a LAN address), which works fine from the
+    # bridge. If a camera is only reachable from the VPS's own loopback, use
+    # `extra_hosts` instead of host networking.
 
   go2rtc:
     image: alexxit/go2rtc:latest
@@ -81,27 +94,46 @@ services:
     restart: unless-stopped
     volumes:
       - ./go2rtc.yaml:/config/go2rtc.yaml:ro
+    # Not published to the host: the app reaches go2rtc through the Vercel
+    # proxy / Caddy, so a public :1984 would just be an unauthenticated API
+    # (go2rtc's own API has no auth). WebRTC media needs a public UDP port,
+    # so 8555/udp stays open — that one carries media, not control.
+    expose:
+      - "1984"
     ports:
-      # WebRTC signalling. 8555/udp carries the media.
-      - "1984:1984"
       - "8555:8555/udp"
       - "8555:8555/tcp"
 
-  # ── OPTION A ──────────────────────────────────────────────────────────────
+  # ── the HTTPS edge (direct-video mode) ───────────────────────────────────
   caddy:
-    profiles: ["tunnel", "public"]
+    profiles: ["public"]
     image: caddy:2-alpine
     container_name: ba-caddy
     restart: unless-stopped
     environment:
-      STREAM_PROXY_SECRET: ${STREAM_PROXY_SECRET:?set STREAM_PROXY_SECRET in .env}
+      STREAM_PUBLIC_HOST: ${STREAM_PUBLIC_HOST:?set STREAM_PUBLIC_HOST in .env}
+      STREAM_EDGE_SECRET: ${STREAM_EDGE_SECRET:?set STREAM_EDGE_SECRET in .env}
+      ACME_EMAIL: ${ACME_EMAIL:-admin@example.com}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
-    # The Caddyfile listens on :8080 and auto_https is off, because TLS is
-    # terminated by Cloudflare (Option A) or by a separate Caddy instance
-    # (Option B). Keeping one Caddyfile for both avoids drift.
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - mediamtx
+
+  # ── proxy-mode edge (only when STREAM_PUBLIC_BASE is unset) ─────────────
+  caddy-proxy:
+    profiles: ["proxy"]
+    image: caddy:2-alpine
+    container_name: ba-caddy-proxy
+    restart: unless-stopped
+    environment:
+      STREAM_PROXY_SECRET: ${STREAM_PROXY_SECRET:?set STREAM_PROXY_SECRET in .env}
+    volumes:
+      - ./Caddyfile.proxy:/etc/caddy/Caddyfile:ro
     expose:
       - "8080"
     depends_on:
@@ -116,7 +148,7 @@ services:
     environment:
       TUNNEL_TOKEN: ${CF_TUNNEL_TOKEN:?set CF_TUNNEL_TOKEN in .env}
     depends_on:
-      - caddy
+      - caddy-proxy
 
 volumes:
   caddy_data:

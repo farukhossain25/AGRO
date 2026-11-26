@@ -38,6 +38,25 @@ function isStaticAsset(pathname: string): boolean {
   );
 }
 
+/**
+ * Origin of the stream edge when video bypasses the Vercel proxy
+ * (`STREAM_PUBLIC_BASE`). hls.js fetches the playlist with XHR — that needs
+ * connect-src — and iOS Safari attaches the URL to <video src> directly, which
+ * needs media-src. Empty when the same-origin proxy is in use, so nothing
+ * changes. `process.env.*` is inlined at build time in the Edge runtime.
+ */
+function streamOrigin(): string[] {
+  const base = (process.env.STREAM_PUBLIC_BASE ?? "").replace(/\/$/, "");
+  if (!base) return [];
+  // STREAM_PUBLIC_BASE may carry a path (https://host/live-<secret>); CSP
+  // source expressions want the origin only.
+  try {
+    return [new URL(base).origin];
+  } catch {
+    return [];
+  }
+}
+
 function supabaseOrigins(): { http: string[]; ws: string[] } {
   return {
     http: ["https://*.supabase.co"],
@@ -48,6 +67,7 @@ function supabaseOrigins(): { http: string[]; ws: string[] } {
 /** CSP for one request. `nonce` is unique per response. */
 function contentSecurityPolicy(nonce: string, isDev: boolean): string {
   const { http, ws } = supabaseOrigins();
+  const stream = streamOrigin();
   return [
     "default-src 'self'",
     // 'strict-dynamic' lets the nonce'd Next bootstrap load its own chunks.
@@ -68,6 +88,7 @@ function contentSecurityPolicy(nonce: string, isDev: boolean): string {
     "font-src 'self' data:",
     [
       "connect-src 'self'",
+      ...stream,
       ...http,
       ...ws,
       "https://vitals.vercel-insights.com",
@@ -75,7 +96,7 @@ function contentSecurityPolicy(nonce: string, isDev: boolean): string {
       "https://www.googletagmanager.com",
       "https://*.google-analytics.com",
     ].join(" "),
-    `media-src 'self' blob: ${http.join(" ")}`,
+    ["media-src 'self' blob:", ...stream, ...http].join(" "),
     "worker-src 'self' blob:",
     "frame-src 'self' https://www.google.com",
     "frame-ancestors 'none'",

@@ -21,6 +21,7 @@ export function Logo({
   variant = "lockup",
   responsive = false,
   priority = false,
+  width = 240,
 }: {
   /** Emblem edge in px. Everything else (type, gap) scales from it. */
   size?: number;
@@ -39,6 +40,12 @@ export function Logo({
   responsive?: boolean;
   /** Above-the-fold instances must not lazy-load. */
   priority?: boolean;
+  /**
+   * Width of the `full` artwork in px (desktop). Phones get 68% of it. Only
+   * the footer seal uses a small value — a 240 px badge above a link list
+   * pushed the real content below the fold.
+   */
+  width?: number;
 }) {
   const onDark = tone === "dark";
 
@@ -56,9 +63,10 @@ export function Logo({
         alt="বিশ্বাস এগ্রো — BISHWAS AGRO"
         width={1200}
         height={1093}
-        sizes="(max-width: 640px) 200px, 240px"
+        sizes={`(max-width: 640px) ${Math.round(width * 0.68)}px, ${width}px`}
         priority={priority}
-        className="block h-auto w-[200px] sm:w-[240px]"
+        style={{ width: "100%", maxWidth: `${width}px`, height: "auto" }}
+        className="block"
       />
     );
     if (!href) return content;
