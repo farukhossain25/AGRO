@@ -70,14 +70,21 @@ type MessageRow = {
 };
 
 /**
- * The name the customer should see next to a reply. This is what makes
- * "বিশ্বাস এগ্রো ও ফয়সাল connected" possible: the staff row carries the claim,
- * the profile carries the human name.
+ * The human name the customer sees when their chat is picked up.
+ *
+ * `profiles.full_name` is the only acceptable source. It used to fall back to
+ * the email handle, which is how a customer ended up being told
+ * "foysaliqbal09 picked up your chat" — a login identifier, not a person.
+ *
+ * When there is no name, the customer gets the shop's own team label instead
+ * ("বিশ্বাস এগ্রো টিম"). That is a deliberate choice: the sentence still tells
+ * them a human is coming, and it never leaks somebody's address handle.
+ * The owner can fix the underlying gap in one place — /foisal/team, name field.
  */
 async function claimerName(id: string | null): Promise<string | null> {
   if (!id) return null;
-  const { data } = await db().from("profiles").select("full_name, email").eq("id", id).maybeSingle();
-  const name = (data?.full_name ?? "").trim() || (data?.email ?? "").split("@")[0] || "";
+  const { data } = await db().from("profiles").select("full_name").eq("id", id).maybeSingle();
+  const name = (data?.full_name ?? "").trim();
   return name || null;
 }
 

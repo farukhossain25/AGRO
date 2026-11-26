@@ -43,7 +43,7 @@ import {
 import { Logo } from "@/components/icon-logo";
 import type { SessionUser } from "@/lib/session";
 import { can, roleLabelBn, type Permission } from "@/lib/permissions";
-import { isStaffPanelPath } from "@/lib/paths";
+import { canOpenPanelPath } from "@/lib/paths";
 import { ADMIN_BASE, adminHref } from "@/lib/paths";
 import { IdleGuard } from "./idle-guard";
 
@@ -56,12 +56,18 @@ type NavItem = {
   perm?: Permission;
 };
 
-/** Can this role actually open `href`? Mirrors middleware.ts + the layout. */
-function isPageReachable(role: string | null | undefined, href: string): boolean {
-  if (!role) return false;
-  if (role === "admin") return true;
-  if (role !== "staff" && role !== "manager") return false;
-  return isStaffPanelPath(href);
+/**
+ * Can this role actually open `href`? Mirrors middleware.ts + the layout, using
+ * the same table (PANEL_PAGE_PERMISSIONS) rather than a second copy of the rule.
+ * Before this, a staff/manager sidebar showed only live chat even though the
+ * role could already edit products, media, reviews and content through the API.
+ */
+function isPageReachable(
+  user: SessionUser,
+  href: string
+): boolean {
+  if (user.role === "admin") return true;
+  return canOpenPanelPath(href, (permission) => can(user, permission));
 }
 
 const navGroups: { title: string; items: NavItem[] }[] = [
@@ -205,15 +211,14 @@ export function AdminShell({ user, children }: { user: SessionUser; children: Re
           /*
            * Two filters, on purpose:
            *   1. permission — the role must hold the right to the screen;
-           *   2. page reachable — every panel URL except the staff list
-           *      (STAFF_PANEL_SUBPATHS) returns a 404 for a non-admin. A staff
-           *      link that lands on a 404 reads as a broken panel, so the item
-           *      is hidden instead.
+           *   2. page reachable — a non-admin gets a 404 for every panel URL
+           *      its permissions do not cover. A link that lands on a 404 reads
+           *      as a broken panel, so the item is hidden instead.
            */
           .map((group) => ({
             ...group,
             items: group.items.filter(
-              (item) => (!item.perm || can(user, item.perm)) && isPageReachable(user.role, item.href)
+              (item) => (!item.perm || can(user, item.perm)) && isPageReachable(user, item.href)
             ),
           }))
           .filter((group) => group.items.length > 0)
