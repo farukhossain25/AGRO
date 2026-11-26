@@ -65,9 +65,8 @@ type MessageRow = {
  *
  * Three shapes reach this function: a `profiles` row (`full_name`), a
  * SessionUser (`name`), and a bare user object from the auth layer
- * (`user_metadata.full_name`). Only handling `full_name` meant a staff reply
- * was signed with the email handle — the customer saw "foysal" where the
- * "connected" sentence promised "ফয়সাল". This reads all three.
+ * (`user_metadata.full_name`). This reads all three, and stops there: the
+ * email handle is never a display name.
  */
 function displayName(
   row:
@@ -84,8 +83,12 @@ function displayName(
     const value = (candidate ?? "").trim();
     if (value) return value;
   }
-  const handle = (row?.email ?? "").split("@")[0];
-  return handle || "টিম সদস্য";
+  /* Deliberately NOT the email handle. It used to fall back to that, so a
+     staff member who never filled in their name replied as "foysaliqbal09" and
+     the customer was told that was the person's name. "টিম সদস্য" is honest
+     and anonymous; the owner fixes it properly by naming the account in
+     /foisal/team. */
+  return "টিম সদস্য";
 }
 
 /** One lookup for every staff name in the list — never N queries for N chats. */

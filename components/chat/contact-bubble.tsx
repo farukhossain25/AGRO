@@ -199,13 +199,23 @@ export function ContactBubble() {
             : t("চ্যাটটি বন্ধ হয়েছে।", "This chat is closed."),
       };
     }
-    if (chat.status === "claimed" && chat.claimed_by_name) {
+    /* A claim without a saved full_name (the API pins that to null rather than
+       showing an email handle) still needs a sentence — the shop's team label
+       is the honest answer. */
+    if (chat.status === "claimed") {
+      const who = chat.claimed_by_name ?? t("আমাদের টিম", "our team");
       return {
         tone: "live" as const,
-        /* The sentence the owner asked for, in the words a customer understands. */
+        /* Name the HUMAN and nobody else.
+           It used to read "<store> and <name> are connected", which told the
+           customer nothing they had not already inferred by opening the shop's
+           own chat box — and the transcript directly above already shows the
+           staff member's name on the claim note. The owner's report was exact:
+           "opore to j admin/staff receive korce tar name dekhacchei". One
+           sentence: who picked it up, and that a reply is coming. */
         text: t(
-          `${store.name} ও ${chat.claimed_by_name} connected হয়েছেন — উত্তর আসছে।`,
-          `${store.name_en} and ${chat.claimed_by_name} are connected — a reply is coming.`
+          `${who} আপনার চ্যাটটি নিয়েছেন — উত্তর আসছে।`,
+          `${who} picked up your chat — a reply is coming.`
         ),
       };
     }
@@ -214,7 +224,7 @@ export function ContactBubble() {
       text:
         minutesLeft !== null && minutesLeft <= 15
           ? t(
-              `আপনার বার্তা টিমের কাছে পৌঁছেছে — обычно কয়েক মিনিটে উত্তর আসে। ${minutesLeft} মিনিটে উত্তর না এলে চ্যাটটি বন্ধ হয়ে যাবে।`,
+              `আপনার বার্তা টিমের কাছে পৌঁছেছে — সাধারণত কয়েক মিনিটে উত্তর আসে। ${minutesLeft} মিনিটে উত্তর না এলে চ্যাটটি বন্ধ হয়ে যাবে।`,
               `Your message reached the team — usually a few minutes. It closes in ${minutesLeft} min if nobody answers.`
             )
           : t("আপনার বার্তা টিমের কাছে পৌঁছেছে।", "Your message reached the team."),

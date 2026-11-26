@@ -50,6 +50,7 @@ export async function recordAudit(input: {
     | "login"
     | "logout"
     | "invite"
+    | "rename"
     | "role"
     | "suspend"
     | "export"

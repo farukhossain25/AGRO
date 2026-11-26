@@ -9,9 +9,20 @@ import { Spinner } from "@/components/ui";
 import { ROLE_DESCRIPTIONS, roleLabelBn } from "@/lib/permissions";
 import type { UserRole } from "@/lib/types";
 
+/**
+ * One row from v_team_members.
+ *
+ * The column names here MUST match the view, not what the screen would like
+ * them to be called. They did not: the view returns `member_id` and
+ * `full_name`, the table read `id` and `name`, so every row arrived with
+ * `id === undefined`. The role dropdown then PATCHed `{ userId: undefined }`,
+ * Zod rejected it (400) and the toast said "সংরক্ষণ হয়নি" — while the screen
+ * itself showed the old role, because nothing had been saved. Fixing the names
+ * is what makes "save" work; no server change was needed.
+ */
 export type TeamRow = {
-  id: string;
-  name: string | null;
+  member_id: string;
+  full_name: string | null;
   email: string | null;
   phone: string | null;
   role: UserRole;
@@ -54,6 +65,10 @@ export function TeamManager({
   const toast = useToast();
   const [rows, setRows] = useState(initial);
   const [busy, setBusy] = useState<string | null>(null);
+  /* Inline rename: the name is what a customer sees in live chat, so the owner
+     needs to fix it without leaving this screen. */
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [nameDraft, setNameDraft] = useState("");
   const [inviting, setInviting] = useState(false);
   const [form, setForm] = useState({ email: "", full_name: "", phone: "", role: "staff" as UserRole });
 
@@ -111,12 +126,12 @@ export function TeamManager({
       );
       // the team table must show the new member immediately, no reload
       setRows((prev) =>
-        prev.some((r) => r.id === row.id)
-          ? prev.map((r) => (r.id === row.id ? { ...r, role } : r))
+        prev.some((r) => r.member_id === row.id)
+          ? prev.map((r) => (r.member_id === row.id ? { ...r, role } : r))
           : [
               {
-                id: row.id,
-                name: row.full_name,
+                member_id: row.id,
+                full_name: row.full_name,
                 email: row.email,
                 phone: row.phone,
                 role,
@@ -155,18 +170,23 @@ export function TeamManager({
     }
   }
 
-  async function patch(row: TeamRow, body: { role?: UserRole; is_active?: boolean }) {
-    setBusy(row.id);
+  async function patch(row: TeamRow, body: { role?: UserRole; is_active?: boolean; full_name?: string }) {
+    setBusy(row.member_id);
     try {
       const res = await fetch("/api/foisal/team", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: row.id, ...body }),
+        body: JSON.stringify({ userId: row.member_id, ...body }),
       });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.message ?? "পরিবর্তন ব্যর্থ");
-      setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, ...body } : r)));
-      toast.success("সংরক্ষিত হয়েছে");
+      setRows((prev) => prev.map((r) => (r.member_id === row.member_id ? { ...r, ...body } : r)));
+      setRenaming(null);
+      /* The role also lives on the server (it is what the panel guard reads),
+         so refetch instead of trusting the local copy. Without this a page
+         reload still showed the old role even when the save had worked. */
+      router.refresh();
+      toast.success("সংরক্ষিত হয়েছে", "সদস্যকে জানিয়ে দেওয়া হয়েছে — পরের রিলোডেই নতুন রোল");
     } catch (error) {
       toast.error("সংরক্ষণ হয়নি", (error as Error).message);
     } finally {
@@ -354,18 +374,64 @@ export function TeamManager({
             </thead>
             <tbody className="divide-y divide-white/[0.05]">
               {rows.map((row) => {
-                const isSelf = row.id === selfId;
+                const isSelf = row.member_id === selfId;
                 return (
-                  <tr key={row.id} className="align-middle">
+                  <tr key={row.member_id} className="align-middle">
                     <td className="px-4 py-3">
-                      <p className="font-medium text-sand-50">{row.name ?? "—"}</p>
-                      <p className="text-[11px] text-sand-100/40">{row.email}</p>
+                      {canChangeRole && renaming === row.member_id ? (
+                        <form
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            void patch(row, { full_name: nameDraft.trim() });
+                          }}
+                          className="flex items-center gap-1.5"
+                        >
+                          <input
+                            autoFocus
+                            value={nameDraft}
+                            onChange={(e) => setNameDraft(e.target.value)}
+                            maxLength={80}
+                            className="w-36 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-[12px]"
+                            placeholder="পুরো নাম"
+                          />
+                          <button
+                            type="submit"
+                            disabled={busy === row.member_id || nameDraft.trim().length < 2}
+                            className="rounded-lg bg-leaf-600 px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-40"
+                          >
+                            সেভ
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setRenaming(null)}
+                            className="rounded-lg border border-white/10 px-2 py-1 text-[11px] text-sand-100/60"
+                          >
+                            বাতিল
+                          </button>
+                        </form>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={!canChangeRole}
+                          onClick={() => {
+                            setRenaming(row.member_id);
+                            setNameDraft(row.full_name ?? "");
+                          }}
+                          title={canChangeRole ? "নাম বদলান — লাইভ চ্যাটে গ্রাহক এই নামটাই দেখে" : undefined}
+                          className="text-left"
+                        >
+                          <span className="font-medium text-sand-50 underline-offset-2 hover:underline">
+                            {row.full_name ?? "নাম দেওয়া হয়নি — ক্লিক করে দিন"}
+                          </span>
+                          <span className="mt-0.5 block text-[11px] text-sand-100/40">{row.email}</span>
+                        </button>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       {canChangeRole && !isSelf ? (
                         <select
                           value={row.role}
-                          disabled={busy === row.id}
+                          disabled={busy === row.member_id}
                           onChange={(e) => patch(row, { role: e.target.value as UserRole })}
                           className="rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-[12px]"
                         >
@@ -396,7 +462,7 @@ export function TeamManager({
                       {canChangeRole && !isSelf && (
                         <button
                           type="button"
-                          disabled={busy === row.id}
+                          disabled={busy === row.member_id}
                           onClick={() => patch(row, { is_active: !row.is_active })}
                           className="rounded-lg border border-white/10 px-2.5 py-1.5 text-[11.5px] text-sand-100/70 transition hover:bg-white/5"
                         >

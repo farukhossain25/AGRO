@@ -13,6 +13,9 @@
 --   3. ভিউ: v_team_members-এ `to authenticated` গ্রান্ট থাকায় যে কেউ লগইন করে
 --      স্টাফদের ইমেইল/ফোন পড়তে পারত। এখন শুধু service_role।
 --   4. অডিট: audit_log অ্যাপেন্ড-অনলি।
+--   5. প্রোফাইলের অসম্পূর্ণ সারি: পুরোনো অ্যাকাউন্টের প্রোফাইলে ইমেইল/ফোন বসানো
+--      হয় (auth.users থেকে, শুধু খালি কলামে) — নইলে /foisal/team-এর
+--      "বিদ্যমান ব্যবহারকারী" সার্চে সেই লোককে খুঁজেই পাওয়া যেত না।
 --
 -- WHAT IT DELIBERATELY DOES *NOT* DO
 --   * সেলার পণ্যের অটো-অ্যাপ্রুভাল (auto_approve_products), products-এর RLS বা
@@ -109,8 +112,13 @@ begin
     return jsonb_build_object('ok', false, 'reason', 'unauthenticated');
   end if;
 
+  /* v_name is what the CUSTOMER is told, so it must never be an email handle.
+     It used to fall back to split_part(email,'@',1), which is exactly how
+     "foysaliqbal09" appeared in the customer's chat panel. A staff member with
+     no saved name now appears as "টিম সদস্য"; the owner fixes it by naming the
+     account in /foisal/team. */
   select p.role,
-         coalesce(nullif(btrim(p.full_name), ''), split_part(coalesce(p.email, ''), '@', 1))
+         coalesce(nullif(btrim(p.full_name), ''), 'টিম সদস্য'::text)
     into v_role, v_name
     from public.profiles p
    where p.id = v_uid;
@@ -139,7 +147,7 @@ begin
                 end,
       'claimed_by', v_chat.claimed_by,
       'claimed_by_name', (
-        select coalesce(nullif(btrim(p.full_name), ''), split_part(coalesce(p.email, ''), '@', 1))
+        select coalesce(nullif(btrim(p.full_name), ''), 'টিম সদস্য'::text)
           from public.profiles p where p.id = v_chat.claimed_by
       )
     );
@@ -292,7 +300,74 @@ grant select on public.v_premium_revenue, public.v_seller_leaderboard,
 -- অ্যাপেন্ড-অনলি। সব লেখা সার্ভারের, তাই ক্লায়েন্টের INSERT-ও বাতিল।
 revoke insert, update, delete, truncate on public.audit_log from anon, authenticated;
 
--- ============================================================== 6. verify ====
+-- ============================================ 6. profile rows that are ghosts ==
+--
+-- /foisal/team → "বিদ্যমান ব্যবহারকারী" searches public.profiles by
+-- name/email/phone. It cannot read auth.users, so a profile row with a NULL
+-- email is *invisible* — the owner types the person's address, gets "কেউ পাওয়া
+-- যায়নি", and concludes the search is broken.
+--
+-- That is exactly what happens to accounts created before handle_new_user()
+-- existed: the auth.users row has the address, the profile row never got it.
+-- (handle_new_user only fills the row on INSERT — there is no backfill.)
+--
+-- So: copy the authoritative address/phone down from auth.users, but ONLY into
+-- a NULL/empty column. A value the customer edited on their own profile is
+-- never overwritten.
+--
+-- auth.users is not reachable from the API at all (no PostgREST exposure), which
+-- is why this is a one-time SQL step and not a route.
+update public.profiles p
+   set email = nullif(btrim(u.email), ''),
+       updated_at = now()
+  from auth.users u
+ where u.id = p.id
+   and (p.email is null or btrim(p.email) = '')
+   and nullif(btrim(u.email), '') is not null;
+
+update public.profiles p
+   set phone = nullif(btrim(u.phone), ''),
+       updated_at = now()
+  from auth.users u
+ where u.id = p.id
+   and (p.phone is null or btrim(p.phone) = '')
+   and nullif(btrim(u.phone), '') is not null;
+
+-- Same gap, going forward: a profile row created by anything other than the
+-- signup trigger (a manual "Add user" in the dashboard, an old import) still
+-- needs its address. This is handle_new_user's body, unchanged, plus one more
+-- pass after INSERT … ON CONFLICT — the conflict branch only fills a column
+-- that is still empty, so an edited address survives.
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  begin
+    insert into public.profiles (id, full_name, email, phone, avatar_url)
+    values (
+      new.id,
+      nullif(coalesce(new.raw_user_meta_data ->> 'full_name', new.raw_user_meta_data ->> 'name', ''), ''),
+      nullif(btrim(new.email), ''),
+      nullif(coalesce(new.raw_user_meta_data ->> 'phone', new.phone), ''),
+      nullif(new.raw_user_meta_data ->> 'avatar_url', '')
+    )
+    on conflict (id) do update
+      set email     = coalesce(public.profiles.email, excluded.email),
+          full_name = coalesce(public.profiles.full_name, excluded.full_name),
+          phone     = coalesce(public.profiles.phone, excluded.phone),
+          updated_at = now();
+  exception
+    when others then
+      raise warning 'handle_new_user failed for %: %', new.id, sqlerrm;
+  end;
+  return new;
+end;
+$$;
+
+-- ============================================================== 7. verify ====
 --   select has_table_privilege('authenticated','public.trials','insert');        -- false
 --   select has_function_privilege('authenticated','public.chat_claim(uuid)','execute'); -- false
 --   select has_table_privilege('authenticated','public.v_team_members','select');-- false

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { ADMIN_BASE, LEGACY_ADMIN_BASE, isStaffPanelPath } from "@/lib/paths";
+import { ADMIN_BASE, LEGACY_ADMIN_BASE, canOpenPanelPath, firstReachablePanelPath } from "@/lib/paths";
+import { canForRole } from "@/lib/permissions";
 import { updateSession } from "@/lib/supabase/middleware";
 
 /* ==========================================================================
@@ -12,8 +13,10 @@ import { updateSession } from "@/lib/supabase/middleware";
       redirecting to /login?next=<path>. The login page only accepts same-site
       paths, so `next` cannot be used as an open redirect.
    3. Hides the admin panel: /admin returns a plain 404, and /foisal requires
-      role = 'admin' read from profiles.role server-side. A signed-in
-      non-admin gets the same 404 — never a hint that the panel exists.
+      a role read from profiles.role server-side. Admin sees everything; staff
+      and manager see only the pages their permissions cover (lib/paths.ts →
+      PANEL_PAGE_PERMISSIONS). A customer gets the same 404 a stranger does —
+      never a hint that the panel exists.
    4. Sets the per-request CSP (with a fresh nonce) and no-store headers on
       private surfaces.
 
@@ -210,12 +213,27 @@ export async function middleware(req: NextRequest) {
       url.searchParams.set("next", `${pathname}${search}`);
       return noStore(NextResponse.redirect(url));
     }
-    /* Staff/manager get exactly the pages in STAFF_PANEL_SUBPATHS (live chat),
-       and nothing else: every other panel URL keeps returning the identical
-       404 a stranger sees, so the panel's shape is still not advertised. */
+    /* A non-admin may open the pages its own permission set covers — that is
+       how a staff account reaches products/media/reviews and a manager reaches
+       orders/reports, instead of the single live-chat page it used to get.
+       Every other panel URL keeps returning the identical 404 a stranger sees,
+       so the panel's shape is still not advertised to a role that may not see
+       it. The page's own API re-checks the permission; this is only the door. */
     if (role !== "admin") {
       const staffRole = role === "staff" || role === "manager";
-      if (!(staffRole && isStaffPanelPath(pathname))) return plain404();
+      /* The panel root is a front door, not a wall. Send the account to the
+         first page it may actually open. This MUST happen here rather than in
+         the layout: `redirect()` from a Server Component renders the loading
+         shell first and then emits a <meta refresh>, so a staff member would
+         see a one-second flash of the money dashboard before being moved.
+         A middleware response is a real 307 with no body at all. */
+      if (pathname === ADMIN_BASE) {
+        if (!staffRole) return plain404();
+        const target = firstReachablePanelPath((perm) => canForRole(role, perm));
+        if (target !== ADMIN_BASE) return noStore(NextResponse.redirect(new URL(target, req.url)));
+      } else if (!(staffRole && canOpenPanelPath(pathname, (perm) => canForRole(role, perm)))) {
+        return plain404();
+      }
     }
 
     /* The panel layout has to re-check "is this sub-path open to staff?" and it

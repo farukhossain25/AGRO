@@ -153,6 +153,21 @@ export function canAny(user: SessionUser | null | undefined, permissions: Permis
   return permissions.some((permission) => can(user, permission));
 }
 
+/**
+ * Same question as `can()`, asked with a bare role.
+ *
+ * middleware runs on the Edge with only `profiles.role` in hand (it deliberately
+ * does not fetch the whole session), and lib/paths.ts takes a predicate so it
+ * never imports this file. Unknown roles get nothing — fail closed, exactly
+ * like `can()`.
+ */
+export function canForRole(role: UserRole | null | undefined, permission: string): boolean {
+  if (!role) return false;
+  const set = ROLE_PERMISSIONS[role];
+  if (!set) return false;
+  return set.has(permission as Permission);
+}
+
 /** Bangla label for the role — used in the team table and the audit log. */
 export function roleLabelBn(role: UserRole): string {
   switch (role) {

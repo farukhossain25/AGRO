@@ -162,10 +162,14 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
 
     // Repair: create the missing profile once (service key, server-side only).
     if (isSupabaseAdminConfigured) {
+      /* No email-handle fallback. It used to write "foysaliqbal09" straight
+         into profiles.full_name, and every customer-facing surface then treated
+         that login identifier as the person's name — including the live-chat
+         sentence that announces who picked the chat up. A missing name stays
+         null; the UI has an honest label for that, and /foisal/team can set it. */
       const name =
         (user.user_metadata?.full_name as string | undefined) ??
         (user.user_metadata?.name as string | undefined) ??
-        user.email?.split("@")[0] ??
         null;
       const { data: created } = await supabaseAdmin()
         .from("profiles")

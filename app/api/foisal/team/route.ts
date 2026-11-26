@@ -52,6 +52,11 @@ const roleSchema = z.object({
      forever (the alternative — deleting the account — loses their orders). */
   role: z.enum(["customer", "staff", "manager", "admin"]).optional(),
   is_active: z.boolean().optional(),
+  /* The name the CUSTOMER sees when this person picks up a live chat. A staff
+     account with no full_name used to appear as its email handle
+     ("foysaliqbal09"), which read as a person's name. Setting it here is how
+     the owner fixes that for an existing account — no email, no re-signup. */
+  full_name: z.string().trim().min(2, "নাম অন্তত ২ অক্ষর").max(80, "নাম ৮০ অক্ষরের মধ্যে").optional(),
 });
 
 function canActOn(actorRole: string, targetRole: string): boolean {
@@ -177,10 +182,20 @@ export async function PATCH(req: Request) {
       return fail("নিজের চেয়ে বড় রোল দেওয়া যাবে না", 403);
     }
 
-    const patch: { role?: "customer" | "staff" | "manager" | "admin"; is_active?: boolean } = {};
+    const patch: {
+      role?: "customer" | "staff" | "manager" | "admin";
+      is_active?: boolean;
+      full_name?: string;
+    } = {};
     if (body.role) patch.role = body.role;
     if (typeof body.is_active === "boolean") patch.is_active = body.is_active;
+    if (body.full_name) patch.full_name = body.full_name;
     if (!Object.keys(patch).length) return fail("পরিবর্তনের কিছু নেই", 400);
+
+    /* Renaming somebody is a team action, not a promotion; the rank guard above
+       already made sure the actor outranks the target. Keep the audit entry
+       honest about which of the three things changed. */
+    const action = body.full_name && !body.role && typeof body.is_active !== "boolean" ? "rename" : body.role ? "role" : "suspend";
 
     const { error } = await db().from("profiles").update(patch).eq("id", body.userId);
     if (error) throw error;
@@ -211,7 +226,7 @@ export async function PATCH(req: Request) {
 
     await recordAudit({
       actor,
-      action: body.role ? "role" : "suspend",
+      action,
       entity: "profiles",
       entityId: body.userId,
       diff: { from: { role: target.role, is_active: target.is_active }, to: patch },
