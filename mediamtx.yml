@@ -53,12 +53,71 @@ srtAddress: :8890
 # ---- No on-disk recording (privacy + disk) -------------------------------
 pathDefaults:
   # Reject publishers that don't use the shared secret below.
+  #
+  # `publishUser` / `publishPass` are the LEGACY spelling — current MediaMTX
+  # still reads them, prints a deprecation warning, and derives an equivalent
+  # authInternalUsers entry. They work, but they are a "get it right or get a
+  # lockout" knob for a phone-only operator, so the modern form is shipped
+  # commented out right below: delete the two legacy lines and uncomment it to
+  # move over. MediaMTX refuses to start if BOTH forms are present.
+  #
+  # authInternalUsers:
+  #   - user: any
+  #     pass:
+  #     permissions:
+  #       - action: read
+  #       - action: playback
+  #   - user: publisher
+  #     pass: CHANGE_ME_PUBLISH_PASSWORD
+  #     permissions:
+  #       - action: publish
+  #
+  # ⚠️ CHANGE_ME_PUBLISH_PASSWORD is a REAL password, not a placeholder that
+  # is ignored: anyone who can reach :1935 with it can publish a stream that
+  # your viewers would see. Change it before the VPS goes public, and use the
+  # same value in the DVR's RTMP settings.
   publishUser: publisher
   publishPass: CHANGE_ME_PUBLISH_PASSWORD
   publishIPs: []
   record: false
 
+  # A DVR/camera that PUSHES (RTMP) is on the other side of the CGNAT, so its
+  # source IP is the ISP's shared NAT — never pin publishIPs to it.
+
 paths:
+  # ════════════════════════════════════════════════════════════════════════
+  # ⭐ CGNAT-এর আসল সমাধান — DVR/camera নিজেই এখানে PUSH করে
+  # ════════════════════════════════════════════════════════════════════════
+  # নিচের entry-তে `source: publisher` মানে MediaMTX কারও পেছনে ছুটবে না —
+  # বাইরে থেকে কেউ ঢুকে ছবি ঢালবে। CGNAT শুধু "বাইরে থেকে ভেতরে ঢোকা" আটকায়;
+  # "ভেতর থেকে বাইরে যাওয়া" কখনো আটকায় না। তাই ভিপিএস থেকে ক্যামেরা পর্যন্ত
+  # কোনো পথ লাগে না, আর পাবলিক IP-ও দরকার নেই।
+  #
+  #   DVR ──RTMP push──► rtmp://<VPS-IP>:1935/dvr-cam-01  ──►  দর্শক (HLS)
+  #
+  # চালানোর আগে:
+  #   1. docker-compose.stream-vps.yml-এ "1935:1935" পোর্টটা পাবলিশ করা আছে
+  #      কি না দেখুন, আর DigitalOcean-এর Firewall-এ TCP 1935 খুলুন।
+  #   2. publishPass বদলান (উপরে pathDefaults), এবং DVR-এর RTMP সেটিংয়ে
+  #      ঠিক একই ইউজার/পাসওয়ার্ড দিন।
+  #   3. DVR-এ: Setup → Network → Platform Access/Port → RTMP
+  #        Custom Address = rtmp://<VPS-IP>:1935/dvr-cam-01
+  #      (কিছু ফার্মওয়্যার address আর stream key আলাদা করে চায়: তখন
+  #       address = rtmp://<VPS-IP>:1935/dvr-cam  আর key = 01)
+  #
+  # তারপর ক্যামেরা যোগ করার সময় stream_key = ঠিক "dvr-cam-01" দিন।
+  # ⚠️ DVR-এ RTMP না থাকলে এই entry অকেজো — তখন ফোন/Pi দিয়ে push করতে হবে।
+  dvr-cam-01:
+    source: publisher
+    # A pusher is always "on" from MediaMTX's point of view; nothing to pull.
+    sourceOnDemand: false
+
+  # ════════════════════════════════════════════════════════════════════════
+  # নিচেরগুলো VPS-এর দিক থেকে ক্যামেরা টানে (rtsp://…)
+  # এগুলো তখনই কাজ করবে যখন ISP সত্যিই পাবলিক IP দিয়েছে + port forward আছে।
+  # CGNAT-এ এরা চিরকাল "ক্যামেরা অফলাইন" দেখাবে — ওটাই স্বাভাবিক।
+  # ════════════════════════════════════════════════════════════════════════
+
   # --- Savar Greens (vegetables) ---
   savar-greens-field-01:
     source: rtsp://admin:CAM_PASSWORD@192.168.10.11:554/Streaming/Channels/101

@@ -143,13 +143,22 @@ export async function getSupplierProductIds(supplier: SupplierInfo): Promise<str
 
 /** Cameras on the supplier's farm — the switcher options for the live block. */
 export async function getSupplierCameras(farmId: string | null): Promise<
-  { id: string; nameBn: string; zoneBn: string | null; status: string; poster: string | null; lastHeartbeat: string | null }[]
+  {
+    id: string;
+    nameBn: string;
+    zoneBn: string | null;
+    status: string;
+    poster: string | null;
+    lastHeartbeat: string | null;
+    /** cameras.is_premium = false → open to everyone, no login needed */
+    isPublic: boolean;
+  }[]
 > {
   if (!farmId || !isDbConfigured()) return [];
   try {
     const { data, error } = await db()
       .from("cameras")
-      .select("id, name_bn, zone_bn, status, poster, last_heartbeat")
+      .select("id, name_bn, zone_bn, status, poster, last_heartbeat, is_premium")
       .eq("farm_id", farmId)
       .eq("is_active", true)
       .order("sort_order", { ascending: true });
@@ -165,6 +174,7 @@ export async function getSupplierCameras(farmId: string | null): Promise<
       status: (c.status as string) ?? "offline",
       poster: (c.poster as string | null) ?? null,
       lastHeartbeat: (c.last_heartbeat as string | null) ?? null,
+      isPublic: c.is_premium === false,
     }));
   } catch {
     return [];

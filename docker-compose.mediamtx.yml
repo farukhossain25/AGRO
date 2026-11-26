@@ -29,7 +29,8 @@ services:
       MTX_HLS_ALWAYSREMOVESEGMENTS: "yes"
       MTX_HLS_ALLOWORIGIN: "*"
       MTX_RTSPTRANSPORTS: tcp
-      MTX_AUTHINTERNALUSERS: "yes"
+      # authInternalUsers is a list and cannot come from a scalar env var.
+      # Publishing credentials live in mediamtx.yml (publishUser/publishPass).
       MTX_HLSDIRECTORY: /tmp/hls
       MTX_LOGLEVEL: info
     healthcheck:

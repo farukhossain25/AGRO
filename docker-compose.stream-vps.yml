@@ -67,15 +67,30 @@ services:
       MTX_HLS_ALWAYSREMOVESEGMENTS: "yes"   # kept for older images; ignored by new ones
       # HLS is consumed through the Caddy proxy, never straight from a browser,
       # so the origin itself does not need a wide CORS policy.
-      MTX_HLS_ALLOWORIGINS: "['https://biswas-agro.vercel.app','https://bishwasagro.com']"
+      # MTX_* lists are comma-separated (env.go splits on "," and then parses
+      # each entry as a URL) — a JSON/Python-style "['a','b']" string is not
+      # parsed, it becomes one literal origin that can never match.
+      MTX_HLS_ALLOWORIGINS: "https://biswas-agro.vercel.app,https://bishwasagro.com"
       MTX_RTSPTRANSPORTS: tcp
-      MTX_AUTHINTERNALUSERS: "yes"
+      # NOTE: authInternalUsers is a LIST, so it cannot be set from a scalar
+      # env var — MTX_AUTHINTERNALUSERS=yes would fail with "unsupported type".
+      # Auth lives in mediamtx.yml (publishUser / publishPass) instead.
       MTX_HLSDIRECTORY: /tmp/hls
       MTX_LOGLEVEL: info
     expose:
       - "8888"
       - "8889"
       - "8554"
+    # RTMP ingest, for a DVR/camera that can PUSH but cannot be reached over
+    # CGNAT. Without this mapping the port exists only inside the compose
+    # network, so a DVR pushing to rtmp://<VPS-IP>:1935/<key> is refused at the
+    # droplet — the whole "no public IP needed" path silently never started.
+    # Publishing still requires publishUser / publishPass from mediamtx.yml.
+    ports:
+      - "1935:1935"
+    # SRT ingest has the same purpose and is UDP. Commented out because a
+    # Droplet's firewall must allow it too; uncomment both when you need it.
+    # - "8890:8890/udp"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8888/"]
       interval: 30s

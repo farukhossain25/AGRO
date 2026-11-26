@@ -33,15 +33,6 @@ export async function POST(req: Request) {
     () => null
   );
 
-  if (!state?.canWatch) {
-    return fail(
-      state?.reason === "anonymous"
-        ? "লাইভ দেখতে লগইন করুন বা ফ্রি ট্রায়াল শুরু করুন"
-        : "আপনার ফ্রি ট্রায়াল শেষ হয়েছে — প্রিমিয়াম কিনুন",
-      402
-    );
-  }
-
   let camera:
     | {
         id: string;
@@ -50,13 +41,14 @@ export async function POST(req: Request) {
         cloud_provider: string;
         farm_id: string;
         max_viewers: number | null;
+        is_premium: boolean | null;
       }
     | null = null;
 
   try {
     const { data, error } = await db()
       .from("cameras")
-      .select("id, status, is_active, cloud_provider, farm_id, max_viewers")
+      .select("id, status, is_active, cloud_provider, farm_id, max_viewers, is_premium")
       .eq("id", parsed.data.cameraId)
       .maybeSingle();
     if (error) throw error;
@@ -70,6 +62,20 @@ export async function POST(req: Request) {
   if (!camera.is_active) return fail("এই ক্যামেরাটি বন্ধ আছে", 409);
   if (camera.status === "maintenance") return fail("ক্যামেরাটি রক্ষণাবেক্ষণে আছে", 409);
   if (camera.status === "offline") return fail("ক্যামেরাটি এখন অফলাইন", 409);
+
+  /* `is_premium = false` → the farm opened this camera to everyone. Same rule
+     as /api/stream/token: the token still expires in 5 minutes and is still
+     revocable, so switching the flag back off stops playback within one TTL. */
+  const isPublic = camera.is_premium === false;
+
+  if (!isPublic && !state?.canWatch) {
+    return fail(
+      state?.reason === "anonymous"
+        ? "লাইভ দেখতে লগইন করুন বা ফ্রি ট্রায়াল শুরু করুন"
+        : "আপনার ফ্রি ট্রায়াল শেষ হয়েছে — প্রিমিয়াম কিনুন",
+      402
+    );
+  }
 
   const token_jti = randomUUID();
 
@@ -123,17 +129,23 @@ export async function POST(req: Request) {
 
   // A real signed, expiring token — the same signer the RTSP player uses, so a
   // hand-written /api/cam/live/<other camera> URL cannot be assembled by hand.
+  const mode: "premium" | "trial" | "public" = isPublic
+    ? "public"
+    : state?.reason === "premium"
+      ? "premium"
+      : "trial";
+
   const token = await signStreamToken({
-    sub: user?.id ?? "anon",
+    sub: user?.id ?? (isPublic ? "public" : "anon"),
     cam: camera.id,
     jti: token_jti,
-    mode: state?.reason === "premium" ? "premium" : "trial",
+    mode,
   });
 
   return ok({
     url: `/api/cam/live/${camera.id}/index.m3u8?t=${token}`,
     protocol: "hls" as const,
     expiresIn: STREAM_TOKEN_TTL,
-    mode: state?.reason ?? "trial",
+    mode,
   });
 }

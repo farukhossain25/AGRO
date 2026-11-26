@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { Play, Video } from "lucide-react";
 import { useState } from "react";
+import type { StreamMode } from "@/lib/stream-mode";
 
 /* ==========================================================================
    LiveStreamLazy — section C code-splitting for the HLS player
@@ -42,7 +43,7 @@ export type LazyStreamProps = {
   muted?: boolean;
   compact?: boolean;
   className?: string;
-  onMode?: (mode: "premium" | "trial" | "locked") => void;
+  onMode?: (mode: StreamMode) => void;
   /** Set for the primary camera on a farm page — skips the tap-to-start gate. */
   eager?: boolean;
 };
