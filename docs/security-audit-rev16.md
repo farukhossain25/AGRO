@@ -63,8 +63,8 @@ public path.
 |---|-----|---------|----------|-----|
 | S1 | **H** | `complaint-photos` is created `public = true` and is in the `"public image read"` policy for `anon`. Every customer complaint photo — often a photo of a damaged or private item — is readable by anyone with the URL. | `09:40`, `09:52-60` (and again in `14:36`) | Bucket → private, removed from the public-read policy, owner+staff read policy, signed URLs |
 | S2 | **H** | `/api/upload` returns `getPublicUrl()` for **every** bucket, so a complaint photo is handed to the browser as a permanent public link that keeps working even after the bucket is made private (public URL still resolves for `public` buckets only — but the stored value in `complaints.photos` is that permanent URL). | `upload/route.ts:196` | Private buckets return a **path**, plus a short-lived signed URL for immediate preview |
-| S3 | **M** | `complaints.photos` stores those URLs; historical rows keep pointing at public links. | `05:184` | Migration rewrites stored values to paths; read path signs on demand |
-| S4 | **L** | Upload validates MIME + magic bytes + size + namespaces the path by user id — sound. But `SELLER_BUCKETS` trusts `sellers.status='approved'` only, not `is_active`; a suspended seller could still write. | `upload:60-70` | Add `is_active` check |
+| S3 | **M** | `complaints.photos` stores those URLs; historical rows keep pointing at public links. | `05:184` | **Partial.** New rows store a path and are signed on read. Historic rows are *not* rewritten: they were uploaded into the **`review-photos`** bucket (the complaint form had the wrong bucket name), so their objects genuinely live in a public bucket. Rewriting the row would produce a path that resolves to nothing, and moving the bytes means the Storage API, not SQL. They keep working as they are — see "Not fixed / manual" below |
+| S4 | **L** | Upload validates MIME + magic bytes + size + namespaces the path by user id — sound. Reported concern: `SELLER_BUCKETS` trusts `sellers.status='approved'` only, allegedly missing `is_active`. | `upload:60-70` | **Not a real finding.** `public.sellers` has no `is_active` column (`03_catalog_tables.sql`) — suspension moves `status` away from `'approved'`. Adding the check would have invented a field, so the code keeps `status='approved'` and now also fails closed on a lookup error |
 
 Verified sound: path is `${user.id}/…` (no traversal, no cross-user overwrite),
 `upsert:false`, random filename, fixed extension from the sniffed type, bucket
@@ -100,6 +100,14 @@ Neither is exploitable through a request an anonymous caller can make today;
 both should still be scheduled. Nothing here needs a code change to stay safe.
 
 ---
+
+## Not fixed / manual
+
+| # | What | Why it is left | What the owner can do |
+|---|------|----------------|------------------------|
+| F1 | Complaint photos uploaded **before** this change are public objects in the `review-photos` bucket, and `complaints.photos` holds their public URLs. | Making them private is a *storage* move, not a SQL one: the bytes have to be copied between buckets through the Storage API, and rewriting `storage.objects` by hand corrupts the file. Silent data surgery on the owner's real complaint history was not worth the risk without approval (§10). | Either accept them (they are the same customer photos that were already public), or run a one-off move: for each URL, download → upload to `complaint-photos` under `<user-id>/` → update the row to the new path → delete the old object. A maintenance route can be added on request. |
+| F2 | `postcss` inside `next`, and `zod` < 4.6.6 | Both fixes are breaking majors (Next 16, zod 4). See Dependencies. | Schedule the upgrade; nothing is exploitable through an anonymous request today. |
+| F3 | Token issuance rate limit is per `x-forwarded-for` only. | An attacker with many IPs can mint many tokens. The DB cap is the real control and it is now atomic, so the cost is bounded regardless of the IP count. | N/A by design. |
 
 ## Previously reported, re-verified as already fixed (not touched)
 
