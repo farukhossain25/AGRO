@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Send } from "lucide-react";
+import { useAuth } from "@/components/auth/auth-provider";
 import { useLocale } from "@/lib/locale";
 import { useToast } from "@/lib/toast";
 import { StarRating, Spinner } from "./ui";
@@ -15,6 +17,7 @@ export function ReviewForm({ productId }: { productId: string | null }) {
   const [comment, setComment] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const { user, loading: authLoading } = useAuth();
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -50,6 +53,24 @@ export function ReviewForm({ productId }: { productId: string | null }) {
     } finally {
       setLoading(false);
     }
+  }
+
+  /* The API requires a session now (an anonymous review was untraceable and
+     unbounded). Show the login link instead of a form that would 401. */
+  if (!authLoading && !user) {
+    return (
+      <div className="card p-5 text-center sm:p-6">
+        <h3 className="text-[15px] font-semibold">
+          {t("আপনার মতামত দিন", "Share your experience")}
+        </h3>
+        <p className="mt-1 text-[12.5px] text-sand-100/55">
+          {t("রিভিউ দিতে লগইন করুন — এতে আপনার মতামত যাচাইযোগ্য থাকে।", "Log in to review — it keeps reviews accountable.")}
+        </p>
+        <Link href="/login?next=/products" className="btn-primary btn-sm mx-auto mt-4">
+          {t("লগইন করুন", "Log in")}
+        </Link>
+      </div>
+    );
   }
 
   return (
