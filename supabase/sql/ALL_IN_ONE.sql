@@ -4067,3 +4067,78 @@ create policy wallet_transactions_own on public.wallet_transactions
 --   select count(*) as influencer_share_tokens from public.coupons
 --    where audience = 'influencer' and share_token is not null;
 -- ============================================================================
+
+-- ============================================================================
+-- 26. FOOTER PAYMENT ROW (from 26_footer_payments.sql)
+-- ============================================================================
+alter table public.payment_methods
+  add column if not exists show_on_checkout boolean not null default true;
+
+comment on column public.payment_methods.show_on_checkout is
+  'Footer/checkout payment row: true = show this method''s tile. false = the '
+  'method still works for orders but its logo stays out of the footer row.';
+
+with ranked as (
+  select id, row_number() over (order by sort_order, code) - 1 as new_order
+    from public.payment_methods
+)
+update public.payment_methods m
+   set sort_order = r.new_order
+  from ranked r
+ where m.id = r.id
+   and m.sort_order is distinct from r.new_order;
+
+create or replace function public.move_payment_method(p_id uuid, p_direction integer)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_me   public.payment_methods%rowtype;
+  v_swap public.payment_methods%rowtype;
+begin
+  if coalesce(p_direction, 0) not in (-1, 1) then
+    raise exception 'BAD_DIRECTION';
+  end if;
+
+  select * into v_me from public.payment_methods where id = p_id for update;
+  if not found then
+    raise exception 'METHOD_NOT_FOUND';
+  end if;
+
+  if p_direction = -1 then
+    select * into v_swap
+      from public.payment_methods
+     where (sort_order, code) < (v_me.sort_order, v_me.code)
+     order by sort_order desc, code desc
+     limit 1;
+  else
+    select * into v_swap
+      from public.payment_methods
+     where (sort_order, code) > (v_me.sort_order, v_me.code)
+     order by sort_order asc, code asc
+     limit 1;
+  end if;
+
+  if not found then
+    return jsonb_build_object('moved', false, 'id', v_me.id);
+  end if;
+
+  update public.payment_methods
+     set sort_order = v_swap.sort_order, updated_at = now()
+   where id = v_me.id;
+  update public.payment_methods
+     set sort_order = v_me.sort_order, updated_at = now()
+   where id = v_swap.id;
+
+  return jsonb_build_object(
+    'moved', true,
+    'a', jsonb_build_object('id', v_me.id,   'sort_order', v_swap.sort_order),
+    'b', jsonb_build_object('id', v_swap.id, 'sort_order', v_me.sort_order)
+  );
+end;
+$$;
+
+grant execute on function public.move_payment_method(uuid, integer)
+  to authenticated, service_role;

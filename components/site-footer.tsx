@@ -1,21 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
-  Banknote,
   Check,
   ChevronDown,
   Clock,
-  Landmark,
   Mail,
   MapPin,
   Phone,
   Send,
-  ShieldCheck,
   Sprout,
-  Wallet,
-  type LucideIcon,
 } from "lucide-react";
 import { useLocale } from "@/lib/locale";
 import { useToast } from "@/lib/toast";
@@ -23,6 +18,7 @@ import { footerLinks } from "@/lib/site";
 import { useStoreInfo } from "@/lib/store-info";
 import { toBn } from "@/lib/format";
 import { Logo } from "./icon-logo";
+import { FooterPayments, type FooterPaymentMethod as FooterPaymentMethodType } from "./footer-payments";
 import { Spinner } from "./ui";
 
 /* ==========================================================================
@@ -49,13 +45,7 @@ import { Spinner } from "./ui";
    broken image falls back to it instead of showing a broken-image glyph.
    ========================================================================== */
 
-export type FooterPaymentMethod = {
-  code: string;
-  name_bn: string;
-  name_en: string | null;
-  kind: string;
-  logo_url: string | null;
-};
+export type { FooterPaymentMethod } from "./footer-payments";
 
 type FooterLink = { href: string; labelBn: string; labelEn: string };
 
@@ -66,7 +56,7 @@ export function SiteFooter({
 }: {
   categories: { slug: string; name_bn: string; name_en: string }[];
   socials?: ReactNode;
-  paymentMethods?: FooterPaymentMethod[];
+  paymentMethods?: FooterPaymentMethodType[];
 }) {
   const { t } = useLocale();
   const toast = useToast();
@@ -272,19 +262,12 @@ export function SiteFooter({
           </div>
 
           {/* ── 3 · payments + legal ───────────────────────────────── */}
-          <div className="relative mt-9 flex flex-col gap-5 border-t border-neu-line/50 pt-6 lg:mt-10 lg:flex-row lg:items-center lg:justify-between">
-            {paymentMethods.length > 0 ? (
-              <div className="flex flex-col items-center gap-2.5 lg:items-start">
-                <p className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-neu-faint">
-                  {t("আমরা যেসব পেমেন্ট গ্রহণ করি", "We accept")}
-                </p>
-                <ul className="flex flex-wrap items-center justify-center gap-2 lg:justify-start" aria-label="পেমেন্ট মাধ্যম">
-                  {paymentMethods.map((m) => (
-                    <PaymentTile key={m.code} method={m} />
-                  ))}
-                </ul>
-              </div>
-            ) : null}
+          {/* pr on desktop: the global back-to-top button (fixed bottom-6 right-6,
+              44px) floats over the bottom-right corner of this footer, and the
+              row's last tile / +N button would sit underneath it once the page
+              is scrolled to the end. 64px of padding keeps that corner clear. */}
+          <div className="relative mt-9 flex flex-col gap-5 border-t border-neu-line/50 pt-6 sm:pr-16 lg:mt-10 lg:flex-row lg:items-center lg:justify-between">
+            {paymentMethods.length > 0 ? <FooterPayments methods={paymentMethods} /> : null}
 
             {/* ml-auto: stays on the right even when there is no payment block */}
             <div className="flex flex-col items-center gap-2 text-center lg:ml-auto lg:items-end lg:text-right">
@@ -392,58 +375,3 @@ function FooterGroup({ id, title, links }: { id: string; title: string; links: F
   );
 }
 
-const KIND_ICON: Record<string, LucideIcon> = {
-  cod: Banknote,
-  bank: Landmark,
-  gateway: ShieldCheck,
-  mfs: Wallet,
-};
-
-/**
- * One white tile per payment method — the logo exactly as the admin uploaded
- * it, contained inside a fixed-height tile so a tall logo and a wide logo sit
- * on one baseline. A missing or broken logo degrades to the method's name on
- * a kind icon rather than a broken-image glyph.
- */
-function PaymentTile({ method }: { method: FooterPaymentMethod }) {
-  const [failed, setFailed] = useState(false);
-  const img = useRef<HTMLImageElement>(null);
-  const name = method.name_bn;
-
-  /* Server-rendered <img> tags start loading before hydration; when the logo
-     404s quickly the `error` event is gone before React's onError exists. On
-     mount, an image that is "complete" with no pixels has already failed. */
-  useEffect(() => {
-    const el = img.current;
-    if (el && el.complete && el.naturalWidth === 0) setFailed(true);
-  }, []);
-  const showLogo = Boolean(method.logo_url) && !failed;
-  const Icon = KIND_ICON[method.kind] ?? Wallet;
-
-  return (
-    <li
-      className="grid h-10 min-w-[68px] place-items-center rounded-xl bg-white px-3 shadow-neu-xs ring-1 ring-black/[0.05]"
-      title={name}
-    >
-      {showLogo ? (
-        // eslint-disable-next-line @next/next/no-img-element -- admin may paste any host; <img> never throws
-        <img
-          ref={img}
-          src={method.logo_url ?? ""}
-          alt={name}
-          width={76}
-          height={24}
-          loading="lazy"
-          decoding="async"
-          onError={() => setFailed(true)}
-          className="h-6 w-auto max-w-[76px] object-contain"
-        />
-      ) : (
-        <span className="flex items-center gap-1.5 text-[11px] font-bold text-[#1d2a23]">
-          <Icon className="h-3.5 w-3.5 text-[#1f7a4d]" aria-hidden />
-          <span className="max-w-[84px] truncate uppercase tracking-wide">{method.name_en || name}</span>
-        </span>
-      )}
-    </li>
-  );
-}

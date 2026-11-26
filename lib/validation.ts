@@ -334,6 +334,9 @@ export const paymentMethodSchema = z.object({
   requires_trx: z.coerce.boolean().default(true),
   requires_sender: z.coerce.boolean().default(true),
   is_active: z.coerce.boolean().default(true),
+  /** Footer/checkout tile visibility — false keeps the logo off the payment
+   *  row while the method still accepts orders. */
+  show_on_checkout: z.coerce.boolean().default(true),
   sort_order: z.coerce.number().int().default(0),
 });
 

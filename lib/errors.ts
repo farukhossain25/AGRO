@@ -34,6 +34,30 @@ export function dbErrorMessage(error: DbError | null | undefined): Mapped | null
     };
   }
 
+  /* --- this month's SQL not run yet ---
+     The code (footer payment row, reorder, show_on_checkout) ships ahead of
+     migration 26. Without a specific message Postgres answers these with
+     "function public.move_payment_method(uuid, integer) does not exist" or
+     "column payment_methods.show_on_checkout does not exist", and the owner
+     reads it as the panel being broken. Name the missing file instead. */
+  if (/move_payment_method/i.test(raw) && /does not exist/i.test(raw)) {
+    return {
+      message:
+        "পেমেন্ট মেথডের ক্রম বদলানোর ফাংশনটি ডেটাবেসে এখনো নেই — supabase/sql/26_footer_payments.sql ফাইলটি চালান।",
+      code: "DB_SQL_26_MISSING",
+      status: 500,
+    };
+  }
+
+  if (/show_on_checkout/i.test(raw) && /does not exist|column .* not found|could not find/i.test(raw)) {
+    return {
+      message:
+        "\"ফুটারে দেখাও\" সুবিধার কলামটি ডেটাবেসে নেই — supabase/sql/26_footer_payments.sql ফাইলটি চালান।",
+      code: "DB_SQL_26_MISSING",
+      status: 500,
+    };
+  }
+
   /* --- a column the code writes does not exist in the live table --- */
   if (
     code === "42703" ||

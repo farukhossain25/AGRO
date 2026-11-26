@@ -53,6 +53,8 @@ type Draft = {
   requires_trx: boolean;
   requires_sender: boolean;
   is_active: boolean;
+  /** Footer/checkout tile visibility (migration 26). */
+  show_on_checkout: boolean;
   sort_order: string;
 };
 
@@ -74,6 +76,7 @@ const EMPTY: Draft = {
   requires_trx: true,
   requires_sender: true,
   is_active: true,
+  show_on_checkout: true,
   sort_order: "0",
 };
 
@@ -125,6 +128,7 @@ export function PaymentMethodManager({
       requires_trx: m.requires_trx,
       requires_sender: m.requires_sender,
       is_active: m.is_active,
+      show_on_checkout: m.show_on_checkout,
       sort_order: String(m.sort_order),
     });
   }
@@ -156,6 +160,7 @@ export function PaymentMethodManager({
         requires_trx: editing.requires_trx,
         requires_sender: editing.requires_sender,
         is_active: editing.is_active,
+        show_on_checkout: editing.show_on_checkout,
         sort_order: Number(editing.sort_order) || 0,
       };
 
@@ -168,10 +173,12 @@ export function PaymentMethodManager({
       if (!res.ok) throw new Error(json.message ?? "সaving ব্যর্থ");
 
       if (editing.id) {
-        setMethods((prev) => prev.map((m) => (m.id === editing.id ? json.data.method : m)));
+        setMethods((prev) =>
+          prev.map((m) => (m.id === editing.id ? json.data.method : m)).sort((a, b) => a.sort_order - b.sort_order)
+        );
         toast.success(t("মেথড আপডেট হয়েছে", "Payment method updated"));
       } else {
-        setMethods((prev) => [...prev, json.data.method]);
+        setMethods((prev) => [...prev, json.data.method].sort((a, b) => a.sort_order - b.sort_order));
         toast.success(t("মেথড তৈরি হয়েছে", "Payment method created"));
       }
       setEditing(null);
@@ -195,6 +202,35 @@ export function PaymentMethodManager({
       setMethods((prev) => prev.map((x) => (x.id === m.id ? json.data.method : x)));
       toast.success(
         !m.is_active ? t("মেথড সক্রিয় হয়েছে", "Method enabled") : t("মেথড বন্ধ হয়েছে", "Method disabled")
+      );
+    } catch (err) {
+      toast.error(t("ব্যর্থ", "Failed"), (err as Error).message);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  /**
+   * Move a method one step up/down in the admin order — which is exactly the
+   * order the footer shows, so "the first four logos" is controlled from here.
+   * The swap happens inside move_payment_method() in one transaction; the local
+   * list is re-sorted from the answer, no full reload.
+   */
+  async function move(m: PaymentMethodRow, direction: -1 | 1) {
+    setBusyId(m.id);
+    try {
+      const res = await fetch("/api/foisal/payment-methods", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "move", id: m.id, direction }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message ?? "ক্রম বদলানো যায়নি");
+      const { methods: sorted } = json.data as { methods: PaymentMethodRow[] };
+      setMethods(sorted);
+      toast.success(
+        direction === -1 ? t("আগে সরানো হয়েছে", "Moved earlier") : t("পরে সরানো হয়েছে", "Moved later"),
+        m.name_bn
       );
     } catch (err) {
       toast.error(t("ব্যর্থ", "Failed"), (err as Error).message);
@@ -286,7 +322,7 @@ export function PaymentMethodManager({
                 </tr>
               </thead>
               <tbody>
-                {methods.map((m) => (
+                {methods.map((m, i) => (
                   <tr key={m.id} className="border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02]">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
@@ -333,9 +369,42 @@ export function PaymentMethodManager({
                         {busyId === m.id ? <Spinner className="h-3 w-3" /> : <Power className="h-3 w-3" />}
                         {m.is_active ? t("সক্রিয়", "Active") : t("বন্ধ", "Off")}
                       </button>
+
+                      {/* whether this method's logo is on the footer row —
+                          a separate question from "does it take orders" */}
+                      <p
+                        className={`mt-1 text-[10.5px] font-medium ${
+                          m.is_active && m.show_on_checkout ? "text-leaf-300/80" : "text-sand-100/30"
+                        }`}
+                      >
+                        {m.is_active && m.show_on_checkout
+                          ? t("ফুটারে দেখাচ্ছে", "On the footer")
+                          : m.is_active
+                            ? t("ফুটারে নেই", "Not on the footer")
+                            : t("ফুটারে নেই (বন্ধ)", "Not on the footer (off)")}
+                      </p>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-1.5">
+                        {/* the order the footer's first tiles follow */}
+                        <div className="flex flex-col gap-0.5">
+                          <button
+                            onClick={() => move(m, -1)}
+                            disabled={busyId === m.id || i === 0}
+                            aria-label={t(`${m.name_bn} আগে সরান`, `Move ${m.name_bn} earlier`)}
+                            className="rounded-md border border-white/10 px-1.5 py-0.5 text-[10px] leading-none text-sand-100/60 transition hover:border-leaf-500/40 hover:text-leaf-200 disabled:opacity-25"
+                          >
+                            ▲
+                          </button>
+                          <button
+                            onClick={() => move(m, 1)}
+                            disabled={busyId === m.id || i === methods.length - 1}
+                            aria-label={t(`${m.name_bn} পরে সরান`, `Move ${m.name_bn} later`)}
+                            className="rounded-md border border-white/10 px-1.5 py-0.5 text-[10px] leading-none text-sand-100/60 transition hover:border-leaf-500/40 hover:text-leaf-200 disabled:opacity-25"
+                          >
+                            ▼
+                          </button>
+                        </div>
                         <button
                           onClick={() => openEdit(m)}
                           className="rounded-lg border border-white/10 px-2.5 py-1 text-[11.5px] font-semibold text-sand-100/70 transition hover:border-leaf-500/40 hover:text-leaf-200"
@@ -641,6 +710,24 @@ function MethodEditor({
               className="accent-leaf-500 h-4 w-4"
             />
             {t("চেকআউটে দেখানো হবে (সক্রিয়)", "Show on checkout (active)")}
+          </label>
+
+          <label className="flex items-start gap-2 text-[12.5px] text-sand-100/70">
+            <input
+              type="checkbox"
+              checked={draft.show_on_checkout}
+              onChange={(e) => set("show_on_checkout", e.target.checked)}
+              className="accent-leaf-500 mt-0.5 h-4 w-4"
+            />
+            <span>
+              {t("ফুটারের পেমেন্ট সারিতে দেখাও", "Show in the footer payment row")}
+              <span className="mt-0.5 block text-[11px] text-sand-100/40">
+                {t(
+                  "বন্ধ রাখলে মেথডটি অর্ডার নেবে, কিন্তু ফুটারে এর লোগো থাকবে না।",
+                  "Off = the method still takes orders, but its logo stays out of the footer."
+                )}
+              </span>
+            </span>
           </label>
         </div>
 

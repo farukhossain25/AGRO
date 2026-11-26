@@ -94,6 +94,7 @@ export function CheckoutFlow({
           max_amount: null,
           requires_trx: false,
           requires_sender: false,
+          show_on_checkout: true,
         },
       ];
 

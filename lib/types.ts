@@ -183,6 +183,9 @@ export type PaymentMethodRow = {
   requires_trx: boolean;
   requires_sender: boolean;
   is_active: boolean;
+  /** Footer/checkout tile: false keeps the logo out of the payment row while
+   *  the method still accepts orders. */
+  show_on_checkout: boolean;
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -207,6 +210,7 @@ export type PublicPaymentMethod = Pick<
   | "max_amount"
   | "requires_trx"
   | "requires_sender"
+  | "show_on_checkout"
 >;
 
 /* The manual-payment tables (payments, payment_logs) were removed in the

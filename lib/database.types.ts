@@ -1537,6 +1537,7 @@ export type Database = {
         requires_trx: boolean
         requires_sender: boolean
         is_active: boolean
+        show_on_checkout: boolean
         sort_order: number
         created_at: string
         updated_at: string
@@ -1561,6 +1562,7 @@ export type Database = {
         requires_trx?: boolean
         requires_sender?: boolean
         is_active?: boolean
+        show_on_checkout?: boolean
         sort_order?: number
         created_at?: string
         updated_at?: string
@@ -1585,6 +1587,7 @@ export type Database = {
         requires_trx?: boolean
         requires_sender?: boolean
         is_active?: boolean
+        show_on_checkout?: boolean
         sort_order?: number
         created_at?: string
         updated_at?: string
@@ -3021,6 +3024,10 @@ export type Database = {
         p_by?: string | null
       }
       Returns: number
+    }
+      move_payment_method: {
+      Args: { p_id: string; p_direction: number }
+      Returns: Json
     }
       credit_referral: {
       Args: { p_order: string }
