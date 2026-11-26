@@ -682,6 +682,12 @@ create index if not exists stream_tokens_camera_expiry_idx
 --
 -- এখন: প্রাইভেট বাকেট + শুধু owner অথবা স্টাফ পড়তে পারেন। গ্রাহক ছবিটা
 -- signed URL দিয়ে দেখেন (রুট থেকে, ৫ মিনিটের জন্য)।
+--
+-- মনে রাখতে হবে: অ্যাপ নিজে signed URL বানায় **secret key** দিয়ে, আর সেই
+-- কল RLS বাইপাস করে। তাই অ্যাপের পথে নিরাপত্তা আসে রুট থেকে — সাইন করার
+-- আগে রুট দেখে নেয় সারিটি এই গ্রাহকের কি না। নিচের পলিসি হলো দ্বিতীয় স্তর:
+-- কেউ যদি নিজের JWT নিয়ে সরাসরি storage API-তে ঢুকতে চায়, সে যেন নিজের
+-- ফোল্ডারের বাইরে কিছু পড়তে না পারে।
 -- ============================================================================
 update storage.buckets
    set public = false
@@ -702,7 +708,15 @@ create policy "complaint photos read by owner or staff" on storage.objects
   for select to authenticated
   using (
     bucket_id = 'complaint-photos'
-    and (owner = auth.uid() or public.is_staff())
+    and (
+      public.is_staff()
+      /* upload route names every object `<user-id>/<timestamp>-<rand>.<ext>`,
+         so the first path segment is the owner. Checking BOTH the recorded
+         owner and the path means a row uploaded before `owner` was populated
+         is still readable by exactly one customer, not by everyone. */
+      or owner = auth.uid()
+      or (storage.foldername(name))[1] = auth.uid()::text
+    )
   );
 
 

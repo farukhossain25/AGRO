@@ -498,6 +498,40 @@ async function balanceOf(id) {
   check("staff can read it (they answer the complaint)", await canRead("authenticated", STAFF));
   check("admin can read it", await canRead("authenticated", ADMIN));
 
+  /* The path rule: an object whose first segment is someone else's id must
+     not be readable even if the caller can guess the filename. `owner` is
+     null here on purpose — uploads made before owner was recorded must still
+     resolve to exactly one customer, through the path segment. */
+  await actAsServer();
+  await db.query(
+    `insert into storage.objects (bucket_id, name, owner)
+     values ('complaint-photos', $1, null)
+     on conflict do nothing`,
+    [`${BOB}/guessed-name.jpg`]
+  );
+
+  async function canReadPath(role, userId, name) {
+    await db.exec(`begin`);
+    await db.exec(`set local role ${role}`);
+    if (userId) await actAs(userId);
+    const res = await db.query(
+      `select count(*)::int as n from storage.objects
+        where bucket_id = 'complaint-photos' and name = $1`,
+      [name]
+    );
+    await db.exec(`rollback`);
+    return res.rows[0].n > 0;
+  }
+
+  check(
+    "a path-folder owner can read their own upload even with no owner column",
+    await canReadPath("authenticated", BOB, `${BOB}/guessed-name.jpg`)
+  );
+  check(
+    "…and a different customer still cannot",
+    (await canReadPath("authenticated", ALICE, `${BOB}/guessed-name.jpg`)) === false
+  );
+
   /* Product/avatar images must stay public — the shop front depends on it. */
   const publicStillPublic = (
     await db.query(`select public from storage.buckets where id = 'product-images'`)

@@ -8,6 +8,7 @@ import { getSupplierQuality } from "@/lib/reviews";
 import { toBn } from "@/lib/format";
 import { SellerReplyList, type ReplyRow } from "@/components/seller/reply-list";
 import { ComplaintInbox, type SellerComplaint } from "@/components/seller/complaint-inbox";
+import { signComplaintPhotos } from "@/lib/storage-sign";
 
 export const dynamic = "force-dynamic";
 
@@ -76,12 +77,18 @@ export default async function SellerReviewPage() {
     }
 
     for (const row of tickets ?? []) {
+      /* Review photos live in the public review-photos bucket and need no
+         signing. Complaint photos do: complaint-photos is private since
+         migration 29, so the row holds a storage path and the seller — who is
+         authorised to answer this ticket — gets a 5-minute URL here. */
+      const complaintPhotos = await signComplaintPhotos(row.photos as string[] | null);
+
       complaints.push({
         id: row.id as string,
         ticketNo: row.ticket_no as string,
         problemType: row.problem_type as string,
         description: row.description as string,
-        photos: (row.photos as string[] | null) ?? [],
+        photos: complaintPhotos.filter((url: string | null): url is string => Boolean(url)),
         preferredResolution: row.preferred_resolution as string,
         status: row.status as SellerComplaint["status"],
         createdAt: row.created_at as string,

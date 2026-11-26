@@ -4,6 +4,7 @@ import {
   type AdminComplaintRow,
 } from "@/components/admin/complaint-console";
 import { db, isDbConfigured } from "@/lib/db";
+import { signComplaintPhotos } from "@/lib/storage-sign";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +47,21 @@ export default async function AdminComplaintsPage() {
     sellers: row.sellers,
     order_no: orderNos.get(row.order_id) ?? null,
   }));
+
+  /* complaint-photos is a private bucket (migration 29 §7). The stored value
+     is a path; the console needs a URL. Signing here — after the panel has
+     already authorised the staff member — means the 5-minute link never
+     exists anywhere except in this render. An object that cannot be signed
+     is dropped rather than shown as a broken image. */
+  await Promise.all(
+    rows.map(async (row) => {
+      if (row.photos?.length) {
+        row.photos = (await signComplaintPhotos(row.photos)).filter(
+          (url: string | null): url is string => Boolean(url)
+        );
+      }
+    })
+  );
 
   return <ComplaintConsole initial={rows} />;
 }

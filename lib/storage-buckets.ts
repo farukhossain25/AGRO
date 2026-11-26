@@ -18,6 +18,14 @@ export const STORAGE_BUCKETS = {
 
 export type StorageBucket = (typeof STORAGE_BUCKETS)[keyof typeof STORAGE_BUCKETS];
 
+/**
+ * Buckets whose objects are readable by anyone with the URL.
+ *
+ * `complaint-photos` is deliberately NOT here: migration 29 makes it private
+ * and grants read to the complaint's owner or a staff member only. Reading one
+ * goes through a short-lived signed URL (lib/storage-sign.ts), and the database
+ * stores the storage PATH, never a URL.
+ */
 export const PUBLIC_BUCKETS: readonly StorageBucket[] = [
   STORAGE_BUCKETS.AVATARS,
   STORAGE_BUCKETS.PRODUCT_IMAGES,
@@ -28,10 +36,10 @@ export const PUBLIC_BUCKETS: readonly StorageBucket[] = [
   STORAGE_BUCKETS.SLIDES,
   STORAGE_BUCKETS.TEAM,
   STORAGE_BUCKETS.REVIEW_PHOTOS,
-  STORAGE_BUCKETS.COMPLAINT_PHOTOS,
   STORAGE_BUCKETS.BLOG_IMAGES,
 ];
 
-export const ALL_BUCKETS: readonly StorageBucket[] = [
-  ...PUBLIC_BUCKETS,
-];
+/** Buckets that need a signed URL to read. */
+export const PRIVATE_BUCKETS: readonly StorageBucket[] = [STORAGE_BUCKETS.COMPLAINT_PHOTOS];
+
+export const ALL_BUCKETS: readonly StorageBucket[] = [...PUBLIC_BUCKETS, ...PRIVATE_BUCKETS];
