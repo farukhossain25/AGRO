@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { db } from "@/lib/db";
 import { created, fail, handleError, ok, requirePermission, clientIp } from "@/lib/api";
 import { paymentMethodSchema } from "@/lib/validation";
@@ -52,6 +53,7 @@ export async function POST(req: Request) {
       requires_trx: input.requires_trx,
       requires_sender: input.requires_sender,
       is_active: input.is_active,
+      show_on_checkout: input.show_on_checkout,
       sort_order: input.sort_order,
     };
 
@@ -79,7 +81,39 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   try {
     const actor = await requirePermission("payments.manage");
-    const body = paymentMethodSchema.partial().parse(await req.json());
+    const raw = (await req.json()) as Record<string, unknown>;
+
+    /* Reorder is its own action: it swaps sort_order with the neighbouring row
+       in ONE transaction (move_payment_method), so two quick clicks can never
+       leave two methods sharing a position. The footer follows sort_order, so
+       this is what decides which four logos appear first. */
+    if (raw.action === "move") {
+      const moveSchema = z.object({
+        id: z.string().uuid(),
+        direction: z.union([z.literal(-1), z.literal(1)]),
+      });
+      const { id, direction } = moveSchema.parse(raw);
+
+      const { data: before } = await db().from("payment_methods").select("*").eq("id", id).maybeSingle();
+      const { error } = await db().rpc("move_payment_method", { p_id: id, p_direction: direction });
+      if (error) throw error;
+
+      const { data: after } = await db().from("payment_methods").select("*").eq("id", id).maybeSingle();
+      await recordAudit({
+        actor,
+        action: "reorder",
+        entity: "payment_methods",
+        entityId: id,
+        diff: diffOf(before as Record<string, unknown> | null, { sort_order: after?.sort_order }),
+        ip: clientIp(req),
+        userAgent: req.headers.get("user-agent"),
+      }).catch(() => undefined);
+
+      const methods = await listAllMethods();
+      return ok({ methods });
+    }
+
+    const body = paymentMethodSchema.partial().parse(raw);
     const id = body.id;
     if (!id) return fail("মেথড id দিন", 422);
 
@@ -103,6 +137,7 @@ export async function PATCH(req: Request) {
       "requires_trx",
       "requires_sender",
       "is_active",
+      "show_on_checkout",
       "sort_order",
     ] as const) {
       if (key in body && body[key] !== undefined) {

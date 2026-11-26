@@ -38,6 +38,7 @@ export function toPublicMethod(row: MethodClient): PublicPaymentMethod {
     max_amount: row.max_amount == null ? null : Number(row.max_amount),
     requires_trx: row.requires_trx,
     requires_sender: row.requires_sender,
+    show_on_checkout: row.show_on_checkout,
   };
 }
 
@@ -57,6 +58,30 @@ export async function getActiveMethods(): Promise<PaymentMethodRow[]> {
 export async function getPublicMethods(): Promise<PublicPaymentMethod[]> {
   const rows = await getActiveMethods();
   return rows.map(toPublicMethod);
+}
+
+/**
+ * The footer's payment row — a SEPARATE read from the checkout list.
+ *
+ * `show_on_checkout = false` means "this method still takes orders, but keep
+ * its logo out of the footer row" (a store that accepts a bank transfer but
+ * does not want it advertised in the footer). Ordering is the admin's own
+ * `sort_order`, which is what decides the first four (three on a phone) tiles.
+ *
+ * Read on every request by the storefront layout, so add / remove / reorder /
+ * hide shows up on the next page load — no redeploy, no cache to bust.
+ */
+export async function getFooterPaymentMethods(): Promise<PublicPaymentMethod[]> {
+  const { data, error } = await db()
+    .from("payment_methods")
+    .select("*")
+    .eq("is_active", true)
+    .eq("show_on_checkout", true)
+    .order("sort_order", { ascending: true })
+    .order("code", { ascending: true });
+
+  if (error) throw error;
+  return ((data ?? []) as unknown as MethodClient[]).map(toPublicMethod);
 }
 
 /** One method by its code (case-insensitive). Null when missing/inactive. */

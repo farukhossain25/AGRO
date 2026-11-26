@@ -218,6 +218,55 @@ export async function GET() {
     }
   }
 
+  /* ---------------------------------------------- db:footer payment row ---
+     Migration 26 adds the footer switch and the reorder RPC. Both are probed
+     here so the owner sees "SQL 26 চালান" on this page instead of meeting an
+     empty footer or a dead ▲▼ button in the admin panel first. */
+  try {
+    const { error } = await db().from("payment_methods").select("show_on_checkout").limit(1);
+    if (error) throw error;
+    checks.push({
+      id: "db:footer:column",
+      label: "ফুটার পেমেন্ট সারির সুইচ (show_on_checkout)",
+      group: "db",
+      status: "pass",
+      detail: "column ok",
+    });
+  } catch (error) {
+    checks.push({
+      id: "db:footer:column",
+      label: "ফুটার পেমেন্ট সারির সুইচ (show_on_checkout)",
+      group: "db",
+      status: "fail",
+      detail: `${(error as Error).message} — supabase/sql/26_footer_payments.sql চালান`,
+    });
+  }
+
+  try {
+    const { error } = await db().rpc("move_payment_method", {
+      p_id: "00000000-0000-0000-0000-000000000000",
+      p_direction: 1,
+    });
+    /* METHOD_NOT_FOUND is the SUCCESS case here: the function ran and rejected
+       a bogus id. Only "does not exist" means the migration is missing. */
+    if (error && /does not exist|Could not find the function/i.test(error.message)) throw error;
+    checks.push({
+      id: "db:footer:reorder",
+      label: "পেমেন্ট মেথডের ক্রম বদলানোর ফাংশন",
+      group: "db",
+      status: "pass",
+      detail: "move_payment_method() ok",
+    });
+  } catch (error) {
+    checks.push({
+      id: "db:footer:reorder",
+      label: "পেমেন্ট মেথডের ক্রম বদলানোর ফাংশন",
+      group: "db",
+      status: "fail",
+      detail: `${(error as Error).message} — supabase/sql/26_footer_payments.sql চালান`,
+    });
+  }
+
   /* ------------------------------------------------------------ db:write */
   try {
     const { ms } = await timed(async () => {

@@ -10,7 +10,7 @@ import { getProfileByLegacyId } from "@/lib/profile";
 import { resolvePremiumState } from "@/lib/premium";
 import { getCategories } from "@/lib/data";
 import { isDbConfigured } from "@/lib/db";
-import { getPublicMethods } from "@/lib/payment-methods";
+import { getFooterPaymentMethods } from "@/lib/payment-methods";
 import { getAnnouncementSettings, getStoreSettings, defaultStoreSettings } from "@/lib/site-settings";
 import { StoreInfoProvider } from "@/lib/store-info";
 
@@ -24,15 +24,17 @@ export default async function StorefrontLayout({ children }: { children: React.R
     currentUser().catch(() => null),
     getAnnouncementSettings().catch(() => null),
     getStoreSettings().catch(() => defaultStoreSettings),
-    // the footer's payment tiles: active methods + the logo the admin uploaded
-    isDbConfigured() ? getPublicMethods().catch(() => []) : Promise.resolve([]),
+    // the footer's payment tiles: active + show_on_checkout, in the admin's
+    // order (that order decides which logos appear first), read per request so
+    // add/remove/reorder/hide is live without a redeploy
+    isDbConfigured() ? getFooterPaymentMethods().catch(() => []) : Promise.resolve([]),
   ]);
 
   const paymentMethods: FooterPaymentMethod[] = methods.map((m) => ({
     code: m.code,
     name_bn: m.name_bn,
     name_en: m.name_en,
-    kind: m.kind,
+    kind: m.kind as string,
     logo_url: m.logo_url,
   }));
 

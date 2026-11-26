@@ -66,6 +66,9 @@ declare
     'notifications','push_subscriptions','fcm_tokens','wishlist','recently_viewed',
     'access_codes','user_subscriptions','premium_devices','trials','stream_tokens','plans',
     'hero_slides','homepage_sections','banners','menus','menu_items','blog_posts','faq_items',
+    -- migration 25/26 tables: without these three the reset leaves them
+    -- behind (and 13_verify then reads a half-reset database)
+    'wallet_transactions','coupon_redemptions','coupon_audiences',
     'seller_applications'
   ];
 begin
