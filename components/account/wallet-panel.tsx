@@ -89,7 +89,17 @@ export function WalletPanel({
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message ?? "কোডটি নেওয়া গেল না");
-      toast.success("রেফারেল যুক্ত হয়েছে", "বন্ধুর প্রথম অর্ডার ডেলিভারি হলে বোনাস জমা হবে");
+      if (json.data?.coupon) {
+        toast.success(
+          "কুপন কোড যুক্ত হয়েছে",
+          `${json.data.coupon} — চেকআউটে স্বয়ংক্রিয়ভাবে বসে যাবে`
+        );
+      } else {
+        toast.success(
+          "রেফারেল যুক্ত হয়েছে",
+          "বন্ধুর প্রতিটি অর্ডার ডেলিভারি হলে কমিশন জমা হবে"
+        );
+      }
       setReferred(true);
       setCodeInput("");
     } catch (err) {
@@ -216,7 +226,7 @@ export function WalletPanel({
                   value={codeInput}
                   onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
                   className="input flex-1 font-mono tracking-widest"
-                  placeholder="বন্ধুর কোড লিখুন"
+                  placeholder="বন্ধুর কোড বা ইনফ্লুয়েন্সার কুপন"
                   maxLength={16}
                 />
                 <button type="submit" className="btn-primary btn-sm" disabled={claiming}>

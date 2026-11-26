@@ -135,6 +135,8 @@ export function CheckoutFlow({
   /** The customer chooses to spend wallet credit — it is never automatic. */
   const [useWallet, setUseWallet] = useState(false);
   const [walletKnown, setWalletKnown] = useState(false);
+  /** The coupon that came with the share link — applied once, if usable. */
+  const [suggestedCoupon, setSuggestedCoupon] = useState<string | null>(null);
   /** coupons this account may still use — already filtered by per-user cap */
   const [myCoupons, setMyCoupons] = useState<
     Array<{ code: string; type: string; value: number; min_order: number; description_bn: string | null }>
@@ -184,7 +186,17 @@ export function CheckoutFlow({
         const res = await fetch("/api/coupons/mine", { cache: "no-store" });
         if (!res.ok) return;
         const json = await res.json();
-        if (alive) setMyCoupons(json.data?.coupons ?? []);
+        if (!alive) return;
+        setMyCoupons(json.data?.coupons ?? []);
+
+        /* The visitor arrived from a share link. If that link carries an
+           influencer coupon, pre-fill it — the discount is the whole reason
+           the code was shared. Never overwrite something they typed. */
+        const suggested = json.data?.suggested as string | null;
+        if (suggested) {
+          setCoupon((current) => (current ? current : suggested));
+          setSuggestedCoupon(suggested);
+        }
       } catch {
         /* the manual code box still works */
       }
@@ -237,6 +249,36 @@ export function CheckoutFlow({
     selectedMethod?.max_amount != null && payable > selectedMethod.max_amount
   );
 
+  /* Apply the share-link coupon by itself once — a customer who arrived from
+     an influencer's link expects the discount to already be there. Failure is
+     silent: the manual field below still works. */
+  useEffect(() => {
+    if (!suggestedCoupon || appliedCoupon || discount > 0) return;
+    if (!cart.subtotal || cart.subtotal <= 0) return;
+    let alive = true;
+    void (async () => {
+      try {
+        const res = await fetch("/api/coupons/validate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: suggestedCoupon, subtotal: cart.subtotal }),
+        });
+        if (!res.ok) return;
+        const json = await res.json();
+        if (!alive) return;
+        setDiscount(Number(json.data?.discount ?? 0));
+        setAppliedCoupon(json.data?.code ?? suggestedCoupon);
+        toast.success(t("কুপন প্রয়োগ হয়েছে", "Coupon applied"), json.data?.code ?? suggestedCoupon);
+      } catch {
+        /* ignore — the customer can type the code */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suggestedCoupon, cart.subtotal]);
+
   const quantity = cart.items.reduce((sum, l) => sum + l.quantity, 0);
 
   function update<K extends keyof typeof form>(key: K, value: string) {
@@ -269,19 +311,21 @@ export function CheckoutFlow({
     return Object.keys(e).length === 0;
   }
 
-  async function applyCoupon() {
-    if (!coupon.trim()) return;
+  async function applyCoupon(codeArg?: string) {
+    const code = (codeArg ?? coupon).trim();
+    if (!code) return;
     setCouponLoading(true);
     try {
       const res = await fetch("/api/coupons/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: coupon.trim(), subtotal: cart.subtotal }),
+        body: JSON.stringify({ code, subtotal: cart.subtotal }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message ?? "কুপন সঠিক নয়");
       setDiscount(json.data.discount);
       setAppliedCoupon(json.data.code);
+      setSuggestedCoupon(null);
       toast.success(t("কুপন প্রয়োগ হয়েছে", "Coupon applied"), `${json.data.code} — ${money(json.data.discount, isBn)}`);
     } catch (err) {
       setDiscount(0);
@@ -295,6 +339,7 @@ export function CheckoutFlow({
   function clearCoupon() {
     setCoupon("");
     setAppliedCoupon(null);
+    setSuggestedCoupon(null);
     setDiscount(0);
   }
 
@@ -1010,7 +1055,7 @@ export function CheckoutFlow({
                   />
                   <button
                     type="button"
-                    onClick={applyCoupon}
+                    onClick={() => void applyCoupon()}
                     disabled={couponLoading || !coupon.trim()}
                     className="btn-ghost shrink-0 !py-2.5 text-[13px] disabled:opacity-50"
                   >
@@ -1028,29 +1073,7 @@ export function CheckoutFlow({
                     <button
                       key={c.code}
                       type="button"
-                      onClick={() => {
-                        setCoupon(c.code);
-                        void (async () => {
-                          // Apply straight away — an extra tap here is friction.
-                          setCouponLoading(true);
-                          try {
-                            const res = await fetch("/api/coupons/validate", {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ code: c.code, subtotal: cart.subtotal }),
-                            });
-                            const json = await res.json();
-                            if (!res.ok) throw new Error(json.message ?? "কুপন সঠিক নয়");
-                            setDiscount(json.data.discount);
-                            setAppliedCoupon(json.data.code);
-                            toast.success(t("কুপন প্রয়োগ হয়েছে", "Coupon applied"), json.data.code);
-                          } catch (err) {
-                            toast.error(t("কুপন কাজ করেনি", "Coupon failed"), (err as Error).message);
-                          } finally {
-                            setCouponLoading(false);
-                          }
-                        })();
-                      }}
+                      onClick={() => void applyCoupon(c.code)}
                       className="rounded-full border border-neu-accent/30 bg-neu-accent/[0.08] px-2.5 py-1 font-mono text-[10.5px] font-semibold text-neu-accent-strong hover:bg-neu-accent/15"
                       title={c.description_bn ?? undefined}
                     >

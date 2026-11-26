@@ -3030,6 +3030,10 @@ export type Database = {
       Args: { p_code: string; p_user: string }
       Returns: string | null
     }
+      resolve_ref: {
+      Args: { p_code: string; p_user?: string | null }
+      Returns: Json
+    }
       recalc_product_rating: {
       Args: { p_product: string }
       Returns: undefined
