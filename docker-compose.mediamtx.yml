@@ -21,6 +21,12 @@ services:
     volumes:
       - ./mediamtx.yml:/mediamtx.yml:ro
     environment:
+      # ── read + publish authentication (see mediamtx.yml) ──────────────────
+      MTX_AUTHMETHOD: internal
+      MTX_AUTHINTERNALUSERS_0_USER: publisher
+      MTX_AUTHINTERNALUSERS_0_PASS: ${MEDIAMTX_PUBLISH_PASS:?set MEDIAMTX_PUBLISH_PASS in .env}
+      MTX_AUTHINTERNALUSERS_1_USER: reader
+      MTX_AUTHINTERNALUSERS_1_PASS: ${MEDIAMTX_READ_PASS:?set MEDIAMTX_READ_PASS in .env}
       MTX_PROTOCOLS: tcp
       MTX_HLS: "yes"
       MTX_HLS_VARIANT: lowLatency
@@ -43,20 +49,43 @@ services:
     image: alexxit/go2rtc:latest
     container_name: ba-go2rtc
     restart: unless-stopped
+    # ⚠️ HOST NETWORKING + A DEFAULT API LISTEN = EVERY CAMERA ON THE INTERNET.
+    # go2rtc listens on :1984 with no auth and exempts localhost from the
+    # password check, so on host networking that port is the VPS's public IP.
+    # /api/streams dumps every RTSP source (camera passwords included) and
+    # /api/snapshot?src=… hands out stills. The old `expose:` block was a
+    # no-op here — `expose` only documents ports, it does not filter them.
+    #
+    # The bind below keeps the API on loopback, where only Caddy (also host
+    # networked) can reach it. Do not change it to 0.0.0.0 or ":1984".
     network_mode: host
+    environment:
+      GO2RTC_API: "127.0.0.1:1984"
     volumes:
       - ./go2rtc.yaml:/config/go2rtc.yaml:ro
     depends_on:
       - mediamtx
 
   # Optional: expose the proxy only to Vercel via a token-guarded Caddy hop.
+  # In this single-host layout Caddy runs on the host network so it can reach
+  # go2rtc's loopback-only API (127.0.0.1:1984) and mediamtx:8888 → 127.0.0.1:8888.
   caddy:
     image: caddy:2-alpine
     container_name: ba-stream-edge
     restart: unless-stopped
-    ports:
-      - "8080:8080"
+    network_mode: host
+    environment:
+      STREAM_PUBLIC_HOST: ${STREAM_PUBLIC_HOST:?set STREAM_PUBLIC_HOST in .env}
+      STREAM_EDGE_SECRET: ${STREAM_EDGE_SECRET:?set STREAM_EDGE_SECRET in .env}
+      ACME_EMAIL: ${ACME_EMAIL:-admin@example.com}
+      APP_INTERNAL_URL: ${APP_INTERNAL_URL:-http://127.0.0.1:3000}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
     depends_on:
       - mediamtx
+
+volumes:
+  caddy_data:
+  caddy_config:

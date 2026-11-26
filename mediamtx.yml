@@ -50,39 +50,36 @@ webrtcAdditionalHosts: []
 srt: yes
 srtAddress: :8890
 
-# ---- No on-disk recording (privacy + disk) -------------------------------
-pathDefaults:
-  # Reject publishers that don't use the shared secret below.
-  #
-  # `publishUser` / `publishPass` are the LEGACY spelling — current MediaMTX
-  # still reads them, prints a deprecation warning, and derives an equivalent
-  # authInternalUsers entry. They work, but they are a "get it right or get a
-  # lockout" knob for a phone-only operator, so the modern form is shipped
-  # commented out right below: delete the two legacy lines and uncomment it to
-  # move over. MediaMTX refuses to start if BOTH forms are present.
-  #
-  # authInternalUsers:
-  #   - user: any
-  #     pass:
-  #     permissions:
-  #       - action: read
-  #       - action: playback
-  #   - user: publisher
-  #     pass: CHANGE_ME_PUBLISH_PASSWORD
-  #     permissions:
-  #       - action: publish
-  #
-  # ⚠️ CHANGE_ME_PUBLISH_PASSWORD is a REAL password, not a placeholder that
-  # is ignored: anyone who can reach :1935 with it can publish a stream that
-  # your viewers would see. Change it before the VPS goes public, and use the
-  # same value in the DVR's RTMP settings.
-  publishUser: publisher
-  publishPass: CHANGE_ME_PUBLISH_PASSWORD
-  publishIPs: []
-  record: false
-
-  # A DVR/camera that PUSHES (RTMP) is on the other side of the CGNAT, so its
-  # source IP is the ISP's shared NAT — never pin publishIPs to it.
+# ---- Authentication: publish AND read both need a password ----------------
+#
+# Before: `publishUser/publishPass` guarded publishing only. Reading — RTSP
+# :8554, HLS :8888, WebRTC :8889 — was wide open, so anyone who could reach a
+# port saw every camera. `expose:` was treated as protection, but
+# docker-compose.mediamtx.yml runs with `network_mode: host`, where "not
+# published" means "reachable on the host's network".
+#
+# Now two users, and neither password lives in this file:
+#
+#   publisher  → publish + read   (the DVR pushing RTMP, go2rtc pulling RTSP)
+#   reader     → read + playback  (Caddy's server-side hop to MediaMTX)
+#
+# They are supplied per index through the environment, which MediaMTX maps
+# onto list entries (MTX_AUTHINTERNALUSERS_<i>_<FIELD>):
+#
+#   MTX_AUTHINTERNALUSERS_0_USER=publisher
+#   MTX_AUTHINTERNALUSERS_0_PASS=<secret>
+#   MTX_AUTHINTERNALUSERS_1_USER=reader
+#   MTX_AUTHINTERNALUSERS_1_PASS=<secret>
+#
+# Both compose files set all four from .env with `${VAR:?...}`, so a missing
+# password stops the stack instead of opening the cameras. Deliberately not
+# written here: this file is in git, and `CHANGE_ME_PUBLISH_PASSWORD` was a
+# WORKING password — worse than none, because it looks secure.
+#
+# If a URL ever needs credentials inline, MediaMTX also accepts
+# ?user=…&pass=… — but the app never does that; credentials in URLs leak into
+# access logs.
+authMethod: internal
 
 paths:
   # ════════════════════════════════════════════════════════════════════════

@@ -4,6 +4,10 @@
 # Vercel's proxy calls this with the shared secret from STREAM_PROXY_SECRET.
 # Anything without the secret is dropped before it reaches MediaMTX.
 #
+# MediaMTX itself requires a read password now (MEDIAMTX_READ_PASS), so this
+# hop adds the Basic auth header. It never reaches a browser: this Caddy only
+# listens on the private network / Vercel.
+#
 #   Caddyfile.proxy → :8080   (STREAM_PROXY_TARGET=http://<vps>:8080)
 #
 # This is NOT the direct-video setup. Use it when STREAM_PUBLIC_BASE is unset
@@ -27,12 +31,16 @@
 
 	# HLS playlists and segments
 	handle_path /hls/* {
-		reverse_proxy 127.0.0.1:8888
+		reverse_proxy 127.0.0.1:8888 {
+			header_up Authorization "Basic {env.MEDIAMTX_READ_AUTH}"
+		}
 	}
 
 	# anything else (playlist keys, ll-hls parts) goes straight to MediaMTX
 	handle {
-		reverse_proxy 127.0.0.1:8888
+		reverse_proxy 127.0.0.1:8888 {
+			header_up Authorization "Basic {env.MEDIAMTX_READ_AUTH}"
+		}
 	}
 
 	encode gzip
