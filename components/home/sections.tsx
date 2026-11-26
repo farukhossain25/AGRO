@@ -17,6 +17,9 @@ const CombosStrip = dynamic(() =>
 const PackagesPreview = dynamic(() =>
   import("@/components/home/packages-preview").then((m) => m.PackagesPreview)
 );
+const RingShowcase = dynamic(() =>
+  import("@/components/home/ring-showcase").then((m) => m.RingShowcase)
+);
 const Testimonials = dynamic(() =>
   import("@/components/home/testimonials").then((m) => m.Testimonials)
 );
@@ -28,6 +31,7 @@ const FaqAccordion = dynamic(() =>
 );
 import { whyChooseUs } from "@/lib/site";
 import type { BlogPost, Category, Combo, Farmer, Package, Product, Review } from "@/lib/types";
+import type { RingProduct } from "@/components/home/ring-showcase";
 
 /* ==========================================================================
    components/home/sections.tsx — one exported block per homepage section
@@ -290,6 +294,23 @@ export function LiveFarms() {
   return (
     <>
     <LiveFarmsStrip />    </>
+  );
+}
+
+/* The spinning product ring below the subscription packages. Split out of the
+   homepage module because its animation loop is the only client-side work in
+   the middle of the page; code-splitting keeps it off the hero's critical path. */
+export function ProductRing({
+  products,
+  categories,
+  headingBn,
+}: {
+  products: RingProduct[];
+  categories: Category[];
+  headingBn: string;
+}) {
+  return (
+    <RingShowcase products={products} categories={categories} headingBn={headingBn} />
   );
 }
 

@@ -3,7 +3,7 @@ import type { Json } from "@/lib/database.types";
 import { handleError, ok, requirePermission } from "@/lib/api";
 import { clientIp } from "@/lib/api";
 import { recordAudit } from "@/lib/audit";
-import { revalidateContent } from "@/lib/content";
+import { defaultSectionLabel, revalidateContent } from "@/lib/content";
 import { homepageLayoutSchema } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
@@ -76,7 +76,7 @@ export async function POST(req: Request) {
       await client.from("homepage_sections").upsert(
         missing.map((s) => ({
           key: s.id.replace(/^fallback-/, ""),
-          label_bn: s.id.replace(/^fallback-/, ""),
+          label_bn: defaultSectionLabel(s.id.replace(/^fallback-/, "")),
           is_visible: s.is_visible,
           sort_order: s.sort_order,
           config: (s.config ?? {}) as unknown as Json,

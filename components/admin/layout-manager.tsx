@@ -259,6 +259,10 @@ function ConfigDrawer({
       { key: "heading_bn", label: "শিরোনাম", type: "text" },
       { key: "body_bn", label: "লেখা", type: "long" },
     ],
+    product_ring: [
+      { key: "heading_bn", label: "শিরোনাম", type: "text" },
+      { key: "limit", label: "চাকায় কতটি পণ্য (৬–২৪)", type: "number" },
+    ],
     reviews: [{ key: "limit", label: "কতটি রিভিউ", type: "number" }],
     blog: [{ key: "limit", label: "কতটি পোস্ট", type: "number" }],
     faq: [{ key: "limit", label: "কতটি প্রশ্ন", type: "number" }],

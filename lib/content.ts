@@ -180,11 +180,26 @@ const DEFAULT_LAYOUT: Omit<HomepageSection, "id" | "updated_at">[] = [
   { key: "combos", label_bn: "কম্বো বক্স", is_visible: true, sort_order: 60, config: {} },
   { key: "live_farms", label_bn: "লাইভ খামার", is_visible: true, sort_order: 70, config: {} },
   { key: "premium_plans", label_bn: "প্রিমিয়াম প্ল্যান", is_visible: true, sort_order: 80, config: {} },
+  /* The product ring sits directly under the monthly food-subscription block,
+     which is where the owner asked for it. Visible by default: an existing
+     database already has its 12 rows, and getHomeLayout() merges in whatever
+     is missing — so this section appears on deploy with NO SQL. */
+  { key: "product_ring", label_bn: "ঘোরানো পণ্যের চাকা", is_visible: true, sort_order: 85, config: { heading_bn: "চাকা ঘুরিয়ে আজকের বাজার দেখুন", limit: 12 } },
   { key: "why_choose_us", label_bn: "কেন আমরা", is_visible: true, sort_order: 90, config: {} },
   { key: "reviews", label_bn: "রিভিউ", is_visible: true, sort_order: 100, config: { limit: 6 } },
   { key: "blog", label_bn: "ব্লগ", is_visible: true, sort_order: 110, config: { limit: 3 } },
   { key: "faq", label_bn: "প্রশ্ন-উত্তর", is_visible: true, sort_order: 120, config: { limit: 5 } },
 ];
+
+/** The Bangla label a section should keep when it is first written to the DB.
+ *
+ * Before this, a row that only existed as a fallback was inserted with its KEY
+ * as `label_bn` (the API derives it from the `fallback-` id), so the owner's
+ * homepage manager started showing "product_ring" in Latin the first time he
+ * pressed save. New sections are exactly where that bites. */
+export function defaultSectionLabel(key: string): string {
+  return DEFAULT_LAYOUT.find((section) => section.key === key)?.label_bn ?? key;
+}
 
 export function getHomeLayout(): Promise<HomepageSection[]> {
   return memo("home-layout", async () => {
