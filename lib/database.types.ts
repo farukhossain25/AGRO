@@ -2807,6 +2807,7 @@ export type Database = {
         started_at: string
         expires_at: string
         created_at: string
+        device_hash: string | null
       }
       Insert: {
         id?: string
@@ -2817,6 +2818,7 @@ export type Database = {
         started_at?: string
         expires_at: string
         created_at?: string
+        device_hash?: string | null
       }
       Update: {
         id?: string
@@ -2827,6 +2829,7 @@ export type Database = {
         started_at?: string
         expires_at?: string
         created_at?: string
+        device_hash?: string | null
       }
       Relationships: []
     }

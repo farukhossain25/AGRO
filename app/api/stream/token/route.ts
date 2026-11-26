@@ -2,16 +2,17 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { fail, handleError, ok, rateLimit, currentUser } from "@/lib/api";
-import { deviceFingerprint, signStreamToken, STREAM_TOKEN_TTL } from "@/lib/stream-auth";
-import { resolvePremiumState, getPremiumSettings } from "@/lib/premium";
+import { signStreamToken, STREAM_TOKEN_TTL } from "@/lib/stream-auth";
+import { checkWatchRights, viewerCapReached } from "@/lib/watch-rights";
 import { directHlsUrl, hlsPath, webrtcPath } from "@/lib/streams";
 
 export const dynamic = "force-dynamic";
 
+/* `hint` used to be accepted here and mixed into the device fingerprint. It is
+   ignored now (see lib/stream-auth.ts): a browser-supplied value in an identity
+   hash is a reset button. Old callers keep working; the field is just dropped. */
 const schema = z.object({
   cameraId: z.string().uuid(),
-  /** client-side device hint (screen + tz), hashed with IP + UA server-side */
-  hint: z.string().max(120).optional(),
 });
 
 /**
@@ -38,8 +39,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { cameraId, hint } = schema.parse(await req.json());
-    const fingerprint = deviceFingerprint(req, hint);
+    const { cameraId } = schema.parse(await req.json());
 
     const client = db();
     const { data: camera, error } = await client
@@ -54,84 +54,16 @@ export async function POST(req: Request) {
     if (camera.status === "maintenance") return fail("ক্যামেরাটি রক্ষণাবেক্ষণে আছে", 409);
     if (camera.status === "offline") return fail("ক্যামেরাটি এখন অফলাইন", 409);
 
-    /* ---- public camera: no subscription, no trial, no login ----
-       `cameras.is_premium = false` is the admin's switch for "সবার জন্য খোলা".
-       It exists so the live view can grow visitors before there is anything to
-       sell; premium cameras keep the exact gate they had. The minted token is
-       the same short-lived, revocable JWT — only its `mode` differs — so the
-       proxy, the viewer cap and the segment path all behave identically. */
-    const isPublic = camera.is_premium === false;
-
     const user = await currentUser();
-    const state = isPublic
-      ? null
-      : await resolvePremiumState(user?.id ?? null, user?.role ?? null, fingerprint);
 
-    if (!isPublic && !state?.canWatch) {
-      return fail(
-        state?.reason === "anonymous"
-          ? "লাইভ দেখতে ফ্রি ট্রায়াল শুরু করুন বা প্রিমিয়াম কিনুন"
-          : "আপনার ফ্রি ট্রায়াল শেষ হয়েছে — প্রিমিয়াম কিনুন",
-        402,
-        undefined
-      );
-    }
+    /* Entitlement, basic-tier restriction and device limit — all in one place,
+       shared with /api/cam/token (lib/watch-rights.ts). Public cameras skip the
+       premium check inside it; everything else is identical. */
+    const gate = await checkWatchRights(req, camera, user);
+    if (gate.denied) return gate.denied;
 
-    // ---- basic tier only sees the first camera of each farm ----
-    if (state?.subscription?.tier === "basic") {
-      const { data: first } = await client
-        .from("cameras")
-        .select("id")
-        .eq("farm_id", camera.farm_id)
-        .eq("is_active", true)
-        .order("sort_order")
-        .limit(1);
-      if (first?.[0]?.id !== camera.id) {
-        return fail("বেসিক প্ল্যানে শুধু প্রথম ক্যামেরা দেখা যায় — ফুল অ্যাক্সেস নিন", 403);
-      }
-    }
-
-    // ---- concurrent viewer cap ----
-    const settings = await getPremiumSettings();
-    const cap = camera.max_viewers || settings.max_viewers_per_camera;
-
-    const { count: liveViewers } = await client
-      .from("stream_tokens")
-      .select("jti", { count: "exact", head: true })
-      .eq("camera_id", camera.id)
-      .gt("expires_at", new Date().toISOString());
-
-    if ((liveViewers ?? 0) >= cap) {
+    if (await viewerCapReached(camera)) {
       return fail("এই ক্যামেরায় এখন দর্শকের সংখ্যা সর্বোচ্চ — কিছুক্ষণ পর আবার চেষ্টা করুন", 429);
-    }
-
-    // ---- device limit for real subscriptions ----
-    if (state?.subscription && user) {
-      const { data: devices } = await client
-        .from("premium_devices")
-        .select("id, fingerprint")
-        .eq("user_id", user.id);
-
-      const known = devices ?? [];
-      const seen = known.find((d) => d.fingerprint === fingerprint);
-
-      if (!seen && known.length >= state.deviceLimit) {
-        return fail(
-          `আপনার প্ল্যানে সর্বোচ্চ ${state.deviceLimit}টি ডিভাইস চলবে। পুরোনো ডিভাইস সরাতে অ্যাকাউন্ট সেটিংসে যান।`,
-          403
-        );
-      }
-      await client.from("premium_devices").upsert(
-        {
-          user_id: user.id,
-          subscription_id: state.subscription.id,
-          fingerprint,
-          label: req.headers.get("user-agent")?.slice(0, 120) ?? null,
-          user_agent: req.headers.get("user-agent")?.slice(0, 240) ?? null,
-          last_seen: new Date().toISOString(),
-        },
-        { onConflict: "user_id,fingerprint" }
-      );
     }
 
     // ---- mint a revocable session + short token ----
@@ -142,7 +74,7 @@ export async function POST(req: Request) {
       .insert({
         camera_id: camera.id,
         user_id: user?.id ?? null,
-        fingerprint,
+        fingerprint: gate.fingerprint,
         expires_at: expiresAt,
       })
       .select("jti")
@@ -150,18 +82,12 @@ export async function POST(req: Request) {
 
     if (sessionError) throw sessionError;
 
-    const mode: "premium" | "trial" | "public" = isPublic
-      ? "public"
-      : state?.reason === "trial"
-        ? "trial"
-        : "premium";
-
     const token = await signStreamToken({
-      sub: user?.id ?? `${isPublic ? "public" : "trial"}:${fingerprint.slice(0, 12)}`,
+      sub: user?.id ?? `${gate.mode === "public" ? "public" : "trial"}:${gate.fingerprint.slice(0, 12)}`,
       cam: camera.id,
       jti: session.jti,
-      mode,
-      fp: fingerprint.slice(0, 16),
+      mode: gate.mode,
+      fp: gate.fingerprint.slice(0, 16),
     });
 
     if (!camera.stream_key) {
@@ -180,7 +106,7 @@ export async function POST(req: Request) {
       proxied: !direct,
       protocol: camera.protocol,
       expiresIn: STREAM_TOKEN_TTL,
-      mode,
+      mode: gate.mode,
       camera: { id: camera.id, name: camera.name_bn },
     });
   } catch (error) {

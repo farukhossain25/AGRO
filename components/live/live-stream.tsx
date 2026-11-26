@@ -33,10 +33,9 @@ type Props = {
 
 type TokenResponse = { url: string; expiresIn: number; mode: "premium" | "trial" | "public" };
 
-const HINT = () =>
-  `${typeof window !== "undefined" ? window.screen.width : 0}x${
-    typeof window !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : ""
-  }`;
+/* No device "hint" is sent any more. It used to be mixed into the server-side
+   trial identity, which made `hint` a client-controlled reset button. The token
+   route now derives the fingerprint from IP + UA + language only. */
 
 export function LiveStream({
   cameraId,
@@ -76,7 +75,7 @@ export function LiveStream({
         const res = await fetch("/api/stream/token", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ cameraId, hint: HINT() }),
+          body: JSON.stringify({ cameraId }),
         });
         const json = await res.json().catch(() => null);
 
