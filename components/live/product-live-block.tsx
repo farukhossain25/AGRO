@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Camera, Lock, Radio, VideoOff, WifiOff } from "lucide-react";
 import { LiveStream } from "@/components/live/live-stream";
 import { useLocale } from "@/lib/locale";
+import type { StreamMode } from "@/lib/stream-mode";
 import { formatDateTimeBn } from "@/lib/format";
 
 /* ==========================================================================
@@ -30,6 +31,8 @@ export type LiveCamera = {
   status: string;
   poster: string | null;
   lastHeartbeat: string | null;
+  /** admin opened this camera to everyone (cameras.is_premium = false) */
+  isPublic?: boolean;
 };
 
 export type ProductLiveBlockProps = {
@@ -41,7 +44,7 @@ export type ProductLiveBlockProps = {
   loggedIn: boolean;
   /** server-resolved: active subscription or live trial */
   canWatch: boolean;
-  reason: "premium" | "trial" | "locked" | "anonymous";
+  reason: StreamMode | "anonymous";
 };
 
 export function ProductLiveBlock({
@@ -58,6 +61,10 @@ export function ProductLiveBlock({
   const online = cameras.filter((c) => c.status === "online");
   const [activeId, setActiveId] = useState<string | null>(online[0]?.id ?? cameras[0]?.id ?? null);
   const active = cameras.find((c) => c.id === activeId) ?? cameras[0] ?? null;
+
+  /* A public camera needs neither a session nor a plan — the token API checks
+     `is_premium` itself, so the UI only has to stop showing the lock. */
+  const isOpen = (cam: LiveCamera | null) => cam?.isPublic === true;
 
   /* ------------------------------------------------------- no camera at all */
   if (!cameras.length) {
@@ -81,7 +88,7 @@ export function ProductLiveBlock({
   }
 
   /* ---------------------------------------------------------- not logged in */
-  if (!loggedIn) {
+  if (!loggedIn && !isOpen(active)) {
     return (
       <StateCard
         tone="locked"
@@ -110,7 +117,7 @@ export function ProductLiveBlock({
   }
 
   /* ---------------------------------------------------------- not entitled */
-  if (!canWatch) {
+  if (!canWatch && !isOpen(active)) {
     return (
       <section aria-labelledby="live-heading" className="card overflow-hidden">
         <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-3 sm:px-5">
@@ -182,7 +189,11 @@ export function ProductLiveBlock({
           <Radio className="h-4 w-4 text-red-400" />
           {t("লাইভ ফুটেজ", "Live footage")}
           <span className="rounded-full bg-red-500/15 px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-red-300">
-            {reason === "trial" ? t("ট্রায়াল", "Trial") : t("লাইভ", "Live")}
+            {reason === "trial"
+              ? t("ট্রায়াল", "Trial")
+              : reason === "public" || isOpen(active)
+                ? t("সবার জন্য খোলা", "Open to all")
+                : t("লাইভ", "Live")}
           </span>
         </h2>
         <span className="text-[10.5px] text-white/35">{farmName}</span>

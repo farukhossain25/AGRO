@@ -12,7 +12,10 @@ import { createHash } from "node:crypto";
      sub  = user id (or "trial:<fingerprint>")
      cam  = camera id
      jti  = stream session id (revocable, also used for the viewer cap)
-     mode = premium | trial
+     mode = premium | trial | public
+            public  → a camera the admin marked "সবার জন্য খোলা" (cameras.is_premium
+                      = false). No subscription and no trial is involved, so the
+                      token carries the whole entitlement it needs: the camera id.
    ========================================================================== */
 
 export const STREAM_TOKEN_TTL = 60 * 5; // 5 minutes — plenty for HLS, short enough to be worthless if leaked
@@ -21,7 +24,7 @@ export type StreamTokenPayload = {
   sub: string;
   cam: string;
   jti: string;
-  mode: "premium" | "trial";
+  mode: "premium" | "trial" | "public";
   fp?: string;
 };
 
@@ -66,7 +69,7 @@ export async function verifyStreamToken(token: string | null | undefined): Promi
     });
     const p = payload as Record<string, unknown>;
     if (typeof p.cam !== "string" || typeof p.jti !== "string") return null;
-    if (p.mode !== "premium" && p.mode !== "trial") return null;
+    if (p.mode !== "premium" && p.mode !== "trial" && p.mode !== "public") return null;
     return {
       sub: String(p.sub ?? ""),
       cam: p.cam,

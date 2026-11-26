@@ -90,6 +90,13 @@ export default async function AdminCamerasPage() {
           { key: "status", label: "স্টেটাস" },
           { key: "max_viewers", label: "দর্শক", format: "number" },
           { key: "is_active", label: "সক্রিয়", format: "badge", trueLabel: "হ্যাঁ", falseLabel: "না" },
+          {
+            key: "is_premium",
+            label: "কে দেখবে",
+            format: "badge",
+            trueLabel: "প্রিমিয়াম",
+            falseLabel: "সবার জন্য খোলা",
+          },
         ]}
         fields={[
           { name: "farm_id", label: "খামার", type: "select", options: farmOptions, required: true, colSpan: 2 },
@@ -159,7 +166,12 @@ export default async function AdminCamerasPage() {
           { name: "max_viewers", label: "সর্বোচ্চ দর্শক", type: "number" },
           { name: "sort_order", label: "ক্রম", type: "number" },
           { name: "is_active", label: "সক্রিয়", type: "checkbox" },
-          { name: "is_premium", label: "প্রিমিয়াম", type: "checkbox" },
+          {
+            name: "is_premium",
+            label: "প্রিমিয়াম (টিক তুললে সবার জন্য খোলা)",
+            type: "checkbox",
+            hint: "টিক থাকলে দেখতে সাবস্ক্রিপশন বা ট্রায়াল লাগবে। টিক তুলে দিলে যে কেউ, এমনকি লগইন ছাড়াও লাইভ দেখতে পারবে — পাবলিক খামার সেকশনের জন্য এটাই।",
+          },
         ]}
       />
     </div>

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type Hls from "hls.js";
+import type { StreamMode } from "@/lib/stream-mode";
 
 /* ==========================================================================
    LiveStream — token-gated HLS player
@@ -25,12 +26,12 @@ type Props = {
   muted?: boolean;
   compact?: boolean;
   className?: string;
-  onMode?: (mode: "premium" | "trial" | "locked") => void;
+  onMode?: (mode: StreamMode) => void;
   /** Rendered instead of the video when the API says 402/403. */
   fallback?: React.ReactNode;
 };
 
-type TokenResponse = { url: string; expiresIn: number; mode: "premium" | "trial" };
+type TokenResponse = { url: string; expiresIn: number; mode: "premium" | "trial" | "public" };
 
 const HINT = () =>
   `${typeof window !== "undefined" ? window.screen.width : 0}x${

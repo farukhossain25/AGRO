@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { StreamMode } from "@/lib/stream-mode";
 
 /* ==========================================================================
    CloudPlayer — plays a camera that lives behind a vendor cloud
@@ -20,10 +21,10 @@ type Props = {
   autoPlay?: boolean;
   compact?: boolean;
   className?: string;
-  onMode?: (mode: "premium" | "trial" | "locked") => void;
+  onMode?: (mode: StreamMode) => void;
 };
 
-type Token = { url: string; expiresIn: number; mode: "premium" | "trial" };
+type Token = { url: string; expiresIn: number; mode: "premium" | "trial" | "public" };
 
 export function CloudPlayer({
   cameraId,

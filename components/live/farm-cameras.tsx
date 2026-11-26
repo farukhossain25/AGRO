@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Video, Wifi, WifiOff, Wrench } from "lucide-react";
 import type { Camera } from "@/lib/types";
+import type { StreamMode } from "@/lib/stream-mode";
 import { LiveStreamLazy } from "./live-stream-lazy";
 import { CloudPlayer } from "./cloud-player";
 
@@ -20,7 +21,7 @@ export function FarmCameras({
   cover?: string | null;
 }) {
   const [selected, setSelected] = useState<string | null>(cameras[0]?.id ?? null);
-  const [mode, setMode] = useState<"premium" | "trial" | "locked">("locked");
+  const [mode, setMode] = useState<StreamMode>("locked");
 
   const active = useMemo(() => cameras.find((c) => c.id === selected) ?? cameras[0], [cameras, selected]);
 
@@ -66,6 +67,11 @@ export function FarmCameras({
           {mode === "trial" && (
             <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10.5px] font-semibold text-amber-300">
               ফ্রি ট্রায়াল চলছে
+            </span>
+          )}
+          {mode === "public" && (
+            <span className="rounded-full bg-mint/15 px-2 py-0.5 text-[10.5px] font-semibold text-mint">
+              সবার জন্য খোলা — কোথাও লগইন ছাড়াই দেখা যাচ্ছে
             </span>
           )}
         </div>
