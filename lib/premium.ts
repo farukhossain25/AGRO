@@ -83,7 +83,7 @@ function hoursBetween(from: Date, to: Date): number {
 export async function resolvePremiumState(
   userId: string | null,
   role: UserRole | null,
-  fingerprint?: string
+  deviceHash?: string
 ): Promise<PremiumState> {
   const settings = await getPremiumSettings();
   const now = new Date();
@@ -128,13 +128,24 @@ export async function resolvePremiumState(
     }
   }
 
-  // -------- free trial (anonymous or logged-in without a plan) --------
-  if (fingerprint) {
-    const { data: trial } = await db()
+  /* -------- free trial — logged in only ---------------------------------
+     A trial used to be keyed by a device fingerprint alone, with an optional
+     client-supplied `hint` mixed in. Two consequences:
+       • an anonymous visitor could hold a trial, so there was no account to
+         attach it to and no way to stop "one trial per person";
+       • the hint came from the browser, so `hint: Math.random()` minted a
+         brand-new fingerprint and therefore a brand-new trial — indefinitely.
+     Now a trial needs a signed-in account and is looked up by user id OR by
+     server-computed device hash; either one having a grant is enough. */
+  if (userId) {
+    const { data: trials } = await db()
       .from("trials")
       .select("*")
-      .eq("fingerprint", fingerprint)
-      .maybeSingle();
+      .or(`user_id.eq.${userId}${deviceHash ? `,device_hash.eq.${deviceHash}` : ""}`)
+      .order("started_at", { ascending: false })
+      .limit(1);
+
+    const trial = trials?.[0] ?? null;
 
     if (trial) {
       const expires = new Date(trial.expires_at);
@@ -161,7 +172,7 @@ export async function resolvePremiumState(
       hoursLeft: null,
       trial: { active: false, expiresAt: null, minutes: settings.trial_minutes },
       canWatch: false,
-      reason: userId ? "locked" : "anonymous",
+      reason: "locked",
       deviceLimit: settings.default_device_limit,
     };
   }
@@ -181,28 +192,36 @@ export async function resolvePremiumState(
 
 /** Start (or resume) the server-side trial. Returns the grant row. */
 export async function startTrial(opts: {
-  fingerprint: string;
-  userId?: string | null;
+  /** Server-computed: (IP + UA + language). No client-supplied part. */
+  deviceHash: string;
+  /** Required — the trial belongs to an account, not a browser. */
+  userId: string;
   ip?: string;
 }) {
   const settings = await getPremiumSettings();
   const now = new Date();
 
+  /* One trial per ACCOUNT and one per DEVICE, whichever hits first.
+     `fingerprint` is still written because the column is NOT NULL + UNIQUE and
+     older rows live there; new rows use device_hash as the identity. */
   const { data: existing } = await db()
     .from("trials")
     .select("*")
-    .eq("fingerprint", opts.fingerprint)
-    .maybeSingle();
+    .or(`user_id.eq.${opts.userId},device_hash.eq.${opts.deviceHash},fingerprint.eq.${opts.deviceHash}`)
+    .order("started_at", { ascending: false })
+    .limit(1);
 
-  // A trial is once per fingerprint, ever. No restarts.
-  if (existing) return existing;
+  // A trial is once per account/device, ever. No restarts.
+  if (existing?.[0]) return existing[0];
 
   const expires = new Date(now.getTime() + settings.trial_minutes * 60_000);
   const { data, error } = await db()
     .from("trials")
     .insert({
-      fingerprint: opts.fingerprint,
-      user_id: opts.userId ?? null,
+      // Unique legacy key — device hash is stable per browser+network.
+      fingerprint: opts.deviceHash,
+      device_hash: opts.deviceHash,
+      user_id: opts.userId,
       minutes: settings.trial_minutes,
       ip_hash: opts.ip ?? null,
       started_at: now.toISOString(),

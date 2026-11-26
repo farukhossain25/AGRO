@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { randomUUID } from "node:crypto";
 import { currentUser, fail, ok } from "@/lib/api";
 import { signStreamToken, STREAM_TOKEN_TTL } from "@/lib/stream-auth";
-import { resolvePremiumState } from "@/lib/premium";
+import { checkWatchRights, viewerCapReached } from "@/lib/watch-rights";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -22,16 +22,26 @@ const schema = z.object({ cameraId: z.string().uuid() });
  * The vendor's HLS URL, the device serial and the API credentials never leave
  * the server. `/api/cam/live/*` re-checks entitlement on every segment request,
  * so revoking a subscription stops the picture within seconds.
+ *
+ * ⚠️ THIS ROUTE USED TO BE A COPY OF /api/stream/token THAT DRIFTED
+ * --------------------------------------------------------------------------
+ * It passed the literal string "cloud-bridge" as the device fingerprint:
+ *
+ *     resolvePremiumState(user?.id, user?.role, "cloud-bridge")
+ *
+ * which meant every trial user in the world shared one trial identity — the
+ * first person to start a trial made `canWatch` true for everybody, and the
+ * trial could never belong to the person actually watching. Worse, the
+ * basic-tier restriction and the device limit were never copied over, so a
+ * Basic plan saw every camera and one plan could be watched from fifty phones.
+ *
+ * All three checks now come from lib/watch-rights.ts, the same function the
+ * RTSP route uses, so the two cannot diverge again.
  */
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   const parsed = schema.safeParse(body);
   if (!parsed.success) return fail("ক্যামেরা আইডি সঠিক নয়");
-
-  const user = await currentUser();
-  const state = await resolvePremiumState(user?.id ?? null, user?.role ?? null, "cloud-bridge").catch(
-    () => null
-  );
 
   let camera:
     | {
@@ -63,60 +73,34 @@ export async function POST(req: Request) {
   if (camera.status === "maintenance") return fail("ক্যামেরাটি রক্ষণাবেক্ষণে আছে", 409);
   if (camera.status === "offline") return fail("ক্যামেরাটি এখন অফলাইন", 409);
 
-  /* `is_premium = false` → the farm opened this camera to everyone. Same rule
-     as /api/stream/token: the token still expires in 5 minutes and is still
-     revocable, so switching the flag back off stops playback within one TTL. */
-  const isPublic = camera.is_premium === false;
+  const user = await currentUser();
 
-  if (!isPublic && !state?.canWatch) {
-    return fail(
-      state?.reason === "anonymous"
-        ? "লাইভ দেখতে লগইন করুন বা ফ্রি ট্রায়াল শুরু করুন"
-        : "আপনার ফ্রি ট্রায়াল শেষ হয়েছে — প্রিমিয়াম কিনুন",
-      402
-    );
+  /* Entitlement + basic tier + device limit, identical to the RTSP route.
+     `is_premium = false` (a camera the farm opened to everyone) is handled
+     inside — the token is still short-lived and revocable. */
+  const gate = await checkWatchRights(req, camera, user);
+  if (gate.denied) return gate.denied;
+
+  /* Viewer cap. This used to be the ONLY way to watch a camera with no cap:
+     every concurrent viewer bills the vendor's media quota (Imou: 2 GB/month
+     free, then $0.25/GB) — exactly how a "5000 users" launch becomes a bill. */
+  if (await viewerCapReached(camera)) {
+    return fail("এই ক্যামেরায় এখন দর্শকের সংখ্যা সর্বোচ্চ — কিছুক্ষণ পর আবার চেষ্টা করুন", 429);
   }
 
   const token_jti = randomUUID();
 
-  /* ---- concurrent viewer cap ------------------------------------------
-     This route used to be the ONLY way to watch a camera with no viewer cap:
-     /api/stream/token (MediaMTX) counts live tokens and refuses over the cap,
-     but the cloud bridge minted a token for anyone with a subscription, so one
-     camera could be opened by an unlimited number of phones at once. Every one
-     of them bills the vendor's media quota (Imou: 2 GB/month free, then
-     $0.25/GB), which is exactly how a "5000 users" launch turns into a bill.
-
-     The count is the number of unexpired tokens minted for this camera in the
-     last TTL — the same approximation the RTSP path already uses. */
+  /* Record the mint so the next viewer is counted — same table and shape as
+     /api/stream/token. Best-effort: counting is a cost guard, never a reason
+     to refuse a paying viewer's stream. */
   try {
-    const { getPremiumSettings } = await import("@/lib/premium");
-    const settings = await getPremiumSettings();
-    const cap = camera.max_viewers || settings.max_viewers_per_camera;
-
-    const { count } = await db()
-      .from("stream_tokens")
-      .select("jti", { count: "exact", head: true })
-      .eq("camera_id", camera.id)
-      .gt("expires_at", new Date().toISOString());
-
-    if ((count ?? 0) >= cap) {
-      return fail(
-        "এই ক্যামেরায় এখন দর্শকের সংখ্যা সর্বোচ্চ — কিছুক্ষণ পর আবার চেষ্টা করুন",
-        429
-      );
-    }
-
-    // Record the mint so the next viewer is counted — same table and shape as
-    // /api/stream/token. A failure here must not break a paying viewer's
-    // stream, so it is deliberately best-effort.
     const { error: sessionError } = await db()
       .from("stream_tokens")
       .insert({
         jti: token_jti,
         camera_id: camera.id,
         user_id: user?.id ?? null,
-        fingerprint: null,
+        fingerprint: gate.fingerprint,
         expires_at: new Date(Date.now() + STREAM_TOKEN_TTL * 1000).toISOString(),
       })
       .select("jti")
@@ -124,28 +108,23 @@ export async function POST(req: Request) {
 
     if (sessionError) console.warn("[cam/token] viewer count not recorded:", sessionError.message);
   } catch {
-    // counting is a cost guard, never a reason to refuse a stream
+    /* never fail a stream because the counter is down */
   }
 
   // A real signed, expiring token — the same signer the RTSP player uses, so a
   // hand-written /api/cam/live/<other camera> URL cannot be assembled by hand.
-  const mode: "premium" | "trial" | "public" = isPublic
-    ? "public"
-    : state?.reason === "premium"
-      ? "premium"
-      : "trial";
-
   const token = await signStreamToken({
-    sub: user?.id ?? (isPublic ? "public" : "anon"),
+    sub: user?.id ?? `${gate.mode === "public" ? "public" : "trial"}:${gate.fingerprint.slice(0, 12)}`,
     cam: camera.id,
     jti: token_jti,
-    mode,
+    mode: gate.mode,
+    fp: gate.fingerprint.slice(0, 16),
   });
 
   return ok({
     url: `/api/cam/live/${camera.id}/index.m3u8?t=${token}`,
     protocol: "hls" as const,
     expiresIn: STREAM_TOKEN_TTL,
-    mode,
+    mode: gate.mode,
   });
 }

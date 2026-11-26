@@ -116,12 +116,20 @@ export async function verifyRefreshToken(token: string | undefined): Promise<Ref
 /* ==========================================================================
    Device fingerprint
    --------------------------------------------------------------------------
-   A server-side hash of (IP + UA + optional client hint). Good enough to stop
-   a casual "clear localStorage to reset the trial" loop; a determined user can
-   still rotate IPs, which is why paid access is enforced by subscription rows.
+   A server-side hash of (IP + User-Agent + Accept-Language). All three come
+   from the request itself; there is deliberately NO client-supplied part.
+
+   There used to be an optional `hint` (screen size + timezone) sent by the
+   player, and it was mixed into the trial identity. That made the trial
+   trivially resettable: `hint: Math.random()` produced a new fingerprint on
+   every request, so the "one free trial" limit was really "one trial per
+   page load". Removing it is why this function now has a single argument.
+
+   Still only as strong as IP+UA: a determined user can rotate IPs, which is
+   why paid access is enforced by subscription rows, not this hash.
    ========================================================================== */
 
-export function deviceFingerprint(req: Request, clientHint?: string): string {
+export function deviceFingerprint(req: Request): string {
   const ua = req.headers.get("user-agent") ?? "";
   const ip =
     req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
@@ -129,7 +137,7 @@ export function deviceFingerprint(req: Request, clientHint?: string): string {
     "0.0.0.0";
   const lang = req.headers.get("accept-language") ?? "";
   return createHash("sha256")
-    .update(`${ip}|${ua}|${lang}|${clientHint ?? ""}`)
+    .update(`${ip}|${ua}|${lang}`)
     .digest("hex")
     .slice(0, 40);
 }

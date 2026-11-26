@@ -21,6 +21,8 @@ type State = {
   reason: "premium" | "trial" | "locked" | "anonymous";
   trial: { active: boolean; expiresAt: string | null; minutes: number } | null;
   trial_minutes: number;
+  /** False for a signed-out visitor — a trial now requires an account. */
+  signedIn?: boolean;
   expiresAt?: string;
 };
 
@@ -70,9 +72,9 @@ export function TrialStarter() {
       const res = await fetch("/api/premium/trial", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          hint: `${window.screen.width}x${Intl.DateTimeFormat().resolvedOptions().timeZone}`,
-        }),
+        // No body: the trial identity is the account plus a server-side
+        // device hash. Anything sent here is ignored by design.
+        body: JSON.stringify({}),
       });
       const json = await res.json();
 
@@ -169,6 +171,31 @@ export function TrialStarter() {
           </Link>
           <Link href="/login?next=/live/plans" className="btn-ghost btn-sm">
             লগইন করুন
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  /* Signed out: the trial is tied to an account now (it used to be tied to a
+     browser fingerprint, which was resettable by changing a client-side hint),
+     so ask for the login instead of offering a button that would 401. */
+  if (state && state.signedIn === false) {
+    return (
+      <div className="card p-8 text-center">
+        <p className="text-2xl">🎬</p>
+        <p className="mt-2 text-[15px] font-bold text-neu-ink">
+          {bn(state.trial_minutes)} মিনিট ফ্রি ট্রায়াল
+        </p>
+        <p className="mt-1 text-[12.5px] leading-relaxed text-sand-100/55">
+          ট্রায়ালটি অ্যাকাউন্টের সাথে যুক্ত — একজন একটি। শুরু করতে লগইন করুন।
+        </p>
+        <div className="mt-5 flex flex-wrap justify-center gap-2">
+          <Link href="/login?next=/live" className="btn-mint mx-auto">
+            <Play className="h-4 w-4" /> লগইন করে ট্রায়াল নিন
+          </Link>
+          <Link href="/live/plans" className="btn-ghost btn-sm">
+            প্ল্যান দেখুন
           </Link>
         </div>
       </div>

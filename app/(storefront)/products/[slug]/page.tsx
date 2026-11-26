@@ -19,7 +19,7 @@ import { ReviewList } from "@/components/shop/review-list";
 import { getProductReviews } from "@/lib/reviews";
 import { SectionHeader, StarRating } from "@/components/ui";
 import { site } from "@/lib/site";
-import { dynamicAlternates } from "@/lib/seo";
+import { dynamicAlternates, jsonLdScript } from "@/lib/seo";
 
 /* The page reads the session cookie (wishlist + premium state) on every
    request, so it cannot be served from the static shell: in Next 15 a cached
@@ -190,8 +190,14 @@ export default async function ProductPage({
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
+      {/* jsonLdScript() escapes "<" as \u003c. A bare JSON.stringify made any
+          seller-controlled name or description able to close this tag and open
+          a <script> of its own — stored XSS on a public product page. */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(jsonLd) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbLd) }}
+      />
 
       <div className="container-x py-6 sm:py-10">
         <nav aria-label="ব্রেডক্রাম্ব" className="mb-5 flex flex-wrap items-center gap-1 text-[12px] text-sand-100/45">

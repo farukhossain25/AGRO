@@ -12,7 +12,15 @@ log:
   level: info
 
 api:
-  listen: ":1984"
+  # ⚠️ ":1984" binds 0.0.0.0 — every interface, including the public one when
+  # the container runs with network_mode: host (docker-compose.mediamtx.yml).
+  # go2rtc's API has no authentication, so that is a camera back door:
+  #   GET /api/streams        → every RTSP URL, passwords included
+  #   GET /api/snapshot?src=… → a still from any camera
+  # It also skips the password check for localhost requests, so binding to
+  # loopback still lets Caddy (same host) in while the internet gets nothing.
+  # The compose files override this with GO2RTC_API; keep the safe default here.
+  listen: "127.0.0.1:1984"
   origin: "*"
 
 rtsp:

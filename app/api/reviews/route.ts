@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { clientKey, created, currentUser, handleError, ok, rateLimit, sanitizeText, tooMany } from "@/lib/api";
+import { clientKey, created, currentUser, fail, handleError, ok, rateLimit, sanitizeText, tooMany } from "@/lib/api";
 import { reviewSchema } from "@/lib/validation";
 import { getApprovedReviews } from "@/lib/data";
 
@@ -21,7 +21,16 @@ export async function POST(req: Request) {
     if (!limited.ok) return tooMany(limited.retryAfter);
 
     const data = reviewSchema.parse(await req.json());
-    const user = await currentUser().catch(() => null);
+
+    /* Reviews used to be accepted from anyone: `user_id` was simply null when
+       there was no session, and the row went live immediately (no moderation
+       queue). On a public page that is an open graffiti wall — one visitor with
+       a script can post unlimited 1-star reviews under any name, and nothing
+       ties the review to a real person if it needs removing.
+       A session is now required. `rating_verified` / order checks stay as they
+       are; this only closes the "no account at all" hole. */
+    const user = await currentUser();
+    if (!user) return fail("রিভিউ দিতে লগইন করুন", 401);
 
     // A null product_id means "site-wide" testimonial; the DB expects a FK, so
     // attach it to no product only when the table allows NULL (it does).
@@ -35,7 +44,7 @@ export async function POST(req: Request) {
       .from("reviews")
       .insert({
         product_id: productId,
-        user_id: user?.id ?? null,
+        user_id: user.id,
         author_name: sanitizeText(data.name_bn, 60),
         author_location: sanitizeText(data.location_bn ?? "", 60) || null,
         rating: data.rating,

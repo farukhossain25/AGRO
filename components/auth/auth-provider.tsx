@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { AuthContext, useAuth, type AuthState } from "@/components/auth/auth-context";
 import { isSupabasePublicConfigured } from "@/lib/env";
 import type { SessionUser } from "@/lib/session";
 
@@ -15,18 +16,6 @@ import type { SessionUser } from "@/lib/session";
    The role and display name come from the user's OWN `profiles` row (RLS
    allows `id = auth.uid()` only), never from a token we minted ourselves.
    ========================================================================== */
-
-export type AuthState = {
-  user: SessionUser | null;
-  /** true until the first client-side session check settles */
-  loading: boolean;
-  /** re-read the profile row (after editing the profile, for example) */
-  refresh: () => Promise<void>;
-  /** sign out everywhere via the server route, then refresh the UI */
-  signOut: () => Promise<void>;
-};
-
-const AuthContext = createContext<AuthState | null>(null);
 
 type ProfileRow = {
   id: string;
@@ -220,18 +209,5 @@ export function AuthProvider({
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-/**
- * Reads the auth state. Returns a safe empty state when used outside the
- * provider (the login page renders before any layout in some error paths), so
- * a missing provider can never crash the page.
- */
-export function useAuth(): AuthState {
-  const ctx = useContext(AuthContext);
-  if (ctx) return ctx;
-  return {
-    user: null,
-    loading: false,
-    refresh: async () => {},
-    signOut: async () => {},
-  };
-}
+/* Re-exported so existing `@/components/auth/auth-provider` imports keep working. */
+export { useAuth, type AuthState };

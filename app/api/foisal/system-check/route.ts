@@ -118,12 +118,19 @@ const BUCKETS = [
   "blog-images",
 ] as const;
 
-const REQUIRED_ENV = [
-  "NEXT_PUBLIC_SUPABASE_URL",
-  "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
-  "SUPABASE_SERVICE_ROLE_KEY",
-  "NEXT_PUBLIC_SITE_URL",
-] as const;
+/* Pairs: the first name that is set satisfies the requirement. The Supabase
+   server key was renamed "service role key" → "secret key"; the health check
+   listed only the legacy name, so a correctly configured new-style deployment
+   showed a permanent red FAIL here while everything actually worked. */
+const REQUIRED_ENV: ReadonlyArray<{ label: string; keys: readonly string[] }> = [
+  { label: "NEXT_PUBLIC_SUPABASE_URL", keys: ["NEXT_PUBLIC_SUPABASE_URL"] },
+  { label: "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", keys: ["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"] },
+  {
+    label: "SUPABASE_SECRET_KEY (or SUPABASE_SERVICE_ROLE_KEY)",
+    keys: ["SUPABASE_SECRET_KEY", "SUPABASE_SERVICE_ROLE_KEY"],
+  },
+  { label: "NEXT_PUBLIC_SITE_URL", keys: ["NEXT_PUBLIC_SITE_URL"] },
+];
 
 async function timed<T>(fn: () => Promise<T>): Promise<{ value: T; ms: number }> {
   const start = Date.now();
@@ -141,11 +148,11 @@ export async function GET() {
   const checks: Check[] = [];
 
   /* ---------------------------------------------------------------- env */
-  for (const name of REQUIRED_ENV) {
-    const present = Boolean(process.env[name]);
+  for (const requirement of REQUIRED_ENV) {
+    const present = requirement.keys.some((k) => Boolean(process.env[k]));
     checks.push({
-      id: `env:${name}`,
-      label: name,
+      id: `env:${requirement.label}`,
+      label: requirement.label,
       group: "env",
       status: present ? "pass" : "fail",
       detail: present ? "সেট করা আছে" : "সেট করা নেই — Vercel → Settings → Environment Variables",

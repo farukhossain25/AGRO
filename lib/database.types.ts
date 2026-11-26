@@ -2807,6 +2807,7 @@ export type Database = {
         started_at: string
         expires_at: string
         created_at: string
+        device_hash: string | null
       }
       Insert: {
         id?: string
@@ -2817,6 +2818,7 @@ export type Database = {
         started_at?: string
         expires_at: string
         created_at?: string
+        device_hash?: string | null
       }
       Update: {
         id?: string
@@ -2827,6 +2829,7 @@ export type Database = {
         started_at?: string
         expires_at?: string
         created_at?: string
+        device_hash?: string | null
       }
       Relationships: []
     }
@@ -3128,11 +3131,11 @@ export type Database = {
       Returns: Json
     }
       chat_claim: {
-      Args: { p_chat: string }
+      Args: { p_chat: string; p_actor: string }
       Returns: Json
     }
       chat_close: {
-      Args: { p_chat: string; p_reason: string }
+      Args: { p_chat: string; p_reason: string; p_actor: string }
       Returns: Json
     }
       chat_sweep: {

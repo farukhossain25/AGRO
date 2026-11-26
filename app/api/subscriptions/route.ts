@@ -69,7 +69,21 @@ export async function PATCH(req: Request) {
       .maybeSingle();
 
     if (!sub) return fail("সাবস্ক্রিপশন পাওয়া যায়নি", 404);
-    if (sub.user_id && sub.user_id !== user.id && user.role !== "admin") {
+
+    /* Ownership check. The old line was
+         if (sub.user_id && sub.user_id !== user.id && user.role !== "admin")
+       — and `sub.user_id` is NULL for a guest subscription. Null is falsy, so
+       the whole guard short-circuited and ANY signed-in customer who knew a
+       subscription number could pause, resume or cancel it. A guest purchase is
+       identified by its number alone, which makes it the most guessable one.
+       Now: a guest subscription is staff-only, and an owned one is the owner's
+       or an admin's. */
+    const isAdmin = user.role === "admin";
+    const isOwner = sub.user_id !== null && sub.user_id === user.id;
+
+    if (sub.user_id === null) {
+      if (!isAdmin) return fail("এই সাবস্ক্রিপশনটি শুধু অ্যাডমিন বদলাতে পারেন", 403);
+    } else if (!isOwner && !isAdmin) {
       return fail("অনুমতি নেই", 403);
     }
 

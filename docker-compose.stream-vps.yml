@@ -57,6 +57,15 @@ services:
     volumes:
       - ./mediamtx.yml:/mediamtx.yml:ro
     environment:
+      # ── read + publish authentication (see mediamtx.yml) ──────────────────
+      # Passwords come from .env and are REQUIRED: `:?` makes compose refuse
+      # to start when they are empty. A docker stack that starts without a
+      # camera password is an open camera, so failing loudly is the point.
+      MTX_AUTHMETHOD: internal
+      MTX_AUTHINTERNALUSERS_0_USER: publisher
+      MTX_AUTHINTERNALUSERS_0_PASS: ${MEDIAMTX_PUBLISH_PASS:?set MEDIAMTX_PUBLISH_PASS in .env}
+      MTX_AUTHINTERNALUSERS_1_USER: reader
+      MTX_AUTHINTERNALUSERS_1_PASS: ${MEDIAMTX_READ_PASS:?set MEDIAMTX_READ_PASS in .env}
       MTX_PROTOCOLS: tcp
       MTX_HLS: "yes"
       MTX_HLS_VARIANT: lowLatency
@@ -109,10 +118,20 @@ services:
     restart: unless-stopped
     volumes:
       - ./go2rtc.yaml:/config/go2rtc.yaml:ro
-    # Not published to the host: the app reaches go2rtc through the Vercel
-    # proxy / Caddy, so a public :1984 would just be an unauthenticated API
-    # (go2rtc's own API has no auth). WebRTC media needs a public UDP port,
-    # so 8555/udp stays open — that one carries media, not control.
+    # go2rtc's API has NO authentication and passes localhost requests through
+    # without even a password check — so :1984 is a camera-control back door:
+    # /api/streams lists every camera URL (with RTSP password inside) and
+    # /api/snapshot?src=… returns a still image from any of them.
+    #
+    # Three things keep it off the internet:
+    #   1. it is NOT published to the host (no `ports:` entry for 1984) — only
+    #      reachable from other containers on this compose network;
+    #   2. GO2RTC_API binds it to the container's own interface, so even a
+    #      host-networking variant cannot answer on 0.0.0.0:1984;
+    #   3. Caddy is the only thing that talks to it (/health-<secret>/api/webrtc).
+    # See docker-compose.mediamtx.yml for why rule 1 alone is not enough there.
+    environment:
+      GO2RTC_API: "0.0.0.0:1984"
     expose:
       - "1984"
     ports:
@@ -129,6 +148,19 @@ services:
       STREAM_PUBLIC_HOST: ${STREAM_PUBLIC_HOST:?set STREAM_PUBLIC_HOST in .env}
       STREAM_EDGE_SECRET: ${STREAM_EDGE_SECRET:?set STREAM_EDGE_SECRET in .env}
       ACME_EMAIL: ${ACME_EMAIL:-admin@example.com}
+      # forward_auth target — the app endpoint that verifies ?t= for playlists.
+      # Caddy on the compose bridge can always reach the internet, so this is
+      # the public app URL (or an internal tunnel address if the app is on the
+      # VPS too). It is never the browser's job to call this.
+      APP_INTERNAL_URL: ${APP_INTERNAL_URL:?set APP_INTERNAL_URL in .env — e.g. https://bishwasagro.com}
+      # Basic auth Caddy injects when it reads from MediaMTX. Derived here so
+      # the password exists in exactly one place (.env → MEDIAMTX_READ_PASS).
+      MEDIAMTX_READ_AUTH: ${MEDIAMTX_READ_AUTH:?set MEDIAMTX_READ_AUTH in .env}
+      # Caddy's site block uses this port. 443 on a normal VPS. Set it to 8443
+      # only if another service already owns :443 on the same host — the site
+      # address becomes <host>:8443 and the 443→8443 mapping in `ports` below
+      # still serves the public HTTPS URL unchanged.
+      EDGE_HTTPS_PORT: ${EDGE_HTTPS_PORT:-443}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -147,6 +179,7 @@ services:
     restart: unless-stopped
     environment:
       STREAM_PROXY_SECRET: ${STREAM_PROXY_SECRET:?set STREAM_PROXY_SECRET in .env}
+      MEDIAMTX_READ_AUTH: ${MEDIAMTX_READ_AUTH:?set MEDIAMTX_READ_AUTH in .env}
     volumes:
       - ./Caddyfile.proxy:/etc/caddy/Caddyfile:ro
     expose:

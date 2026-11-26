@@ -257,30 +257,33 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
       });
       if (!res.ok) return;
       const json = await res.json().catch(() => null);
+      /* The endpoint no longer answers "does this address exist?" for anyone
+         who is not signed in as that address — that was an email enumeration
+         oracle. `matched: false` is the "I cannot tell you anything specific"
+         case; the default (reset password) is the right next step either way,
+         including for someone who has no account and should sign up instead. */
       const info = json?.data as
-        | { exists: boolean | null; hasPassword: boolean | null; providers: string[]; unconfirmed: boolean | null }
+        | {
+            hasPassword: boolean;
+            providers: string[];
+            unconfirmed: boolean;
+            matched: boolean;
+          }
         | undefined;
-      if (!info || info.exists === null) return;
+      if (!info) return;
 
       // The visitor may have edited the field while we were asking.
       if (cleanEmail() !== address) return;
 
-      const googleOnly = info.providers.includes("google") && info.hasPassword === false;
-
-      if (info.exists === false) {
-        setError({
-          bn: "এই ইমেইলে আমাদের কোনো অ্যাকাউন্ট নেই। আগে সাইন আপ করুন — অথবা বানান ঠিক আছে কি না দেখুন।",
-          action: "signup",
-        });
-        return;
-      }
-      if (info.unconfirmed) {
+      if (info.matched && info.unconfirmed) {
         setError({
           bn: "অ্যাকাউন্টটি আছে, কিন্তু ইমেইল এখনো যাচাই হয়নি। ইনবক্সের লিংকে ক্লিক করুন, অথবা নিচের বাটনে আবার পাঠান।",
           resend: true,
         });
         return;
       }
+
+      const googleOnly = info.matched && info.providers.includes("google") && info.hasPassword === false;
       if (googleOnly) {
         setError({
           bn: "এই অ্যাকাউন্টটি Google দিয়ে তৈরি — এতে পাসওয়ার্ড নেই। নিচের Google বাটনে চাপ দিন, অথবা পাসওয়ার্ড ভুলে গেছি দিয়ে একটি পাসওয়ার্ড সেট করুন।",
@@ -288,8 +291,9 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
         });
         return;
       }
+
       setError({
-        bn: "পাসওয়ার্ড মিলছে না। পাসওয়ার্ড ভুলে গেছে? নিচের বাটনে চাপ দিয়ে নতুন পাসওয়ার্ড সেট করুন।",
+        bn: "পাসওয়ার্ড মিলছে না। পাসওয়ার্ড ভুলে গেছে? নিচের বাটনে চাপ দিয়ে নতুন পাসওয়ার্ড সেট করুন — অথবা আগে সাইন আপ করেননি হলে সাইন আপ করুন।",
         action: "reset",
       });
     } catch {

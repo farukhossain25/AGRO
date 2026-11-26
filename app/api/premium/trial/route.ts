@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { db } from "@/lib/db";
 import { ok, fail, handleError, currentUser, rateLimit } from "@/lib/api";
 import { deviceFingerprint, hashIp } from "@/lib/stream-auth";
@@ -14,8 +13,8 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   try {
     const user = await currentUser();
-    const fingerprint = deviceFingerprint(req);
-    const state = await resolvePremiumState(user?.id ?? null, user?.role ?? null, fingerprint);
+    const deviceHash = deviceFingerprint(req);
+    const state = await resolvePremiumState(user?.id ?? null, user?.role ?? null, deviceHash);
     const settings = await getPremiumSettings();
 
     return ok({
@@ -41,10 +40,6 @@ export async function GET(req: Request) {
   }
 }
 
-const trialSchema = z.object({
-  hint: z.string().max(120).optional(),
-});
-
 export async function POST(req: Request) {
   try {
     const limited = rateLimit(
@@ -56,13 +51,23 @@ export async function POST(req: Request) {
       return fail("অনেকবার চেষ্টা করা হয়েছে — এক ঘণ্টা পর আবার দিন", 429);
     }
 
-    const body = await req.json().catch(() => ({}));
-    const { hint } = trialSchema.parse(body);
-
-    const fingerprint = deviceFingerprint(req, hint);
+    /* A trial belongs to an ACCOUNT. It used to be anonymous, keyed by a
+       fingerprint that included a browser-supplied "hint" — so a visitor could
+       change the hint and mint unlimited trials without ever signing up.
+       Requiring a session is what makes "one trial per account" meaningful;
+       the device/IP hash then stops the same person opening a second account
+       and getting another one straight away. */
     const user = await currentUser();
+    if (!user) {
+      return fail("ফ্রি ট্রায়াল নিতে লগইন করুন", 401);
+    }
 
-    const state = await resolvePremiumState(user?.id ?? null, user?.role ?? null, fingerprint);
+    // Body is ignored on purpose: nothing the browser sends may influence the
+    // identity. Reading it would only invite the old `hint` back.
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "";
+    const deviceHash = deviceFingerprint(req);
+
+    const state = await resolvePremiumState(user.id, user.role, deviceHash);
 
     // Already has full access — nothing to start.
     if (state.isPremium) {
@@ -79,9 +84,9 @@ export async function POST(req: Request) {
     }
 
     const grant = await startTrial({
-      fingerprint,
-      userId: user?.id ?? null,
-      ip: hashIp(req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? ""),
+      deviceHash,
+      userId: user.id,
+      ip: hashIp(ip),
     });
 
     // Analytics + notification are best-effort: never fail the trial on them.
@@ -89,27 +94,25 @@ export async function POST(req: Request) {
     try {
       await client.from("camera_view_logs").insert({
         camera_id: null,
-        user_id: user?.id ?? null,
-        fingerprint,
+        user_id: user.id,
+        fingerprint: deviceHash,
         minutes: 10,
       });
     } catch {
       /* ignore */
     }
 
-    if (user) {
-      try {
-        await client.from("notifications").insert({
-          user_id: user.id,
-          title_bn: "১০ মিনিটের ফ্রি ট্রায়াল শুরু হয়েছে",
-          body_bn:
-            "খামারের লাইভ ক্যামেরা এখন দেখতে পারবেন। ট্রায়াল শেষ হলে প্রিমিয়াম প্ল্যান নিতে পারবেন।",
-          link: "/live",
-          kind: "premium",
-        });
-      } catch {
-        /* ignore */
-      }
+    try {
+      await client.from("notifications").insert({
+        user_id: user.id,
+        title_bn: "১০ মিনিটের ফ্রি ট্রায়াল শুরু হয়েছে",
+        body_bn:
+          "খামারের লাইভ ক্যামেরা এখন দেখতে পারবেন। ট্রায়াল শেষ হলে প্রিমিয়াম প্ল্যান নিতে পারবেন।",
+        link: "/live",
+        kind: "premium",
+      });
+    } catch {
+      /* ignore */
     }
 
     return ok({
