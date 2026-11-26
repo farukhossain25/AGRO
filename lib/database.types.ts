@@ -3131,11 +3131,11 @@ export type Database = {
       Returns: Json
     }
       chat_claim: {
-      Args: { p_chat: string }
+      Args: { p_chat: string; p_actor: string }
       Returns: Json
     }
       chat_close: {
-      Args: { p_chat: string; p_reason: string }
+      Args: { p_chat: string; p_reason: string; p_actor: string }
       Returns: Json
     }
       chat_sweep: {

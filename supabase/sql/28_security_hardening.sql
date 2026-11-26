@@ -73,21 +73,152 @@ create policy "messages own chat read" on public.support_messages
     )
   );
 
--- chat_claim() SECURITY DEFINER আর auth.uid() পড়ে; service key দিয়ে ডাকলে
--- auth.uid() = NULL, তাই ফাংশনটা সবসময় 'unauthenticated' ফিরিয়ে দিত।
--- সমাধান: API এখন auth.uid() সেট করে ডাকে (SET LOCAL request.jwt.claims), আর
--- ক্লায়েন্টের সরাসরি EXECUTE নিষিদ্ধ — নইলে যে কেউ RPC দিয়ে চ্যাট দাবি করতে
--- পারত, অথবা (৩ নম্বরের আগে) নিজের রোল বদলের চেষ্টা করতে পারত।
---
 -- ⚠️ Postgres ফাংশনে ডিফল্টেই PUBLIC-কে EXECUTE দেয়, তাই শুধু
 -- `revoke … from authenticated` **যথেষ্ট নয়** — PUBLIC থেকেও বাতিল করতে হয়।
-revoke execute on function public.chat_claim(uuid)       from public, anon, authenticated;
-revoke execute on function public.chat_close(uuid, text) from public, anon, authenticated;
-revoke execute on function public.chat_sweep()           from public, anon, authenticated;
+-- ক্লায়েন্টের সরাসরি RPC নিষিদ্ধ; সব এখন /api দিয়ে, যেখানে সেশন ও রোল যাচাই হয়।
 
-grant execute on function public.chat_claim(uuid)       to service_role;
-grant execute on function public.chat_close(uuid, text) to service_role;
-grant execute on function public.chat_sweep()           to service_role;
+-- chat_claim() / chat_close() SECURITY DEFINER আর auth.uid() পড়ে। কিন্তু API
+-- service key দিয়ে ডাকে, আর service key-এর সাথে কোনো JWT যায় না — তাই
+-- auth.uid() = NULL, ফলে chat_claim() **সবসময় 'unauthenticated'** ফিরিয়ে দিত
+-- এবং "গ্রহণ করুন" বোতামটা কখনো কাজ করত না।
+--
+-- সমাধান: actor আর auth.uid() থেকে নয়, **এক্সপ্লিসিট প্যারামিটার** থেকে আসে —
+--   chat_claim(p_chat uuid, p_actor uuid)
+--   chat_close(p_chat uuid, p_reason text, p_actor uuid)
+-- রুট নিজেই p_actor পাস করে (requirePermission("chats.handle") পাস করার পরে),
+-- আর ক্লায়েন্টের EXECUTE নেই — তাই কেউ নিজেই নিজেকে actor বানিয়ে ডাকতে পারে না।
+-- p_actor বাদ দিলে (পুরোনো কল) আচরণ আগের মতোই — auth.uid(), অর্থাৎ ব্যর্থ।
+--
+-- chat_sweep()-এর actor লাগে না: সে শুধু সময় পার হওয়া চ্যাট বন্ধ করে, এবং একমাত্র
+-- service_role ডাকতে পারে (কাস্টমার ওয়াজেট DELETE /api/support/chat দিয়ে ডাকে,
+-- যেটা নিজেই একটি রুট)।
+
+create or replace function public.chat_claim(p_chat uuid, p_actor uuid default null)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid    uuid := coalesce(p_actor, auth.uid());
+  v_role   text;
+  v_name   text;
+  v_chat   public.support_chats;
+begin
+  if v_uid is null then
+    return jsonb_build_object('ok', false, 'reason', 'unauthenticated');
+  end if;
+
+  select p.role,
+         coalesce(nullif(btrim(p.full_name), ''), split_part(coalesce(p.email, ''), '@', 1))
+    into v_role, v_name
+    from public.profiles p
+   where p.id = v_uid;
+
+  if v_role is null or v_role not in ('staff', 'manager', 'admin') then
+    return jsonb_build_object('ok', false, 'reason', 'forbidden');
+  end if;
+
+  update public.support_chats c
+     set claimed_by = v_uid,
+         claimed_at = now(),
+         status     = 'claimed',
+         updated_at = now()
+   where c.id = p_chat
+     and c.status <> 'closed'
+     and c.claimed_by is null;
+
+  if not found then
+    select * into v_chat from public.support_chats where id = p_chat;
+    return jsonb_build_object(
+      'ok', false,
+      'reason', case
+                  when v_chat.id is null then 'not_found'
+                  when v_chat.status = 'closed' then 'closed'
+                  else 'taken'
+                end,
+      'claimed_by', v_chat.claimed_by,
+      'claimed_by_name', (
+        select coalesce(nullif(btrim(p.full_name), ''), split_part(coalesce(p.email, ''), '@', 1))
+          from public.profiles p where p.id = v_chat.claimed_by
+      )
+    );
+  end if;
+
+  insert into public.support_messages (chat_id, author_role, author_id, author_name, body, is_system)
+  values (p_chat, 'staff', v_uid, v_name,
+          coalesce(v_name, 'বিশ্বাস এগ্রো টিম') || ' আপনার চ্যাটটি নিয়েছেন — এখনই উত্তর দিচ্ছেন।',
+          true);
+
+  return jsonb_build_object('ok', true, 'claimed_by', v_uid, 'claimed_by_name', v_name);
+end;
+$$;
+
+create or replace function public.chat_close(p_chat uuid, p_reason text default 'staff', p_actor uuid default null)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid  uuid := coalesce(p_actor, auth.uid());
+  v_role text;
+  v_chat public.support_chats;
+begin
+  select * into v_chat from public.support_chats where id = p_chat;
+  if v_chat.id is null then
+    return jsonb_build_object('ok', false, 'reason', 'not_found');
+  end if;
+  if v_chat.status = 'closed' then
+    return jsonb_build_object('ok', true, 'already', true);
+  end if;
+
+  select p.role into v_role from public.profiles p where p.id = v_uid;
+
+  /* A customer may always end their own chat. Staff may end a chat they own,
+     and an admin/manager may end any chat. */
+  if v_chat.user_id is distinct from v_uid
+     and not (
+       v_role in ('admin', 'manager')
+       or (v_role = 'staff' and v_chat.claimed_by = v_uid)
+     ) then
+    return jsonb_build_object('ok', false, 'reason', 'forbidden');
+  end if;
+
+  update public.support_chats
+     set status        = 'closed',
+         closed_at     = now(),
+         closed_by     = v_uid,
+         closed_reason = p_reason,
+         updated_at    = now()
+   where id = p_chat;
+
+  insert into public.support_messages (chat_id, author_role, author_id, body, is_system)
+  values (p_chat, 'staff', v_uid,
+          case p_reason
+            when 'customer' then 'কাস্টমার চ্যাটটি শেষ করেছেন।'
+            when 'timeout'  then 'নির্ধারিত সময়ে উত্তর পাওয়া যায়নি — চ্যাটটি স্বয়ংক্রিয়ভাবে বন্ধ হয়েছে।'
+            else 'চ্যাটটি বন্ধ করা হয়েছে।'
+          end,
+          true);
+
+  return jsonb_build_object('ok', true);
+end;
+$$;
+
+-- পুরোনো এক-আর্গুমেন্ট সিগনেচার রেখে দিলে PostgREST `p_chat` দিয়ে দুইটা
+-- ওভারলোড খুঁজে পায় আর "could not choose the best candidate" দেয়। তাই
+-- পুরোনোটা সরিয়ে দিলাম; নতুনটার ডিফল্ট থাকায় `{p_chat}` কল এখনো চলে।
+drop function if exists public.chat_claim(uuid);
+drop function if exists public.chat_close(uuid, text);
+
+revoke execute on function public.chat_claim(uuid, uuid)          from public, anon, authenticated;
+revoke execute on function public.chat_close(uuid, text, uuid)    from public, anon, authenticated;
+revoke execute on function public.chat_sweep()                    from public, anon, authenticated;
+
+grant execute on function public.chat_claim(uuid, uuid)       to service_role;
+grant execute on function public.chat_close(uuid, text, uuid) to service_role;
+grant execute on function public.chat_sweep()                 to service_role;
 
 -- ==================================================== 2. one chat per head ==
 --

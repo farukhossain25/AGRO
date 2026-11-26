@@ -187,7 +187,15 @@ export async function POST(req: Request) {
       if (chat.status === "closed") return fail("চ্যাটটি ইতিমধ্যে বন্ধ", 409);
 
       // Atomic at the database level: one UPDATE … WHERE claimed_by IS NULL.
-      const { data, error } = await db().rpc("chat_claim" as never, { p_chat: input.chatId } as never);
+      /* p_actor: the RPC reads auth.uid() normally, but this call runs with the
+         service key, so auth.uid() is NULL and the claim always came back
+         "unauthenticated". The route has already checked chats.handle above,
+         and client EXECUTE on the RPC is revoked in 28_security_hardening.sql,
+         so passing the verified session id is the only way to say "who". */
+      const { data, error } = await db().rpc("chat_claim" as never, {
+        p_chat: input.chatId,
+        p_actor: user.id,
+      } as never);
       if (error) throw error;
       const result = (data ?? {}) as { ok?: boolean; reason?: string; claimed_by_name?: string };
 
@@ -261,6 +269,8 @@ export async function POST(req: Request) {
     const { data, error } = await db().rpc("chat_close" as never, {
       p_chat: chat.id,
       p_reason: input.reason,
+      // Same reason as chat_claim above: the session id, already authorised.
+      p_actor: user.id,
     } as never);
     if (error) throw error;
     return ok(data ?? { ok: true });

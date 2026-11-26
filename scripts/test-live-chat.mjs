@@ -177,14 +177,14 @@ await db.exec(`
   values ('${other}', 'রাকিব', 'rakib@example.com', 'customer')
   on conflict (id) do update set full_name = excluded.full_name;
 `);
-const chat2 = (
+const chatNotStaff = (
   await db.query(`
     insert into public.support_chats (user_id, customer_name, subject)
     values ('${other}', 'রাকিব', 'ডেলিভারি কখন?') returning id
   `)
 ).rows[0].id;
 await actAs(customer);
-const notStaff = (await db.query(`select public.chat_claim('${chat2}') as r`)).rows[0].r;
+const notStaff = (await db.query(`select public.chat_claim('${chatNotStaff}') as r`)).rows[0].r;
 check("a customer cannot claim a chat", notStaff.ok === false && notStaff.reason === "forbidden", JSON.stringify(notStaff));
 
 // ── 10. one live chat per customer ──────────────────────────────────────
@@ -225,6 +225,39 @@ for (const [input, expected] of cases) {
   const got = prettyPhoneBn(input);
   check(`phone ${input} prints as ${expected}`, got === expected, got);
 }
+
+// ── 12. the actor comes from a parameter, not from auth.uid() ────────────
+/* The API calls chat_claim() with the SERVICE key. A service-key request carries
+   no JWT, so auth.uid() is NULL and the function answered "unauthenticated"
+   every single time — the "গ্রহণ করুন" button could never work. 28 adds
+   p_actor; these two checks are the contract the route relies on: a call with
+   an actor works, a call without one still refuses. */
+const chatActor = (
+  await db.query(`
+    insert into public.support_chats (user_id, customer_name, subject, reply_window_min)
+    values ('${customer}', 'সুমাইয়া', 'দ্বিতীয় চ্যাট?', 15)
+    returning id
+  `)
+).rows[0].id;
+
+await db.exec(`select set_config('request.jwt.claim.sub', '', false)`);
+const noActor = (await db.query(`select public.chat_claim('${chatActor}') as r`)).rows[0].r;
+check("claim without actor is refused", noActor.ok === false && noActor.reason === "unauthenticated", JSON.stringify(noActor));
+
+const withActor = (await db.query(`select public.chat_claim('${chatActor}', '${staff1}') as r`)).rows[0].r;
+check("claim with an actor succeeds", withActor.ok === true, JSON.stringify(withActor));
+
+/* No chat row needed: chat_claim() checks the actor's role BEFORE it touches
+   the row, so a customer id is refused as "forbidden" either way. Using a
+   literal id also avoids the one-live-chat-per-customer unique index. */
+const customerActor = (
+  await db.query(`select public.chat_claim(gen_random_uuid(), '${customer}') as r`)
+).rows[0].r;
+check(
+  "a customer id as actor is still forbidden",
+  customerActor.ok === false && customerActor.reason === "forbidden",
+  JSON.stringify(customerActor)
+);
 
 console.log(`\n${failed === 0 ? "All live-chat rules hold. ✅" : `${failed} check(s) FAILED`}`);
 process.exit(failed ? 1 : 0);

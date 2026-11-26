@@ -38,15 +38,31 @@ const timeoutFetch: typeof fetch = (input, init) => {
     .finally(() => clearTimeout(timer));
 };
 
+/**
+ * The server key, in the order the rest of the app already uses.
+ *
+ * Supabase renamed the service-role key to "secret key" (`sb_secret_…`), and
+ * lib/env.ts accepted both from the start. This file did not: it read
+ * SUPABASE_SERVICE_ROLE_KEY only, so a deployment configured the new way —
+ * SUPABASE_SECRET_KEY set, the legacy name unset — left every call to db()
+ * throwing "Supabase is not configured" while the public pages (which use
+ * lib/env.ts) worked fine. Symptom: the site browsed normally but every panel
+ * screen and every API mutation failed.
+ */
+export function serverSupabaseKey(): string {
+  return process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+}
+
 export function db(): SupabaseClient<Database> {
   if (adminClient) return adminClient;
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const key = serverSupabaseKey();
 
   if (!url || !key) {
     throw new Error(
-      "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env.local"
+      "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SECRET_KEY " +
+        "(or the legacy SUPABASE_SERVICE_ROLE_KEY) in .env.local"
     );
   }
 
@@ -122,7 +138,7 @@ export function dbUsable(): boolean {
 
 /** True when Supabase credentials are present (used for graceful demo mode). */
 export function isDbConfigured(): boolean {
-  return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+  return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && serverSupabaseKey());
 }
 
 /**
