@@ -2,24 +2,14 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
-import {
-  Check,
-  ChevronDown,
-  Clock,
-  Mail,
-  MapPin,
-  Phone,
-  Send,
-  Sprout,
-} from "lucide-react";
+import { ChevronDown, Clock, Mail, MapPin, Phone, Sprout } from "lucide-react";
 import { useLocale } from "@/lib/locale";
-import { useToast } from "@/lib/toast";
 import { footerLinks } from "@/lib/site";
 import { useStoreInfo } from "@/lib/store-info";
 import { toBn } from "@/lib/format";
 import { Logo } from "./icon-logo";
+import { NewsletterSignup } from "./newsletter-signup";
 import { FooterPayments, type FooterPaymentMethod as FooterPaymentMethodType } from "./footer-payments";
-import { Spinner } from "./ui";
 
 /* ==========================================================================
    <SiteFooter /> — the storefront's closing block
@@ -59,31 +49,7 @@ export function SiteFooter({
   paymentMethods?: FooterPaymentMethodType[];
 }) {
   const { t } = useLocale();
-  const toast = useToast();
   const store = useStoreInfo();
-  const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  async function subscribe(e: React.FormEvent) {
-    e.preventDefault();
-    if (!email.trim()) return;
-    setLoading(true);
-    try {
-      const res = await fetch("/api/newsletter", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.message || "সমস্যা হয়েছে");
-      toast.success(t("সাবস্ক্রাইব সম্পন্ন!", "You're subscribed!"), t("ধন্যবাদ, প্রতি সপ্তাহে টিপস পাবেন।", "Weekly tips are on the way."));
-      setEmail("");
-    } catch (err) {
-      toast.error(t("সাবস্ক্রাইব ব্যর্থ", "Subscription failed"), (err as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   const categoryLinks: FooterLink[] = categories.slice(0, 6).map((c) => ({
     href: `/categories/${c.slug}`,
@@ -176,58 +142,11 @@ export function SiteFooter({
                 stretched gaps, the whitespace falls to the bottom of the
                 column where it reads as breathing room */}
             <div className="flex flex-col gap-4">
-            <div className="card rounded-[26px] p-5 sm:p-6">
-              <div className="flex items-start gap-4">
-                <span
-                  className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-leaf-600/15 text-neu-accent-strong"
-                  aria-hidden
-                >
-                  <Mail className="h-5 w-5" />
-                </span>
-                <div className="min-w-0">
-                  <h3 className="text-[18px] font-bold leading-tight tracking-tight sm:text-[20px]">
-                    {t("সাপ্তাহিক তাজা খবর", "Fresh news, weekly")}
-                  </h3>
-                  <p className="mt-1.5 text-[12.5px] leading-relaxed text-neu-muted">
-                    {t(
-                      "মৌসুমি সবজি, রেসিপি ও এক্সক্লুসিভ ছাড় — সবার আগে আপনার ইনবক্সে।",
-                      "Seasonal produce, recipes and exclusive discounts, first in your inbox."
-                    )}
-                  </p>
-                </div>
-              </div>
-              <form onSubmit={subscribe} className="mt-5 flex gap-2">
-                <label className="relative flex-1">
-                  <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-neu-faint" />
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder={t("আপনার ইমেইল", "Your email")}
-                    className="input !rounded-full !pl-11"
-                    aria-label={t("ইমেইল ঠিকানা", "Email address")}
-                  />
-                </label>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="btn-primary shrink-0 !px-5"
-                  /* icon-only on a phone: the name must not disappear with the text */
-                  aria-label={t("সাবস্ক্রাইব করুন", "Subscribe")}
-                >
-                  {loading ? <Spinner /> : <Send className="h-4 w-4" />}
-                  <span className="hidden sm:inline">{t("সাবস্ক্রাইব", "Subscribe")}</span>
-                </button>
-              </form>
-              <p className="mt-3 flex items-start gap-1.5 text-[11.5px] leading-relaxed text-neu-faint">
-                <Check className="mt-[2px] h-3 w-3 shrink-0 text-neu-accent" aria-hidden />
-                {t(
-                  "সপ্তাহে একটাই মেইল, কোনো স্প্যাম নেই — যেকোনো সময় আনসাবস্ক্রাইব।",
-                  "One email a week, no spam — unsubscribe anytime."
-                )}
-              </p>
-            </div>
+              {/* The card lives in <NewsletterSignup variant="card"> so the
+                  homepage band and the footer share one form, one endpoint and
+                  one copy — they used to be two copies of the same code that
+                  could drift apart. */}
+              <NewsletterSignup variant="card" />
 
             {/* farm family counter — the same number the home page brags about,
                 as a raised tile that closes the column on desktop */}

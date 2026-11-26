@@ -31,7 +31,11 @@ const REPORT_ONLY = process.argv.includes("--report");
  * Current headroom: home 96 kB gz of a 130 kB budget, catalogue 106/130.
  */
 const BUDGETS = [
-  { match: /^\/$/, budget: 132, label: "home" },
+  /* 132 → 134: the home page gained the product ring (revision 10) — a real
+     3D cylinder with drag/scroll/keyboard handling, ~1.8 kB gz of behaviour
+     that cannot be shipped without JavaScript. Measured at 132.4 after the
+     feature; everything else on the page is unchanged. */
+  { match: /^\/$/, budget: 134, label: "home" },
   { match: /^\/products(\/|$)/, budget: 135, label: "catalogue" },
   { match: /^\/categories(\/|$)/, budget: 135, label: "categories" },
   { match: /^\/combos(\/|$)/, budget: 135, label: "combos" },
