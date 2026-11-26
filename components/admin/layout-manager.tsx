@@ -262,6 +262,8 @@ function ConfigDrawer({
     product_ring: [
       { key: "heading_bn", label: "শিরোনাম", type: "text" },
       { key: "limit", label: "চাকায় কতটি পণ্য (৬–২৪)", type: "number" },
+      { key: "spin_speed", label: "এক পাকে কত সেকেন্ড (৬–১২০, কম = দ্রুত)", type: "number" },
+      { key: "free_spin", label: "চাকা নিজে ঘোরে (১ = হ্যাঁ, ০ = শুধু টেনে)", type: "number" },
     ],
     reviews: [{ key: "limit", label: "কতটি রিভিউ", type: "number" }],
     blog: [{ key: "limit", label: "কতটি পোস্ট", type: "number" }],
@@ -305,6 +307,16 @@ function ConfigDrawer({
               </label>
             ))
           )}
+
+          {/* The two numbers above are meaningless on their own ("১৮" what?),
+              so the drawer says what they do to the wheel in plain words. */}
+          {row.key === "product_ring" ? (
+            <p className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[10.5px] leading-relaxed text-sand-100/45">
+              “এক পাক” কমালে চাকা দ্রুত ঘুরবে। গ্রাহক মাউস রাখলে বা ধরলে চাকা থেমে যায়,
+              ছাড়লে আবার ঘোরে। “নিজে ঘোরে = ০” দিলে চাকা স্থির থাকবে, শুধু টেনে বা তীর
+              চেপে ঘোরাতে হবে।
+            </p>
+          ) : null}
         </div>
 
         <div className="flex gap-2 border-t border-white/[0.06] px-4 py-3">
@@ -316,6 +328,12 @@ function ConfigDrawer({
               const patch: Record<string, unknown> = {};
               for (const field of fields) {
                 const raw = values[field.key];
+                if (field.key === "free_spin") {
+                  /* 0 / 1 from the number box → a real boolean, because the
+                     homepage renderer tests `config.free_spin !== false`. */
+                  patch[field.key] = String(raw ?? "").trim() !== "0";
+                  continue;
+                }
                 patch[field.key] = field.type === "number" ? Number(raw || 0) : raw;
               }
               onSave(row.id, patch);

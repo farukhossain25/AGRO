@@ -3,12 +3,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Hand, Plus, ShoppingBag, Sparkles } from "lucide-react";
 import { useCart } from "@/lib/cart";
 import { useLocale } from "@/lib/locale";
 import { useToast } from "@/lib/toast";
 import { discountPercent, money, toBn } from "@/lib/format";
-import { StarRating } from "@/components/ui";
 
 /* ==========================================================================
    RingShowcase — the products as a cylinder you spin
@@ -73,8 +71,12 @@ export type RingCategory = {
 };
 
 const GAP = 20; // px between neighbouring cards on the cylinder
-const AUTOPLAY_MS = 5200;
-const IDLE_BEFORE_RESUME = 6000; // ms after a drag before autoplay resumes
+/* One full lap, in seconds. The owner tunes this in /foisal/homepage
+   ("সেকেন্ডে এক পাক") and the component converts it to degrees per ms. */
+const DEFAULT_SECONDS_PER_TURN = 14;
+/* A single trackpad flick fires dozens of wheel events; latching keeps it to
+   one "step" per gesture instead of spinning the ring three cards. */
+const WHEEL_LATCH_MS = 120;
 /* The lens is NOT a constant: a closed ring of n cards needs a radius that
    grows with n, and a constant lens would blow the front card up as the owner
    raises the count (12 cards on the wheel once rendered a 420px monster).
@@ -90,10 +92,16 @@ export function RingShowcase({
   products,
   categories,
   headingBn,
+  spin = true,
+  secondsPerTurn = DEFAULT_SECONDS_PER_TURN,
 }: {
   products: RingProduct[];
   categories: RingCategory[];
   headingBn: string;
+  /** Continuous slow rotation ("চাকা নিজে ঘোরে"). Off = only moves on input. */
+  spin?: boolean;
+  /** Seconds for one full lap when free-spinning. Admin-set, clamped 6–120. */
+  secondsPerTurn?: number;
 }) {
   const { t, isBn } = useLocale();
   const cart = useCart();
@@ -101,10 +109,13 @@ export function RingShowcase({
 
   const [catId, setCatId] = useState("all");
   const [active, setActive] = useState(0);
-  const [hovered, setHovered] = useState(false);
-  const [dragging, setDragging] = useState(false);
+
+  /* Mirror of `hovered` for event handlers, which run outside the render that
+     produced the state and must not read a stale closure over it. */
+
   const [reduce, setReduce] = useState(false);
   const [stageW, setStageW] = useState(0);
+
 
   const items = useMemo(
     () => (catId === "all" ? products : products.filter((p) => p.category_id === catId)),
@@ -165,8 +176,36 @@ export function RingShowcase({
   const index = useRef(0); // unbounded step counter → a spin never rewinds
   const cards = useRef<(HTMLElement | null)[]>([]);
   const shades = useRef<(HTMLDivElement | null)[]>([]);
-  const raf = useRef(0);
+  /* Free-spin velocity in degrees per millisecond, derived from the admin's
+     seconds-per-turn. Kept in a ref so the rAF loop never re-subscribes when
+     the owner changes the number. */
+  const freeSpeed = useRef(360 / (Math.max(6, secondsPerTurn) * 1000));
+  const freeSpin = useRef(spin);
+  useEffect(() => {
+    /* Written in an effect, never during render: React may render twice and
+       throw a render away, and a ref assigned during render keeps the value
+       from the discarded pass. */
+    freeSpeed.current = 360 / (Math.max(6, secondsPerTurn) * 1000);
+    freeSpin.current = spin;
+  }, [secondsPerTurn, spin]);
+  const spinAngle = useRef(0); // continuous free rotation, never snaps
+  /* Set by go(): "ease to this exact card, then carry on spinning". The card
+     grid is anchored on the card nearest the wheel at the moment of the
+     gesture, so a step's destination is always index * step. */
+  const snap = useRef<number | null>(null);
+  /* Which card is physically nearest the front. In a ref because the rAF loop
+     must read it without re-rendering; React is only told when the answer
+     changes (≈ once per card), which updates aria/counter/add-to-cart. */
+  const frontRef = useRef(0);
+  const pausedRef = useRef(false);
   const drag = useRef<{ x: number; from: number } | null>(null);
+  /* Resume the free spin from wherever the wheel currently is. */
+  const resume = useCallback(() => {
+    spinAngle.current = angle.current;
+    target.current = angle.current;
+    pausedRef.current = false;
+  }, []);
+
   /* Whether a real drag started lives in a ref, not in state: pointerup can
      arrive in the same batch as the first pointermove, and a handler that
      reads `dragging` from state would then still see `false` and skip the
@@ -176,6 +215,7 @@ export function RingShowcase({
   const moved = useRef(0);
   const suppressClick = useRef(false);
   const lastTouch = useRef(0);
+  const tabHiddenRef = useRef(false);
 
   const boxRef = useRef(box);
   boxRef.current = box;
@@ -208,53 +248,216 @@ export function RingShowcase({
     }
   }, []);
 
-  const animate = useCallback(() => {
-    const diff = target.current - angle.current;
-    if (Math.abs(diff) < 0.06 || reduce) {
-      angle.current = target.current;
-      paint();
-      raf.current = 0;
-      return;
-    }
-    angle.current += diff * 0.16;
-    paint();
-    raf.current = requestAnimationFrame(animate);
-  }, [paint, reduce]);
+  /* One frame. Pure with respect to React state: it reads refs, writes DOM
+     styles and, at most once per card, calls setActive. It deliberately does
+     NOT schedule itself — the driver effect in steps() owns requestAnimationFrame,
+     which is what stops two loops from stacking (two rAF callbacks each
+     asking for the next frame made the wheel run at exactly half speed). */
+  const frame = useCallback(
+    (dt: number): boolean => {
+      /* "Enabled" and "moving right now" are different questions. The loop
+         keeps running for as long as free spin is enabled, idling while the
+         wheel is paused (hover/drag/hidden tab). It used to return false on
+         the first paused frame, and every path that forgot to restart it left
+         the wheel frozen — the class of bug that made the spin measure 1°/s
+         in one run and 9°/s in the next. A rAF that returns early is free. */
+      /* Both the ref (authoritative, updated by effects) and the prop are
+         consulted: a stale ref after a HMR remount has frozen the wheel more
+         than once during this build, and the prop is always whatever React
+         last rendered. */
+      /* A pending snap outranks the free spin: the visitor asked for a card,
+         so the wheel eases onto that card's exact angle and then hands control
+         back to the spin. Without this the spin's own drift pushed the wheel
+         off the card grid on every gesture, so the counter and the picture
+         disagreed by up to half a card. */
+      if (snap.current !== null) {
+        const dest = snap.current;
+        const gap = dest - angle.current;
+        if (Math.abs(gap) < 0.06 || reduce) {
+          angle.current = dest;
+          spinAngle.current = dest;
+          target.current = dest;
+          snap.current = null;
+          paint();
+        } else {
+          angle.current += gap * Math.min(1, dt / 130);
+          spinAngle.current = angle.current;
+          paint();
+        }
+        const nSnap = itemsRef.current.length;
+        if (nSnap) {
+          const frontSnap = mod(Math.round(-angle.current / boxRef.current.step), nSnap);
+          if (frontSnap !== frontRef.current) {
+            frontRef.current = frontSnap;
+            setActive(frontSnap);
+          }
+        }
+        return true;
+      }
 
+      const enabled = (freeSpin.current || spin) && !reduce;
+      /* Hovering the wheel pauses it; hovering *elsewhere on the page* must
+         not — the wheel sits low on a phone and slightly below the fold on a
+         laptop, and a pause that depended on where the pointer happened to be
+         left the wheel frozen after every single interaction. */
+      const spinning = enabled && !pausedRef.current && !tabHiddenRef.current;
+      const diff = target.current - angle.current;
+
+      if (enabled) {
+        if (!spinning) return true; // paused: hold position, keep the loop
+        /* Free spin: constant angular velocity. index/target are kept in step
+           so the moment someone grabs the wheel the drag starts exactly where
+           the animation left it, not at a stale angle. */
+        spinAngle.current += freeSpeed.current * dt;
+        angle.current = spinAngle.current;
+        index.current = -angle.current / boxRef.current.step;
+        target.current = angle.current;
+        /* Paint every frame. Without this the DOM only caught up when a card
+           change re-rendered React — the wheel appeared to step card-to-card
+           and measured at half the configured speed. */
+        paint();
+      } else if (Math.abs(diff) < 0.06 || reduce) {
+        /* Easing finished — or reduced motion, where the wheel only ever
+           jumps to the card the visitor asked for. */
+        angle.current = target.current;
+        spinAngle.current = angle.current;
+        paint();
+        return false;
+      } else {
+        /* Time-based easing (not per-frame lerp): the wheel reaches the next
+           card in a predictable ~350ms whatever the refresh rate, and the
+           last few frames stop being an invisible 3px crawl. */
+        const k = Math.min(1, dt / 120);
+        angle.current += diff * k;
+        spinAngle.current = angle.current;
+        paint();
+      }
+
+      /* Tell React which card is at the front, but only when it changed: the
+         counter, aria-current, the product link and the add-to-cart button all
+         depend on it, and re-rendering 60×/s would defeat the whole point. */
+      const n = itemsRef.current.length;
+      if (n) {
+        const front = mod(Math.round(-angle.current / boxRef.current.step), n);
+        if (front !== frontRef.current) {
+          frontRef.current = front;
+          setActive(front);
+        }
+      }
+      return true;
+    },
+    [paint, reduce, spin]
+  );
+
+  /* The loop. Runs while free-spin is on, or while an eased move is still in
+     flight; stops itself the moment neither is true. Exactly one loop can be
+     alive because this is the only place requestAnimationFrame is scheduled. */
+  const frameRef = useRef<(dt: number) => boolean>(() => false);
+  useEffect(() => {
+    frameRef.current = frame;
+  }, [frame]);
+
+  /* A plain self-scheduling loop for the whole life of the component.
+     It is not started/stopped by effects at all — effects are the thing that
+     kept losing the start (a re-render cancelled the rAF and the replacement
+     effect saw nothing new to react to). One mount, one loop, and `frame()`
+     decides what (if anything) to do each tick. `frame` itself reads only
+     refs, so the loop never needs the latest closure. */
+  useEffect(() => {
+    let id = 0;
+    let last = 0;
+    const tick = (now: number) => {
+      /* Clamp to ONE frame, not to 64 ms: after a pause (hover, drag, hidden
+         tab) the first frame's `now - last` is the whole pause, and at 64 ms
+         the wheel lurched 2° — which compounded into the multi-card jumps this
+         wheel kept producing. 16.7 is a normal frame; anything larger is a
+         stall and motion should simply continue from where it was. */
+      const dt = last ? Math.min(17, now - last) : 16.7;
+      last = now;
+      frameRef.current(dt);
+      id = requestAnimationFrame(tick);
+    };
+    id = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  /* Explicit nudge for the places that used to call `start()`: an arrow, a
+     card tap, a drag release. Kept as a state bump because `go()` runs before
+     some of the geometry is committed. */
+  /* Explicit nudge for the places that used to call `start()`: an arrow, a
+     card tap, a drag release. `target` is a ref, so a state bump is what tells
+     the driver effect to look again. The loop itself stays single-owner. */
   const start = useCallback(() => {
-    cancelAnimationFrame(raf.current);
-    raf.current = requestAnimationFrame(animate);
-  }, [animate]);
+    /* The loop runs for the life of the component; nothing to start. Kept as a
+       named no-op-with-a-paint so every caller reads the same. */
+    paint();
+  }, [paint]);
 
   /* ------------------------------------------------------------- navigation */
+  /* One card STEP is always a quarter turn of the animation *and* exactly one
+     integer index. Everything below expresses "next" as "one step from the card
+     currently in front", never as "the float angle + step" — that is where the
+     earlier versions lost gestures.
+   
+     Two modes:
+       free spin on  → the wheel is in continuous motion, so a step has to be
+                       applied immediately (the easing branch is unreachable);
+                       it moves the angle by exactly one step and re-bases the
+                       spin on the new angle.
+       free spin off → smooth ease to the neighbouring card. */
   const go = useCallback(
     (delta: number) => {
       const n = itemsRef.current.length;
       if (n < 2) return;
-      index.current += delta;
-      target.current = -index.current * boxRef.current.step;
+      const { step } = boxRef.current;
+      /* Which card is nearest the front right now, expressed as an integer
+         multiple of `step` that is also the angle the wheel is closest to. */
+      const nearest = Math.round(-angle.current / step);
+      const dest = (nearest - delta) * step;
+
+      /* Park the spin on the current angle first. If the free spin is allowed
+         to advance between this line and the next frame, the snap's starting
+         point is already stale and the easing overshoots past the card — which
+         looked like a random jump of two or three cards. */
+      spinAngle.current = angle.current;
+      target.current = angle.current;
+      index.current = -(dest / step);
       setActive(mod(index.current, n));
+      frontRef.current = mod(index.current, n);
       lastTouch.current = Date.now();
-      /* A resize between the click and the frame must not leave the ring on a
-         stale radius — paint() reads boxRef, so it is already correct. */
       if (reduce) {
-        angle.current = target.current;
+        angle.current = dest;
+        spinAngle.current = dest;
+        target.current = dest;
         paint();
-      } else {
-        start();
+        return;
       }
+      /* Always ease. Applying the new angle here (which earlier versions did
+         while free-spinning) moved the wheel by a full step before the easing
+         branch had even seen it, so one gesture skipped one or two cards. The
+         tick is the only writer of `angle`; a gesture only sets the target. */
+      snap.current = dest;
+      start();
     },
     [paint, reduce, start]
   );
+
+  useEffect(() => {
+    goRef.current = go;
+  }, [go]);
 
   const focusCard = useCallback(
     (i: number, from?: HTMLElement) => {
       const n = itemsRef.current.length;
       if (!n) return;
-      const cur = mod(index.current, n);
+      /* While free-spinning, `index` is the card physically nearest the front
+         and may be fractional's floor — round it so taps resolve to the card
+         the visitor is actually looking at. */
+      const cur = mod(Math.round(index.current), n);
       /* Shortest way round, so tapping the card on the left does not spin the
          whole cylinder the long way. */
       let delta = i - cur;
+      index.current = cur;
       if (delta > n / 2) delta -= n;
       if (delta < -n / 2) delta += n;
       go(delta);
@@ -275,6 +478,52 @@ export function RingShowcase({
      rebuilt from it. A ResizeObserver (not a window listener) so a sidebar
      opening on desktop also re-lays it out. */
   const stageEl = useRef<HTMLDivElement | null>(null);
+
+  /* Scroll-to-spin, bound natively.
+     React attaches `onWheel` as a PASSIVE listener on the root, so
+     preventDefault() inside it is ignored and Chrome logs "Unable to prevent
+     Default" — the wheel would turn *and* the page would scroll. Binding the
+     element directly with { passive: false } is the only way to take the
+     gesture on the element while leaving the rest of the page alone.
+     Downward scroll is never touched: the page keeps scrolling as usual and
+     only an upward gesture over the wheel spins it. */
+  const goRef = useRef<(delta: number) => void>(() => {});
+  useEffect(() => {
+    const el = stageEl.current;
+    if (!el) return;
+    let latched = false;
+    let releaseTimer = 0;
+    const onWheel = (e: WheelEvent) => {
+      /* Downward scroll is the page's own. Never preventDefault on it. */
+      if (Math.abs(e.deltaY) < 2 || e.deltaY > 0) return;
+      e.preventDefault();
+      /* One step per gesture: a trackpad flick fires dozens of events, and a
+         time-only latch let two of them through while the wheel was already
+         turning, so one flick skipped a card. The latch clears shortly after
+         the events stop. */
+      if (latched) {
+        window.clearTimeout(releaseTimer);
+        releaseTimer = window.setTimeout(() => {
+          latched = false;
+        }, WHEEL_LATCH_MS);
+        return;
+      }
+      latched = true;
+      window.clearTimeout(releaseTimer);
+      releaseTimer = window.setTimeout(() => {
+        latched = false;
+      }, WHEEL_LATCH_MS);
+      /* One card per gesture. A mouse notch and a trackpad flick both mean
+         "next, please" — asking for two cards on a long flick made the wheel
+         skip and then look stuck on the next gesture. */
+      goRef.current(1);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      window.clearTimeout(releaseTimer);
+      el.removeEventListener("wheel", onWheel);
+    };
+  }, []);
 
   useEffect(() => {
     const el = stageEl.current;
@@ -306,24 +555,32 @@ export function RingShowcase({
     paint();
   }, [catId, paint]);
 
+  /* Pause while the visitor is reading: hover, a drag in progress, or focus
+     inside the wheel. The pause is a ref (the loop reads it every frame) and
+     the resume goes through `kick()` so the loop is restarted, not duplicated. */
+  /* A background tab must not bank up rotation and then jump when it is
+     looked at again: one state flag, watched by the driver effect. */
   useEffect(() => {
-    if (reduce || hovered || dragging || items.length < 2) return;
-    const timer = window.setInterval(() => {
-      if (document.visibilityState !== "visible") return;
-      if (Date.now() - lastTouch.current < IDLE_BEFORE_RESUME) return;
-      go(1);
-    }, AUTOPLAY_MS);
-    return () => window.clearInterval(timer);
-  }, [reduce, hovered, dragging, items.length, go]);
-
-  useEffect(() => () => {
-    cancelAnimationFrame(raf.current);
-    dragActive.current = false;
+    const onVis = () => {
+      tabHiddenRef.current = document.visibilityState === "hidden";
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
   }, []);
+
+  /* First paint and every config change: make sure something is on screen
+     even when free spin is off (the wheel must not start blank). */
+  useEffect(() => {
+    paint();
+  }, [paint, items.length, secondsPerTurn, spin]);
 
   /* ---------------------------------------------------------------- events */
   function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
     if (e.pointerType === "mouse" && e.button !== 0) return;
+    /* Freeze the spin for as long as a finger/mouse is down. The loop stops
+       by itself on the next frame (nothing to animate), so the drag owns the
+       angle outright — no second animation writing over it. */
+    pausedRef.current = true;
     drag.current = { x: e.clientX, from: angle.current };
     dragActive.current = false;
     moved.current = 0;
@@ -342,11 +599,16 @@ export function RingShowcase({
     if (!dragActive.current) {
       if (Math.abs(dx) < 6) return; // a tap, not a drag
       dragActive.current = true;
-      setDragging(true);
+      /* Arm the pause HERE, not in an effect on `dragging`: an effect re-runs
+         after pointerup too (dragging: true → false) and re-paused the wheel
+         the frame after it was resumed. */
+      pausedRef.current = true;
       e.currentTarget.setPointerCapture(e.pointerId);
     }
     moved.current = Math.max(moved.current, Math.abs(dx));
-    angle.current = drag.current.from + dx * 0.24;
+    /* 0.42°/px: a 300px swipe now crosses ~2.6 cards. At 0.24 the wheel felt
+       sluggish on a phone, where the thumb travels far less than a mouse. */
+    angle.current = drag.current.from + dx * 0.42;
     target.current = angle.current;
     paint();
   }
@@ -356,19 +618,30 @@ export function RingShowcase({
     const wasDragging = dragActive.current;
     drag.current = null;
     dragActive.current = false;
-    setDragging(false);
     if (e && e.currentTarget.hasPointerCapture?.(e.pointerId)) {
       e.currentTarget.releasePointerCapture(e.pointerId);
     }
-    /* A tap: the card's own link/button owns the event, the wheel stays put. */
+    /* A tap: the card's own link/button owns the event, the wheel stays put.
+       The pause is released here rather than in the hover effect because on a
+       touch screen `hovered` never changes: pointerdown paused the wheel and
+       nothing else was ever going to un-pause it, so a single tap froze the
+       wheel for good. On a desktop the cursor is usually still over the stage,
+       so it stays paused until the pointer leaves — which is the intent. */
     if (!wasDragging) {
       suppressClick.current = false;
+      resume();
       return;
     }
     index.current = Math.round(-angle.current / boxRef.current.step);
     target.current = -index.current * boxRef.current.step;
     setActive(mod(index.current, itemsRef.current.length));
+    frontRef.current = mod(index.current, itemsRef.current.length);
     lastTouch.current = Date.now();
+    resume();
+    /* Resume from the position the drag ended on — `spinAngle` is the free
+       spin's cursor and must not still hold the pre-drag angle, or the wheel
+       jumps back the moment it starts turning again. */
+    spinAngle.current = angle.current;
     /* A drag that moved more than a nail's width must not also navigate. */
     suppressClick.current = moved.current > 8;
     if (reduce) {
@@ -419,22 +692,22 @@ export function RingShowcase({
       <div className="container-x">
         <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="max-w-2xl">
-            <span className="eyebrow mb-3">
-              <Sparkles className="h-3.5 w-3.5" /> {t("ঘুরিয়ে দেখুন", "Spin to explore")}
-            </span>
+            <span className="eyebrow mb-3">{t("ঘুরিয়ে দেখুন", "Spin to explore")}</span>
             <h2 id="ring-heading" className="h-section">
               {headingBn}
             </h2>
             <p className="mt-3 text-[15px] leading-relaxed text-neu-muted">
               {t(
-                "চাকা টেনে ঘোরান বা তীর চাপুন — সামনে আসা পণ্যের দাম দেখে সরাসরি কার্টে যোগ করুন।",
-                "Drag the wheel or use the arrows — the product at the front shows its price and can go straight to the cart."
+                "চাকা নিজে ঘোরে — ধরলে থেমে যায়, ছাড়লে আবার ঘোরে। টেনে, স্ক্রল করে বা তীর চেপে ঘোরান; সামনের পণ্যটি সরাসরি কার্টে যোগ করুন।",
+                "The wheel turns on its own — it pauses while you hold it and carries on when you let go. Drag, scroll or use the arrows; the product at the front goes straight to the cart."
               )}
             </p>
           </div>
           <Link href="/products" className="btn-ghost btn-sm shrink-0 self-start sm:self-auto">
-            <ShoppingBag className="h-3.5 w-3.5" /> {t("সব পণ্য", "All products")}
-            <ChevronRight className="h-4 w-4" />
+            {t("সব পণ্য", "All products")}
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+              <path d="m9 18 6-6-6-6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </Link>
         </div>
 
@@ -480,25 +753,28 @@ export function RingShowcase({
         {/* ---------------------------------------------------------- stage */}
         <div className="relative">
           <div
-            ref={stageEl}
             role="region"
             aria-roledescription={t("ক্যারোসেল", "carousel")}
             aria-label={headingBn}
             /* A browser's native image drag would start on mousedown over a
                card photo and swallow every pointermove — the wheel would feel
                dead exactly where a visitor naturally grabs it. */
+            ref={stageEl}
             onDragStart={(e) => e.preventDefault()}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={(e) => endDrag(e)}
             onPointerCancel={(e) => endDrag(e)}
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
-            onFocusCapture={() => setHovered(true)}
-            onBlurCapture={() => setHovered(false)}
-            className={`relative h-[372px] touch-pan-y select-none sm:h-[452px] ${
-              dragging ? "cursor-grabbing" : "cursor-grab"
-            }`}
+            /* Keyboard: a card sliding away under a tabber is unusable, so
+               focus pauses; leaving the wheel resumes. */
+            onFocusCapture={() => {
+              pausedRef.current = true;
+            }}
+            onBlurCapture={() => resume()}
+            /* Touch: a finger resting on the wheel stops it, exactly like hover
+               on a desktop. Pointerdown already cancels the loop; this covers
+               the "finger down but not yet moving" case. */
+            className="relative h-[372px] touch-pan-y select-none sm:h-[452px] cursor-grab active:cursor-grabbing"
             style={{ perspective: box.lens, perspectiveOrigin: "50% 42%" }}
           >
             {items.map((p, i) => {
@@ -604,12 +880,18 @@ export function RingShowcase({
                         disabled={p.stock <= 0}
                         className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-xl bg-neu-accent py-1.5 text-[11.5px] font-semibold text-white transition hover:bg-neu-accent-strong disabled:opacity-45"
                       >
-                        <Plus className="h-3.5 w-3.5" /> {t("কার্টে যোগ করুন", "Add to cart")}
+                        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden>
+                          <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+                        </svg>
+                        {t("কার্টে যোগ করুন", "Add to cart")}
                       </button>
                     ) : (
                       <div className="mt-1 flex h-[30px] items-center gap-1 text-[10.5px] text-neu-faint">
-                        <StarRating value={p.rating} size={11} />
+                        <span aria-hidden className="text-amber-500">
+                          ★
+                        </span>
                         <span>{toBn(p.rating.toFixed(1))}</span>
+                        {p.badge_bn ? <span className="truncate">· {p.badge_bn}</span> : null}
                       </div>
                     )}
                   </div>
@@ -647,7 +929,9 @@ export function RingShowcase({
                 aria-label={t("আগের পণ্য", "Previous product")}
                 className="absolute left-0 top-1/2 z-20 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-neu-raised text-neu-ink shadow-neu-sm transition hover:text-neu-accent sm:-left-2"
               >
-                <ChevronLeft className="h-5 w-5" />
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                  <path d="m15 18-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </button>
               <button
                 type="button"
@@ -655,7 +939,9 @@ export function RingShowcase({
                 aria-label={t("পরের পণ্য", "Next product")}
                 className="absolute right-0 top-1/2 z-20 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-neu-raised text-neu-ink shadow-neu-sm transition hover:text-neu-accent sm:-right-2"
               >
-                <ChevronRight className="h-5 w-5" />
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                  <path d="m9 18 6-6-6-6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </button>
             </>
           ) : null}
@@ -663,7 +949,10 @@ export function RingShowcase({
 
         <div className="mt-1 flex items-center justify-center gap-3 text-[11.5px] text-neu-faint">
           <span className="inline-flex items-center gap-1.5">
-            <Hand className="h-3.5 w-3.5" /> {t("টেনে ঘোরান", "Drag to spin")}
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+              <path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12m0-1.5a1.5 1.5 0 0 1 3 0V12m0-1a1.5 1.5 0 0 1 3 0v1.5m0 .5a1.5 1.5 0 0 1 3 0V16a5 5 0 0 1-5 5h-2a6 6 0 0 1-6-6v-3a1.5 1.5 0 0 1 3 0" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            {t("নিজে ঘোরে · ধরলে থামে", "Auto-spins · hold to pause")}
           </span>
           <span aria-hidden>·</span>
           <span aria-live="polite">

@@ -304,13 +304,23 @@ export function ProductRing({
   products,
   categories,
   headingBn,
+  spin,
+  secondsPerTurn,
 }: {
   products: RingProduct[];
   categories: Category[];
   headingBn: string;
+  spin?: boolean;
+  secondsPerTurn?: number;
 }) {
   return (
-    <RingShowcase products={products} categories={categories} headingBn={headingBn} />
+    <RingShowcase
+      products={products}
+      categories={categories}
+      headingBn={headingBn}
+      spin={spin}
+      secondsPerTurn={secondsPerTurn}
+    />
   );
 }
 

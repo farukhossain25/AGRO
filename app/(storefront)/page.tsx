@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Leaf, Truck } from "lucide-react";
 import {
   getApprovedReviews,
   getBlogPosts,
@@ -29,6 +27,7 @@ import {
   WhyChoose,
 } from "@/components/home/sections";
 import { getHeroSlides, getVisibleSections, sectionConfig } from "@/lib/content";
+import { NewsletterSignup } from "@/components/newsletter-signup";
 import { alternatesFor } from "@/lib/seo";
 import { withSeo } from "@/lib/seo-db";
 
@@ -152,12 +151,25 @@ export default async function HomePage() {
     premium_plans: () => <Packages packages={packages} />,
 
     product_ring: () => {
-      const config = sectionConfig(byKey.get("product_ring"), {
+      const config = sectionConfig<{
+        heading_bn: string;
+        limit: number;
+        spin_speed: number;
+        free_spin: boolean;
+      }>(byKey.get("product_ring"), {
         heading_bn: "চাকা ঘুরিয়ে আজকের বাজার দেখুন",
         limit: 12,
+        /* seconds for one full lap — see /foisal/homepage */
+        spin_speed: 14,
+        free_spin: true,
       });
       const limit = Math.max(6, Math.min(24, Number(config.limit) || 12));
       const shown = ringPool.slice(0, limit);
+      /* Speed and free-spin come from the homepage manager, so the owner tunes
+         the wheel without a deploy. Seconds-per-turn is the number he thinks
+         in; the component converts it to degrees. */
+      const seconds = Math.max(6, Math.min(120, Number(config.spin_speed) || 18));
+      const free = config.free_spin !== false;
       /* Fewer than two products is not a wheel — the block renders nothing
          rather than a single card spinning on its own. */
       return shown.length >= 2 ? (
@@ -165,6 +177,8 @@ export default async function HomePage() {
           products={shown}
           categories={categories}
           headingBn={String(config.heading_bn)}
+          spin={free}
+          secondsPerTurn={seconds}
         />
       ) : null;
     },
@@ -202,36 +216,11 @@ export default async function HomePage() {
         return <div key={section.id}>{block()}</div>;
       })}
 
-      {/* The closing CTA is not reorderable — it is the page's exit, and every
-          layout wants it last. It can still be hidden with the `text_block`
-          toggle if the owner prefers a shorter page. */}
-      <section className="container-x pb-8 pt-2">
-        <div className="relative overflow-hidden rounded-[2rem] border border-neu-accent/25 bg-gradient-to-br from-neu-accent-soft via-neu-raised to-neu-surface p-8 text-center sm:p-14">
-          <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-leaf-500/20 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-20 -left-10 h-56 w-56 rounded-full bg-leaf-400/10 blur-3xl" />
-          <div className="relative">
-            <span className="eyebrow mb-4">প্রথম অর্ডারে ছাড়</span>
-            <h2 className="mx-auto max-w-2xl text-2xl font-bold sm:text-4xl">
-              আজই শুরু করুন — খাঁটি খাবারের বিশ্বাস
-            </h2>
-            <p className="mx-auto mt-3 max-w-xl text-[14px] leading-relaxed text-sand-100/60">
-              কুপন কোড{" "}
-              <span className="rounded-md bg-leaf-600/15 px-2 py-0.5 font-mono font-bold text-leaf-700">
-                BISWAS10
-              </span>{" "}
-              ব্যবহার করে প্রথম অর্ডারে ১০% ছাড় নিন। ঢাকায় আজকের মধ্যে ডেলিভারি।
-            </p>
-            <div className="mt-7 flex flex-wrap justify-center gap-3">
-              <Link href="/products" className="btn-mint">
-                <Leaf className="h-4 w-4" /> পণ্য দেখুন
-              </Link>
-              <Link href="/subscription" className="btn-outline">
-                <Truck className="h-4 w-4" /> মাসিক প্যাকেজ
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* The closing CTA used to be a full-screen panel repeating products and
+          packages the page had already shown six times. In its place: one slim
+          band of email capture — the owner's "সাপ্তাহিক তাজা খবর" — which is
+          the only thing at the bottom of a shop that still earns its height. */}
+      <NewsletterSignup />
     </>
   );
 }
