@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   ShoppingBag,
   Tag,
+  Ticket,
   Truck,
   Wallet,
   X,
@@ -143,8 +144,20 @@ export function CheckoutFlow({
   const [suggestedCoupon, setSuggestedCoupon] = useState<string | null>(null);
   /** coupons this account may still use — already filtered by per-user cap */
   const [myCoupons, setMyCoupons] = useState<
-    Array<{ code: string; type: string; value: number; min_order: number; description_bn: string | null }>
+    Array<{
+      code: string;
+      type: string;
+      value: number;
+      min_order: number;
+      description_bn: string | null;
+      audience?: string;
+      expires_at?: string | null;
+    }>
   >([]);
+  /** The "সব কুপন" picker. A customer should not have to remember a code, and
+   *  neither an influencer's promo code nor an admin-only personal code belongs
+   *  in a public-looking list — see pickableCoupons below. */
+  const [couponPickerOpen, setCouponPickerOpen] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [unavailable, setUnavailable] = useState<
@@ -209,6 +222,23 @@ export function CheckoutFlow({
       alive = false;
     };
   }, []);
+
+  /* ── which coupons a customer may PICK from ───────────────────────────
+     `all` codes are the shop's public offers — they belong in a list. An
+     `influencer` code is revenue that belongs to one person: it must only ever
+     arrive through that influencer's link (or be typed by hand), never be
+     browsable, or the first customer to open checkout takes the commission off
+     every other influencer's share. `assigned` codes are personal — the admin
+     hands them out deliberately, so they stay out of the public list too. A
+     code the customer typed, or one their share link carried, still applies
+     normally. */
+  const pickableCoupons = useMemo(
+    () =>
+      myCoupons.filter(
+        (c) => (c.audience ?? "all") === "all" && cart.subtotal >= Number(c.min_order ?? 0)
+      ),
+    [myCoupons, cart.subtotal]
+  );
 
   /* The wallet may cover a slice of the order, never the whole thing: the
      ceiling is the admin's `wallet_max_percent` (default 30%) and never more
@@ -1074,22 +1104,34 @@ export function CheckoutFlow({
                 </div>
               )}
 
-              {/* The account's own usable codes — a used-up one is already
-                  filtered out server-side, so tapping one always works. */}
-              {!appliedCoupon && myCoupons.length ? (
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {myCoupons.slice(0, 4).map((c) => (
-                    <button
-                      key={c.code}
-                      type="button"
-                      onClick={() => void applyCoupon(c.code)}
-                      className="rounded-full border border-neu-accent/30 bg-neu-accent/[0.08] px-2.5 py-1 font-mono text-[10.5px] font-semibold text-neu-accent-strong hover:bg-neu-accent/15"
-                      title={c.description_bn ?? undefined}
-                    >
-                      {c.code}
-                      {c.type === "percent" ? ` · ${c.value}%` : ` · ৳${c.value}`}
-                    </button>
-                  ))}
+              {/* The account's own usable codes. Four tiny chips used to be
+                  the whole story — a customer could not see what the shop
+                  actually offers, could not see how much they would save, and
+                  had no way to browse. "সব কুপন" opens the list. */}
+              {!appliedCoupon && pickableCoupons.length ? (
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCouponPickerOpen(true)}
+                    aria-haspopup="dialog"
+                    className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-neu-accent/25 bg-neu-accent/[0.06] px-3 py-2 text-left transition hover:bg-neu-accent/[0.12]"
+                  >
+                    <Ticket className="h-4 w-4 shrink-0 text-neu-accent-strong" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[12px] font-semibold text-neu-ink">
+                        {t("সব কুপন দেখুন", "See all coupons")}
+                      </span>
+                      <span className="block text-[10.5px] text-neu-muted">
+                        {t(
+                          `${pickableCoupons.length}টি কুপন আপনার অর্ডারে প্রযোজ্য`,
+                          `${pickableCoupons.length} coupons apply to this order`
+                        )}
+                      </span>
+                    </span>
+                    <span className="shrink-0 rounded-full bg-neu-accent px-2 py-0.5 text-[10.5px] font-bold text-white">
+                      {t("দেখুন", "View")}
+                    </span>
+                  </button>
                 </div>
               ) : null}
             </div>
@@ -1160,6 +1202,104 @@ export function CheckoutFlow({
           </div>
         </aside>
       </div>
+
+      {/* ── সব কুপন ─────────────────────────────────────────────────────
+          A proper list instead of four mystery chips: what the code gives,
+          what it needs, when it expires, and one tap to apply. Only `all`
+          codes are in here (pickableCoupons) — an influencer's promo code is
+          never browsable. */}
+      {couponPickerOpen ? (
+        <div
+          className="fixed inset-0 z-[90] grid place-items-end bg-neu-ink/45 p-0 backdrop-blur-[2px] sm:place-items-center sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("সব কুপন", "All coupons")}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setCouponPickerOpen(false);
+          }}
+        >
+          <div className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-t-[22px] bg-neu-surface p-4 shadow-neu-lg sm:rounded-2xl">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[14px] font-bold text-neu-ink">
+                  {t(`আপনার জন্য ${pickableCoupons.length}টি কুপন`, `${pickableCoupons.length} coupons for you`)}
+                </p>
+                <p className="text-[11px] text-neu-muted">
+                  {t("ট্যাপ করলেই অর্ডারে যোগ হবে", "Tap one to apply it")}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCouponPickerOpen(false)}
+                aria-label={t("বন্ধ করুন", "Close")}
+                className="neu-icon-btn h-8 w-8 shrink-0"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <ul className="space-y-2">
+              {pickableCoupons.map((c) => {
+                const saving =
+                  c.type === "percent"
+                    ? (cart.subtotal * Number(c.value)) / 100
+                    : Math.min(Number(c.value), cart.subtotal);
+                return (
+                  <li key={c.code}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCouponPickerOpen(false);
+                        void applyCoupon(c.code);
+                      }}
+                      className="flex w-full items-center gap-3 rounded-xl border border-neu-accent/25 bg-white/70 p-3 text-left transition hover:border-neu-accent/50 hover:bg-neu-accent/[0.08]"
+                    >
+                      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-neu-accent/[0.12] text-neu-accent-strong">
+                        <Ticket className="h-5 w-5" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center gap-2">
+                          <span className="truncate font-mono text-[13px] font-bold text-neu-ink">{c.code}</span>
+                          <span className="shrink-0 rounded-full bg-neu-accent px-1.5 py-0.5 text-[9.5px] font-bold text-white">
+                            {c.type === "percent" ? `${c.value}%` : money(c.value, isBn)}
+                          </span>
+                        </span>
+                        <span className="mt-0.5 block truncate text-[11px] text-neu-muted">
+                          {c.description_bn ??
+                            t(
+                              `${money(c.min_order, isBn)} এর বেশি অর্ডারে`,
+                              `On orders over ${money(c.min_order, isBn)}`
+                            )}
+                        </span>
+                        <span className="mt-0.5 block text-[10.5px] font-semibold text-neu-accent-strong">
+                          {t(`সাশ্রয় ≈ ${money(saving, isBn)}`, `Saves ≈ ${money(saving, isBn)}`)}
+                          {c.expires_at
+                            ? ` · ${t("মেয়াদ", "Valid till")} ${formatShortDate(c.expires_at)}`
+                            : ""}
+                        </span>
+                      </span>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-neu-accent-strong" />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+
+            {!pickableCoupons.length ? (
+              <p className="py-8 text-center text-[12px] text-neu-muted">
+                {t("এই অর্ডারে প্রযোজ্য কোনো কুপন নেই", "No coupons apply to this order")}
+              </p>
+            ) : null}
+
+            <p className="mt-3 rounded-xl bg-neu-sunken/60 p-2.5 text-[10.5px] leading-relaxed text-neu-muted">
+              {t(
+                "ইনফ্লুয়েন্সার বা ব্যক্তিগত কোড থাকলে সেটি উপরের ঘরে লিখে প্রয়োগ করুন।",
+                "Have an influencer or personal code? Type it in the box above to apply it."
+              )}
+            </p>
+          </div>
+        </div>
+      ) : null}
     </CheckoutShell>
   );
 }
@@ -1255,6 +1395,18 @@ function CardHeader({
 function FieldError({ msg }: { msg?: string }) {
   if (!msg) return null;
   return <p className="mt-1 text-[11.5px] font-medium text-[#c0392b]">{msg}</p>;
+}
+
+/** "১৫ ডিসেম্বর" — the year only when it is not this one. */
+function formatShortDate(value: string): string {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return new Intl.DateTimeFormat("bn-BD", {
+    day: "numeric",
+    month: "short",
+    ...(sameYear ? {} : { year: "numeric" }),
+  }).format(d);
 }
 
 function Row({ label, value, accent }: { label: string; value: string; accent?: boolean }) {

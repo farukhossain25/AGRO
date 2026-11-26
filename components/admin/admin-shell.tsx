@@ -63,6 +63,10 @@ const navGroups: { title: string; items: NavItem[] }[] = [
     title: "বিক্রয়",
     items: [
       { href: adminHref("orders"), label: "অর্ডার", Icon: ShoppingCart, perm: "orders.read" },
+      /* Two different things sit next to each other on purpose:
+         "ফুড প্ল্যান" = what the owner SELLS (price, features, who it fits)
+         "সাবস্ক্রিপশন" = the running subscriptions customers already have. */
+      { href: adminHref("food-plans"), label: "ফুড প্ল্যান", Icon: Sprout, perm: "orders.read" },
       { href: adminHref("subscriptions"), label: "সাবস্ক্রিপশন", Icon: Repeat, perm: "orders.read" },
       { href: adminHref("customers"), label: "কাস্টমার", Icon: Users, perm: "customers.read" },
       { href: adminHref("wallet"), label: "ওয়ালেট ও রেফারেল", Icon: Wallet, perm: "customers.read" },

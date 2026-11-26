@@ -164,7 +164,7 @@ export async function listMyCoupons(userId: string): Promise<MyCoupon[]> {
     const { data: rows, error } = await db()
       .from("coupons")
       .select(
-        "id, code, type, value, min_order, max_discount, description_bn, expires_at, audience, usage_limit, used_count, per_user_limit, funder_user_id, is_active, starts_at"
+        "id, code, type, value, min_order, max_discount, description_bn, expires_at, audience, usage_limit, used_count, per_user_limit, funder_user_id, is_active, starts_at, share_token"
       )
       .eq("is_active", true)
       .order("created_at", { ascending: false })
@@ -230,6 +230,59 @@ export async function listMyCoupons(userId: string): Promise<MyCoupon[]> {
             ? null
             : Math.max(0, Number(c.usage_limit) - Number(c.used_count ?? 0)),
         used_by_me: usedMap.get(c.id) ?? 0,
+        per_user_limit: Number(c.per_user_limit ?? 1),
+      }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * The shop's PUBLIC offers — `audience = 'all'` and nothing else.
+ *
+ * A guest (or a customer) sees these at checkout so the offers are discoverable
+ * instead of being a CODE someone has to be told. Two deliberate exclusions:
+ *   • `influencer` — that code is an individual's income; listing it would let
+ *     any shopper take the commission meant for that influencer.
+ *   • `assigned`   — personal codes the admin handed to specific accounts.
+ * Both still work when typed or opened from a share link (coupon_allows_user
+ * decides that at checkout); they are simply not browsable.
+ */
+export async function listPublicCoupons(): Promise<MyCoupon[]> {
+  try {
+    const { data: rows, error } = await db()
+      .from("coupons")
+      .select(
+        "id, code, type, value, min_order, max_discount, description_bn, expires_at, audience, usage_limit, used_count, per_user_limit"
+      )
+      .eq("is_active", true)
+      .eq("audience", "all")
+      .order("created_at", { ascending: false })
+      .limit(40);
+    if (error) throw error;
+
+    const now = Date.now();
+    return (rows ?? [])
+      .filter((c) => {
+        if (c.expires_at && new Date(c.expires_at).getTime() < now) return false;
+        if (c.usage_limit != null && Number(c.used_count ?? 0) >= Number(c.usage_limit)) return false;
+        return true;
+      })
+      .map((c) => ({
+        id: c.id,
+        code: c.code,
+        type: c.type === "fixed" ? "fixed" : "percent",
+        value: Number(c.value),
+        min_order: Number(c.min_order ?? 0),
+        max_discount: c.max_discount == null ? null : Number(c.max_discount),
+        description_bn: c.description_bn ?? null,
+        expires_at: c.expires_at ?? null,
+        audience: "all",
+        remaining:
+          c.usage_limit == null
+            ? null
+            : Math.max(0, Number(c.usage_limit) - Number(c.used_count ?? 0)),
+        used_by_me: 0,
         per_user_limit: Number(c.per_user_limit ?? 1),
       }));
   } catch {

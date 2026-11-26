@@ -1,3 +1,4 @@
+import { AuditDiff } from "@/components/admin/audit-diff";
 import { db, dbUsable } from "@/lib/db";
 import { formatDateBn } from "@/lib/format";
 import { roleLabelBn } from "@/lib/permissions";
@@ -15,7 +16,8 @@ type AuditRow = {
   action: string;
   entity: string;
   entity_id: string | null;
-  diff: Record<string, { from: unknown; to: unknown }> | null;
+  /** Whatever the writer stored — shape varies by action (see AuditDiff). */
+  diff: unknown;
   meta: Record<string, unknown> | null;
   ip: string | null;
   created_at: string;
@@ -52,7 +54,9 @@ export default async function AdminAuditPage({
   searchParams: Promise<{ entity?: string; page?: string }>;
 }) {
   const params = await searchParams;
-  const page = Math.max(1, Number(params.page ?? 1) || 1);
+  /* Clamp hard: a hand-typed ?page=999999 asks Supabase for an absurd range
+     and the request times out instead of showing "no rows". */
+  const page = Math.min(500, Math.max(1, Math.floor(Number(params.page ?? 1)) || 1));
   const pageSize = 50;
 
   let rows: AuditRow[] = [];
@@ -88,6 +92,25 @@ export default async function AdminAuditPage({
         </p>
       </div>
 
+      {/* The query string already supported ?entity=; without these chips the
+          filter was unreachable from the panel. */}
+      {rows.length || params.entity ? (
+        <div className="flex flex-wrap gap-1.5">
+          <a href={`${ADMIN_BASE}/audit`} className={`chip ${!params.entity ? "chip-active" : ""}`}>
+            সব
+          </a>
+          {Object.entries(ENTITY_BN).map(([key, label]) => (
+            <a
+              key={key}
+              href={`${ADMIN_BASE}/audit?entity=${key}`}
+              className={`chip ${params.entity === key ? "chip-active" : ""}`}
+            >
+              {label}
+            </a>
+          ))}
+        </div>
+      ) : null}
+
       {!dbUsable() && (
         <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11.5px] text-amber-200/90">
           ডেটাবেসে সংযোগ নেই।
@@ -108,7 +131,6 @@ export default async function AdminAuditPage({
             </thead>
             <tbody className="divide-y divide-white/[0.05]">
               {rows.map((row) => {
-                const changes = row.diff ? Object.keys(row.diff) : [];
                 return (
                   <tr key={row.id} className="align-top">
                     <td className="whitespace-nowrap px-4 py-2.5 text-sand-100/50">
@@ -133,23 +155,8 @@ export default async function AdminAuditPage({
                         </p>
                       )}
                     </td>
-                    <td className="px-4 py-2.5 text-sand-100/55">
-                      {changes.length ? (
-                        <details>
-                          <summary className="cursor-pointer text-[11.5px] text-leaf-300">
-                            {changes.length}টি ফিল্ড
-                          </summary>
-                          <ul className="mt-1 space-y-0.5 font-mono text-[10.5px] text-sand-100/45">
-                            {changes.map((key) => (
-                              <li key={key}>
-                                {key}: {JSON.stringify(row.diff![key].from)} → {JSON.stringify(row.diff![key].to)}
-                              </li>
-                            ))}
-                          </ul>
-                        </details>
-                      ) : (
-                        <span className="text-sand-100/30">—</span>
-                      )}
+                    <td className="max-w-[260px] px-4 py-2.5 text-sand-100/55">
+                      <AuditDiff diff={row.diff} />
                     </td>
                     <td className="px-4 py-2.5 font-mono text-[10.5px] text-sand-100/35">{row.ip ?? "—"}</td>
                   </tr>

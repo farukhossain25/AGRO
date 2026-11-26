@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { currentUser, ok, handleError } from "@/lib/api";
 import { db } from "@/lib/db";
-import { listMyCoupons } from "@/lib/referral";
+import { listMyCoupons, listPublicCoupons } from "@/lib/referral";
 import { COUPON_COOKIE } from "@/lib/referral-cookie";
 
 export const dynamic = "force-dynamic";
@@ -40,7 +40,14 @@ export async function GET() {
     }
 
     if (!user?.id) {
-      return ok({ coupons: [], suggested: referralCoupon, signedIn: false });
+      /* A guest still deserves to see the shop's public offers: an `all` code
+         has no per-account rules, and place_order accepts it without a session.
+         Restricted codes stay out — listPublicCoupons() only returns `all`. */
+      return ok({
+        coupons: await listPublicCoupons(),
+        suggested: referralCoupon,
+        signedIn: false,
+      });
     }
 
     const coupons = await listMyCoupons(user.id);
