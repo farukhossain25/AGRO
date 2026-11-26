@@ -16,7 +16,6 @@ import {
   Newspaper,
   Package,
   Percent,
-  Phone,
   Search,
   ShoppingBag,
   Sprout,
@@ -65,7 +64,8 @@ const GROUP_OF: Record<string, { Icon: typeof Layers; group: 0 | 1 | 2 }> = {
   "/combos": { Icon: Layers, group: 0 },
   "/subscription": { Icon: CalendarDays, group: 0 },
   "/market": { Icon: Store, group: 0 },
-  "/live": { Icon: Video, group: 1 },
+  // "/live" is a dedicated row above the categories (see the body markup);
+  // repeating it in the group list would make the drawer look duplicated.
   "/farm": { Icon: Sprout, group: 1 },
   "/blog": { Icon: Newspaper, group: 2 },
   "/about": { Icon: Info, group: 2 },
@@ -223,14 +223,36 @@ export function MobileNav({
               </p>
             </div>
           </div>
-          <button
-            data-autofocus
-            onClick={onClose}
-            className="neu-icon-btn h-11 w-11 shrink-0"
-            aria-label={t("বন্ধ করুন", "Close menu")}
-          >
-            <X className="h-[18px] w-[18px]" />
-          </button>
+          <div className="flex shrink-0 items-center gap-1.5">
+            {/* Language sits in the drawer HEADER, beside the close button:
+                no scrolling, no accordion, one tap. The sign says which
+                language you get, so a customer who cannot read Bangla can
+                find "English" immediately. */}
+            <button
+              onClick={toggle}
+              className="neu-raised flex h-11 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-[11.5px] font-bold text-neu-accent-strong transition active:scale-95"
+              aria-label={
+                locale === "bn"
+                  ? "ভাষা পরিবর্তন করুন — English"
+                  : "Change language — বাংলা"
+              }
+            >
+              <Globe className="h-4 w-4 shrink-0" />
+              {/* The word is always visible, even on a 320 px phone: it names
+                  the language the tap gives you, so "English" is readable to
+                  someone who cannot read the Bangla menu — which is the whole
+                  point of putting it here instead of under the link list. */}
+              <span className="whitespace-nowrap">{locale === "bn" ? "English" : "বাংলা"}</span>
+            </button>
+            <button
+              data-autofocus
+              onClick={onClose}
+              className="neu-icon-btn h-11 w-11 shrink-0"
+              aria-label={t("বন্ধ করুন", "Close menu")}
+            >
+              <X className="h-[18px] w-[18px]" />
+            </button>
+          </div>
         </div>
 
         {/* ── account / sign-in ─────────────────────────────────── */}
@@ -360,6 +382,36 @@ export function MobileNav({
             </div>
           </div>
 
+          {/* Live farms sits directly below the Categories accordion (it used
+              to be the last link of the "খামার" group, far down the menu). It
+              is the one thing that sets this shop apart, so it gets its own
+              full-width row with a live dot instead of a 14 px text link. */}
+          <Link
+            href="/live"
+            onClick={onClose}
+            aria-current={isActive("/live") ? "page" : undefined}
+            className={`mob-item mt-1.5 flex w-full items-center gap-3 rounded-2xl border px-3 py-2.5 text-left transition active:scale-[0.99] ${
+              isActive("/live")
+                ? "border-neu-accent/40 bg-neu-accent-soft shadow-neu-xs"
+                : "border-white/70 bg-white/60 hover:bg-white"
+            }`}
+            style={{ ["--d" as string]: delay() }}
+          >
+            <span className="relative grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-neu-accent-soft text-neu-accent-strong">
+              <Video className="h-[17px] w-[17px]" />
+              <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[14px] font-semibold text-neu-ink">
+                {t("লাইভ খামার", "Live farms")}
+              </span>
+              <span className="block text-[11px] text-neu-muted">
+                {t("ক্যামেরায় সরাসরি দেখুন", "Watch the farms live")}
+              </span>
+            </span>
+            <ChevronRight className="h-4 w-4 shrink-0 text-neu-faint" />
+          </Link>
+
           {/* grouped links */}
           {GROUPS.filter((g) => g.items.length > 0).map((group) => (
             <section key={group.titleBn} className="mt-3">
@@ -434,53 +486,20 @@ export function MobileNav({
               </div>
             </section>
           ) : null}
+
+          <p
+            className="mt-4 flex items-center justify-center gap-1.5 text-[10.5px] text-neu-faint"
+            style={{ paddingBottom: "max(1.1rem, env(safe-area-inset-bottom))" }}
+          >
+            <Headset className="h-3.5 w-3.5" />
+            {t(store.hours_bn, store.hours_en)}
+          </p>
         </div>
 
-        {/* ── sticky footer ──────────────────────────────────────── */}
-        <div
-          className="relative shrink-0 px-4 pt-3"
-          style={{ paddingBottom: "max(0.9rem, env(safe-area-inset-bottom))" }}
-        >
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-x-0 -top-10 h-10 bg-gradient-to-t from-neu-bg to-transparent"
-          />
-          <div className="neu-raised relative rounded-2xl p-2">
-            <div className="neu-inset-sm flex items-center gap-1 rounded-xl p-1" role="group" aria-label={t("ভাষা", "Language")}>
-              {[
-                { key: "bn" as const, label: "বাংলা" },
-                { key: "en" as const, label: "English" },
-              ].map((option) => {
-                const active = locale === option.key;
-                return (
-                  <button
-                    key={option.key}
-                    onClick={() => {
-                      if (!active) toggle();
-                    }}
-                    aria-pressed={active}
-                    className={`flex h-11 flex-1 items-center justify-center gap-1.5 rounded-lg text-[12px] font-semibold transition ${
-                      active ? "bg-neu-raised text-neu-accent-strong shadow-neu-xs" : "text-neu-muted hover:text-neu-ink"
-                    }`}
-                  >
-                    {option.key === "en" ? <Globe className="h-3.5 w-3.5" /> : null}
-                    {option.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            <a href={`tel:${store.phone}`} className="btn-primary mt-2 min-h-[48px] w-full text-[13.5px]">
-              <Phone className="h-4 w-4" />
-              <span className="tabular-nums">{store.phone_display}</span>
-            </a>
-
-            <p className="mt-1.5 flex items-center justify-center gap-1.5 text-[10px] text-neu-faint">
-              <Headset className="h-3 w-3" />
-              {t(store.hours_bn, store.hours_en)}
-            </p>
-          </div>
-        </div>
+        {/* No sticky footer: the phone number and the language switch left it
+            (language now lives in the header, the number in the site's own call
+            button), and a card holding nothing but the opening hours would eat
+            ~70 px of a phone screen forever. The hours scroll with the list. */}
       </aside>
     </div>
   );

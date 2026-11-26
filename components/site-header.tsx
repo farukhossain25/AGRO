@@ -141,13 +141,26 @@ export function SiteHeader({
                 <Search className="h-[18px] w-[18px]" />
               </button>
 
+              {/* The language switch belongs in the open, next to the other
+                  controls, not at the bottom of a scrolling drawer. From 390 px
+                  (where the bar has room left over for the wordmark) it is a
+                  globe here; from sm up it carries its label. The label names
+                  the language you would switch TO — "English" while the page is
+                  in Bangla is the word a stranded visitor is scanning for.
+                  Phones narrower than 390 px get exactly this switch, with the
+                  label always visible, at the top of the drawer (see
+                  components/mobile-nav.tsx). */}
               <button
                 onClick={toggle}
-                className="hidden items-center gap-1 rounded-full px-2.5 py-2 text-[12px] font-semibold text-neu-muted transition hover:text-neu-ink sm:flex"
-                aria-label={t("ভাষা পরিবর্তন", "Change language")}
+                className="hidden w-9 shrink-0 items-center justify-center gap-1.5 rounded-full py-2 text-[12px] font-semibold text-neu-muted transition hover:text-neu-ink min-[390px]:flex sm:w-auto sm:px-2.5"
+                aria-label={
+                  locale === "bn"
+                    ? "ভাষা পরিবর্তন করুন — English"
+                    : "Change language — বাংলা"
+                }
               >
-                <Globe className="h-4 w-4" />
-                {locale === "bn" ? "বাংলা" : "English"}
+                <Globe className="h-[17px] w-[17px] shrink-0" />
+                <span className="hidden sm:inline">{locale === "bn" ? "English" : "বাংলা"}</span>
               </button>
 
               {/* prefetch={false}: this route redirects to /login for a guest, so
