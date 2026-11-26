@@ -96,12 +96,38 @@ export async function runFile(db, file) {
 }
 
 /** Boot + run the whole chain (optionally with 00 reset first). */
-export async function loadSchema({ withReset = false, withSeed = true } = {}) {
+/**
+ * Files that build on the base chain (14 → 27). They are optional for a given
+ * introspection run but mandatory for `npm run db:types`: skipping them silently
+ * produced a database.types.ts without the columns and tables those migrations
+ * add, and the typecheck then failed on code that was perfectly correct.
+ */
+const CHAIN_FILES = [
+  "14_storage_fix.sql",
+  "15_seller_applications_and_panel_path.sql",
+  "16_verify_seller_rls_and_storage.sql",
+  "17_payments_reset.sql",
+  "18_payments_schema.sql",
+  "19_payments_functions.sql",
+  "20_payments_rls_storage.sql",
+  "21_payments_seed.sql",
+  "22_seller_logo_banner.sql",
+  "23_premium_payment_approval.sql",
+  "24_camera_cloud_bridge.sql",
+  "25_coupons_referrals_wallet.sql",
+  "26_footer_payments.sql",
+  "27_live_chat.sql",
+];
+
+export { CHAIN_FILES };
+
+export async function loadSchema({ withReset = false, withSeed = true, chain = true } = {}) {
   const db = await createHarness();
   if (withReset) await runFile(db, "00_RESET_ALL_DANGEROUS.sql");
   for (const file of ORDERED_FILES) {
     if (!withSeed && file.startsWith("11_")) continue;
     await runFile(db, file);
   }
+  if (chain) for (const file of CHAIN_FILES) await runFile(db, file);
   return db;
 }

@@ -30,9 +30,14 @@ export async function GET() {
       const token = decodeURIComponent(parked);
       // resolve_ref answers both questions: is this a coupon, and is this a
       // person's referral link?
+      /* p_user is `uuid` (not nullable) in the function signature. A guest has
+         no id, and passing null made the generated types disagree with the call
+         site. A well-formed nil uuid is the honest "no such user" value: it
+         matches no profile row, so a guest resolution can only return a public
+         coupon and never a person's referral balance. */
       const { data } = await db().rpc("resolve_ref", {
         p_code: token,
-        p_user: user?.id ?? null,
+        p_user: user?.id ?? "00000000-0000-0000-0000-000000000000",
       });
       const info = (data ?? {}) as { coupon?: string | null; referrer?: string | null };
       referralCoupon = info.coupon ?? null;

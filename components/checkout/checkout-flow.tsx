@@ -8,6 +8,9 @@ import {
   Banknote,
   Check,
   ChevronRight,
+  Clock,
+  MessageCircle,
+  Phone,
   CreditCard,
   Landmark,
   Lock,
@@ -23,6 +26,7 @@ import {
 import { useCart } from "@/lib/cart";
 import { useDeliveryConfig } from "@/lib/delivery-settings";
 import { useLocale } from "@/lib/locale";
+import { useStoreInfo } from "@/lib/store-info";
 import { useToast } from "@/lib/toast";
 import { money } from "@/lib/format";
 import { divisionNames, districtsOf, upazilasOf, dhakaMetroThanas } from "@/lib/bd-locations";
@@ -46,7 +50,7 @@ import { EmptyState, Spinner } from "@/components/ui";
    straight to /order-success.
    ========================================================================== */
 
-type Step = 1 | 2 | 3;
+type Step = 1 | 2 | 3 | 4;
 
 /** Local icons only — the CSP blocks external assets and a device without an
  *  emoji font would otherwise show tofu where the method's mark should be. */
@@ -103,12 +107,17 @@ export function CheckoutFlow({
   const rules = useDeliveryConfig();
   const { t, isBn } = useLocale();
   const toast = useToast();
+  const store = useStoreInfo();
 
   /* Prefill from the signed-in customer's profile and their default address —
      the same rows the admin sees on the customer record. */
   const defaultAddress = addresses.find((a) => a.is_default) ?? addresses[0];
 
   const [step, setStep] = useState<Step>(1);
+  /* Step 4's checkbox: without it the last tap is a button that looks like the
+     three before it, and the customer never had a moment where they explicitly
+     said "yes, this one". */
+  const [agreed, setAgreed] = useState(false);
   const [form, setForm] = useState(() => ({
     customer_name: customer?.full_name ?? defaultAddress?.full_name ?? "",
     phone: customer?.phone ?? defaultAddress?.phone ?? "",
@@ -411,6 +420,14 @@ export function CheckoutFlow({
       setStep(3);
       return;
     }
+    if (step === 3) {
+      setStep(4);
+      return;
+    }
+    if (!agreed) {
+      toast.error(t("শর্তে টিক দিন", "Tick the confirmation"), t("তারপর অর্ডার দিন", "Then place the order"));
+      return;
+    }
     void placeOrder();
   }
 
@@ -486,7 +503,8 @@ export function CheckoutFlow({
   const steps = [
     { n: 1 as const, label: t("ঠিকানা", "Address") },
     { n: 2 as const, label: t("পেমেন্ট", "Payment") },
-    { n: 3 as const, label: t("নিশ্চিতকরণ", "Confirm") },
+    { n: 3 as const, label: t("রিভিউ", "Review") },
+    { n: 4 as const, label: t("নিশ্চিত", "Confirm") },
   ];
 
   const cta =
@@ -494,7 +512,9 @@ export function CheckoutFlow({
       ? t("পেমেন্ট স্টেপে যান", "Continue to payment")
       : step === 2
         ? t("অর্ডার রিভিউ করুন", "Review order")
-        : t(`অর্ডার দিন — ${money(total, isBn)}`, `Place order — ${money(total, isBn)}`);
+        : step === 3
+          ? t("নিশ্চিতকরণে যান", "Continue to confirm")
+          : t(`অর্ডার দিন — ${money(total, isBn)}`, `Place order — ${money(total, isBn)}`);
 
   return (
     <CheckoutShell>
@@ -520,12 +540,15 @@ export function CheckoutFlow({
       {/* ── step indicator ─────────────────────────────────────────────── */}
       <ol className="mx-auto mt-5 flex max-w-[1180px] items-center gap-1.5 px-3 sm:px-6">
         {steps.map((s, i) => (
-          <li key={s.n} className="flex flex-1 items-center gap-1.5">
+          <li key={s.n} className="flex min-w-0 flex-1 items-center gap-1 sm:gap-1.5">
+            {/* Four labels at ~100 px each do not fit a 390 px phone with the
+                old padding — the fourth wrapped onto its own row and read as a
+                stray chip. Tighter padding keeps all four on one line. */}
             <button
               type="button"
               onClick={() => s.n < step && setStep(s.n)}
               aria-current={step === s.n ? "step" : undefined}
-              className={`chip !py-1.5 ${step >= s.n ? "chip-active" : ""} ${s.n < step ? "cursor-pointer" : "cursor-default"}`}
+              className={`chip shrink-0 !px-1.5 !py-1.5 !text-[10.5px] sm:!px-2.5 sm:!text-[11.5px] ${step >= s.n ? "chip-active" : ""} ${s.n < step ? "cursor-pointer" : "cursor-default"}`}
             >
               <span
                 className={`grid h-4.5 w-4.5 place-items-center rounded-full text-[10px] font-bold ${
@@ -537,7 +560,7 @@ export function CheckoutFlow({
               {s.label}
             </button>
             {i < steps.length - 1 ? (
-              <span className={`h-px flex-1 ${step > s.n ? "bg-neu-accent/40" : "bg-neu-line"}`} />
+              <span className={`h-px min-w-1 flex-1 ${step > s.n ? "bg-neu-accent/40" : "bg-neu-line"}`} />
             ) : null}
           </li>
         ))}
@@ -981,13 +1004,18 @@ export function CheckoutFlow({
             )}
           </section>
 
-          {/* ── 3. confirm ─────────────────────────────────────────────── */}
+          {/* ── 3. review ──────────────────────────────────────────────── */}
           {step === 3 ? (
             <section className="card overflow-hidden">
               <CardHeader
                 n="3"
-                title={t("অর্ডার নিশ্চিত করুন", "Confirm your order")}
-                sub={t("সব ঠিক আছে কি না দেখে নিন", "Check everything before you place it")}
+                title={t("অর্ডার রিভিউ", "Review your order")}
+                sub={t("ঠিকানা, পেমেন্ট ও পণ্য একসাথে দেখে নিন", "Address, payment and items in one place")}
+                action={
+                  <span className="chip !py-1 !text-[11px] text-neu-muted">
+                    {t("পড়ে নিন", "Read-only")}
+                  </span>
+                }
               />
               <div className="space-y-3.5 p-5 sm:p-6">
                 <Recap label={t("ডেলিভারি", "Delivery")} icon={<MapPin className="h-4 w-4 text-neu-accent" />}>
@@ -1029,6 +1057,89 @@ export function CheckoutFlow({
                     "You'll see payment instructions after placing the order"
                   )}
                 </p>
+              </div>
+            </section>
+          ) : null}
+
+          {/* ── 4. confirm ───────────────────────────────────────────────
+              Splitting review from confirm is deliberate: step 3 is where the
+              customer *checks* (nothing is clickable there), step 4 is the one
+              screen that actually spends money. Placing the order from the same
+              screen that asked them to verify made both feel like a form. */}
+          {step === 4 ? (
+            <section className="card overflow-hidden">
+              <CardHeader
+                n="4"
+                title={t("নিশ্চিত করুন", "Confirm")}
+                sub={t("শেষ ধাপ — এরপর অর্ডার চলে যাবে", "Last step — the order goes in after this")}
+              />
+              <div className="space-y-3 p-5 sm:p-6">
+                <ul className="space-y-2.5">
+                  {[
+                    {
+                      label: t("ডেলিভারি হবে", "Delivering to"),
+                      value: `${form.customer_name} · ${form.phone}`,
+                      sub: `${form.division} · ${form.district} · ${form.upazila}`,
+                      changeTo: 1 as Step,
+                    },
+                    {
+                      label: t("পেমেন্ট", "Paying with"),
+                      value: selectedMethod
+                        ? isBn
+                          ? selectedMethod.name_bn
+                          : selectedMethod.name_en || selectedMethod.name_bn
+                        : "—",
+                      sub:
+                        selectedMethod?.kind !== "cod" && selectedMethod?.account_number
+                          ? selectedMethod.account_number
+                          : t("ডেলিভারির সময় পরিশোধ", "Pay when it arrives"),
+                      changeTo: 2 as Step,
+                    },
+                    {
+                      label: t("মোট", "Total"),
+                      value: money(payable, isBn),
+                      sub: t(`${cart.items.length} টি পণ্য`, `${cart.items.length} items`),
+                      changeTo: null,
+                    },
+                  ].map((row) => (
+                    <li
+                      key={row.label}
+                      className="flex items-start justify-between gap-4 rounded-xl border border-neu-line/60 px-3.5 py-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-neu-faint">
+                          {row.label}
+                        </p>
+                        <p className="mt-0.5 truncate text-[13px] font-semibold text-neu-ink">{row.value}</p>
+                        <p className="mt-0.5 truncate text-[11.5px] text-neu-muted">{row.sub}</p>
+                      </div>
+                      {row.changeTo ? (
+                        <button
+                          type="button"
+                          onClick={() => setStep(row.changeTo as Step)}
+                          className="shrink-0 text-[11.5px] font-semibold text-neu-accent-strong hover:underline"
+                        >
+                          {t("বদলান", "Change")}
+                        </button>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+
+                <label className="flex cursor-pointer items-start gap-2.5 rounded-xl bg-neu-sunken/50 p-3">
+                  <input
+                    type="checkbox"
+                    checked={agreed}
+                    onChange={(e) => setAgreed(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--neu-accent)]"
+                  />
+                  <span className="text-[12px] leading-relaxed text-neu-muted">
+                    {t(
+                      "আমি অর্ডারের তথ্য যাচাই করেছি এবং শর্তাবলী মেনে নিচ্ছি।",
+                      "I have checked the details and accept the terms."
+                    )}
+                  </span>
+                </label>
               </div>
             </section>
           ) : null}
@@ -1192,7 +1303,7 @@ export function CheckoutFlow({
               <button
                 type="button"
                 onClick={advance}
-                disabled={submitting}
+                disabled={submitting || (step === 4 && !agreed)}
                 className="btn-primary w-full !py-3.5 !text-[15px]"
               >
                 {submitting ? (
@@ -1202,9 +1313,9 @@ export function CheckoutFlow({
                   </>
                 ) : (
                   <>
-                    {step < 3 ? <Lock className="h-4 w-4" /> : <Check className="h-4 w-4" />}
+                    {step < 4 ? <Lock className="h-4 w-4" /> : <Check className="h-4 w-4" />}
                     {cta}
-                    {step < 3 ? <ChevronRight className="h-4 w-4" /> : null}
+                    {step < 4 ? <ChevronRight className="h-4 w-4" /> : null}
                   </>
                 )}
               </button>
@@ -1215,14 +1326,42 @@ export function CheckoutFlow({
             </div>
           </div>
 
+          {/* The number here is the one the owner sets in /foisal/settings.
+              It used to be typed into this file as ০১৭০০-০০০০০০, so editing
+              the panel changed the header and footer but not checkout — and
+              the checkout page is where a customer panics. */}
           <div className="card mt-4 p-4">
             <p className="flex items-start gap-2 text-[11.5px] leading-relaxed text-neu-muted">
               <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-neu-accent" />
               {t(
-                "সমস্যা হলে ০১৭০০-০০০০০০ নম্বরে কল করুন — সকাল ৯টা থেকে রাত ৯টা।",
-                "Need help? Call ০১৭০০-০০০০০০ — 9 am to 9 pm."
+                "সমস্যা হলে কল করুন বা হোয়াটসঅ্যাপে লিখুন — অর্ডার দেওয়ার আগেই উত্তর পাবেন।",
+                "Stuck? Call or message us on WhatsApp — an answer before you pay."
               )}
             </p>
+            <div className="mt-2.5 flex flex-wrap gap-2">
+              <a
+                href={`tel:${store.phone}`}
+                className="chip !py-1.5 !text-[11.5px] font-semibold"
+              >
+                <Phone className="h-3.5 w-3.5 text-neu-accent" />
+                <span className="tabular-nums">{store.phone_display}</span>
+              </a>
+              <a
+                href={`https://wa.me/${store.whatsapp}?text=${encodeURIComponent(
+                  t("আমার অর্ডার নিয়ে সাহায্য দরকার।", "I need help with my order.")
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="chip !py-1.5 !text-[11.5px] font-semibold"
+              >
+                <MessageCircle className="h-3.5 w-3.5 text-[#25D366]" />
+                {t("হোয়াটসঅ্যাপ", "WhatsApp")}
+              </a>
+              <span className="chip !py-1.5 !text-[11.5px] text-neu-muted">
+                <Clock className="h-3.5 w-3.5" />
+                {t(store.hours_bn, store.hours_en)}
+              </span>
+            </div>
           </div>
         </aside>
       </div>

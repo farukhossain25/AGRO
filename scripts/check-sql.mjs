@@ -34,6 +34,7 @@ const EXTRA_FILES = [
   "24_camera_cloud_bridge.sql",
   "25_coupons_referrals_wallet.sql",
   "26_footer_payments.sql",
+  "27_live_chat.sql",
 ];
 
 async function run(file, round) {

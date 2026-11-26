@@ -56,8 +56,29 @@ export async function updateSession(
 
   let user: User | null = null;
   try {
-    const { data } = await supabase.auth.getUser();
-    user = data.user ?? null;
+    /* A stub project (used by the local mock harness and by the UI screenshot
+       runs) has no /auth/v1/user endpoint, so getUser() would throw and every
+       guarded page would redirect to /login. Treat an explicit
+       SUPABASE_DEV_USER_ID as "this request is that user" — it is read on the
+       SERVER only and is ignored whenever the variable is unset, which is
+       always the case in production. */
+    const devUser = process.env.SUPABASE_DEV_USER_ID;
+    if (devUser) {
+      user = {
+        id: devUser,
+        email: process.env.SUPABASE_DEV_USER_EMAIL ?? "dev@local",
+        app_metadata: {},
+        user_metadata: { full_name: process.env.SUPABASE_DEV_USER_NAME ?? "ডেভ টিম" },
+        aud: "authenticated",
+        created_at: new Date().toISOString(),
+      } as User;
+    }
+    /* No early return: the role lookup below still has to run, otherwise
+       withRole:true would hand the guards a null role and 404 the panel. */
+    if (!user) {
+      const { data } = await supabase.auth.getUser();
+      user = data.user ?? null;
+    }
   } catch (error) {
     // A network hiccup must not take the whole site down: treat as signed out.
     console.error("[middleware] auth.getUser failed:", (error as Error)?.message);
