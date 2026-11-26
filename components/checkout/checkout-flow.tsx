@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   BadgeCheck,
   Banknote,
+  BookmarkPlus,
   Check,
   ChevronRight,
   Clock,
@@ -114,6 +115,18 @@ export function CheckoutFlow({
   const defaultAddress = addresses.find((a) => a.is_default) ?? addresses[0];
 
   const [step, setStep] = useState<Step>(1);
+  /* ── "save this address for next time" ────────────────────────────────────
+     A customer who types a full address at checkout and then has to type it
+     again next week is being asked the same question twice. The tick box
+     default-ticks ONLY when the profile has no address yet — saving an extra
+     copy of an address they already have would just clutter their list. */
+  const [saveAddress, setSaveAddress] = useState(addresses.length === 0);
+  /** The row we created during this checkout, so a second visit to step 1
+      updates it instead of piling up duplicates. */
+  const [savedAddressId, setSavedAddressId] = useState<string | null>(defaultAddress?.id ?? null);
+  const [savingAddress, setSavingAddress] = useState(false);
+  /** true once the row exists — the tick stays visible but short-circuits. */
+  const [addressSaved, setAddressSaved] = useState(false);
   /* Step 4's checkbox: without it the last tap is a button that looks like the
      three before it, and the customer never had a moment where they explicitly
      said "yes, this one". */
@@ -340,6 +353,11 @@ export function CheckoutFlow({
   }
 
   function applyAddress(a: Address) {
+    /* The box at the top picked an EXISTING row: future edits belong to that
+       row, not to whatever checkout last created. */
+    setSavedAddressId(a.id);
+    setAddressSaved(true);
+    setSaveAddress(false);
     setForm((f) => ({
       ...f,
       customer_name: f.customer_name || a.full_name,
@@ -362,6 +380,56 @@ export function CheckoutFlow({
     if (form.address.trim().length < 8) e.address = "সম্পূর্ণ ঠিকানা লিখুন";
     setErrors(e);
     return Object.keys(e).length === 0;
+  }
+
+  /**
+   * Save the address currently in the form as the customer's default.
+   *
+   * Called when step 1 is completed (validateStep1 passed) and the tick is on.
+   * It is deliberately best-effort: a failure here must never block an order —
+   * the order itself carries its own copy of the address.
+   *
+   * `savedAddressId` makes it idempotent: editing the address and coming back
+   * updates the row instead of creating a second one, and choosing a DIFFERENT
+   * saved address at the top of the form clears it (applyAddress) so the edit
+   * is written to the right row.
+   */
+  async function persistAddress(): Promise<void> {
+    if (!saveAddress) return;
+    if (!form.customer_name.trim() || !form.phone.trim() || !form.address.trim()) return;
+
+    const body = {
+      label: t("বাসা", "Home"),
+      full_name: form.customer_name.trim(),
+      phone: form.phone.trim(),
+      division: form.division,
+      district: form.district,
+      upazila: form.upazila,
+      address: form.address.trim(),
+      is_default: true,
+    };
+
+    setSavingAddress(true);
+    try {
+      const res = await fetch(
+        savedAddressId ? `/api/addresses?id=${encodeURIComponent(savedAddressId)}` : "/api/addresses",
+        {
+          method: savedAddressId ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }
+      );
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) throw new Error(json?.message ?? "ঠিকানা সংরক্ষণ হয়নি");
+      if (json.data?.id) setSavedAddressId(json.data.id as string);
+      setAddressSaved(true);
+      toast.success(t("ঠিকানা সেভ হয়েছে", "Address saved"), t("পরের অর্ডারে নিজে থেকেই বসে যাবে।", "It will be filled in next time."));
+    } catch (err) {
+      /* Not a blocker: the order goes through with the address it already has. */
+      toast.error(t("ঠিকানা সেভ হয়নি", "Could not save the address"), (err as Error).message);
+    } finally {
+      setSavingAddress(false);
+    }
   }
 
   async function applyCoupon(codeArg?: string) {
@@ -399,8 +467,14 @@ export function CheckoutFlow({
   /** The single CTA in the sticky summary walks the three steps. */
   function advance() {
     if (step === 1) {
-      if (validateStep1()) setStep(2);
-      else toast.error(t("ঠিকানা পূরণ করুন", "Complete your address"), t("প্রয়োজনীয় ঘরগুলো দিন", "Fill in the required fields"));
+      if (validateStep1()) {
+        /* Fire and forget: the address is saved while the customer is already
+           choosing a payment method. A failed save must not stop the order. */
+        void persistAddress();
+        setStep(2);
+      } else {
+        toast.error(t("ঠিকানা পূরণ করুন", "Complete your address"), t("প্রয়োজনীয় ঘরগুলো দিন", "Fill in the required fields"));
+      }
       return;
     }
     if (step === 2) {
@@ -759,6 +833,40 @@ export function CheckoutFlow({
                     placeholder={t("যেমন: দুপুর ২–৪ টার মধ্যে পাঠান", "e.g. deliver between 2–4 pm")}
                   />
                 </label>
+
+                {/* Save for next time. The tick is on by default when the
+                    account has no address yet, and the number/save happen the
+                    moment this step is completed — not at the end of the
+                    checkout, where a failure would be invisible. */}
+                <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-neu-accent/25 bg-neu-accent/[0.06] p-3">
+                  <input
+                    type="checkbox"
+                    checked={saveAddress}
+                    onChange={(e) => {
+                      setSaveAddress(e.target.checked);
+                      if (!e.target.checked) setAddressSaved(false);
+                    }}
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--neu-accent)]"
+                  />
+                  <span className="min-w-0">
+                    <span className="flex flex-wrap items-center gap-1.5 text-[12.5px] font-semibold text-neu-ink">
+                      <BookmarkPlus className="h-3.5 w-3.5 text-neu-accent" />
+                      {t("এই ঠিকানাটি পরের অর্ডারের জন্য সেভ করুন", "Save this address for next time")}
+                      {savingAddress ? <Spinner className="h-3 w-3 text-neu-accent" /> : null}
+                      {addressSaved && !savingAddress ? (
+                        <span className="flex items-center gap-1 rounded-full bg-neu-accent/15 px-1.5 py-0.5 text-[10px] font-bold text-neu-accent-strong">
+                          <Check className="h-2.5 w-2.5" /> {t("সেভ হয়েছে", "Saved")}
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="mt-0.5 block text-[11px] leading-relaxed text-neu-muted">
+                      {t(
+                        "টিক থাকলে পরেরবার চেকআউটে এই ঠিকানাটি নিজে থেকেই বসে যাবে, আর উপরের সংরক্ষিত ঠিকানার তালিকাতেও থাকবে।",
+                        "Tick it and this address is filled in automatically next time, and appears in the saved list above."
+                      )}
+                    </span>
+                  </span>
+                </label>
               </div>
             ) : (
               <div className="p-5 sm:p-6">
@@ -980,6 +1088,94 @@ export function CheckoutFlow({
                     "The admin verifies your payment before the order is confirmed"
                   )}
                 </p>
+
+                <div className="rounded-2xl border border-neu-line/60 bg-neu-surface/60 p-3.5">
+                      <p className="mb-2 flex items-center gap-1.5 text-[12px] font-bold text-neu-ink">
+                        <Tag className="h-3.5 w-3.5 text-neu-accent" />
+                        {t("কুপন কোড", "Coupon code")}
+                        <span className="font-normal text-neu-faint">{t("(এই ধাপে প্রয়োগ করুন)", "(apply here)")}</span>
+                      </p>
+                    {appliedCoupon ? (
+                    <div className="flex items-center justify-between gap-2 rounded-xl border border-neu-accent/25 bg-neu-accent/[0.08] px-3 py-2">
+                      <span className="flex min-w-0 items-center gap-1.5 text-[12px] font-semibold text-neu-accent-strong">
+                        <BadgeCheck className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{appliedCoupon}</span>
+                        <span className="text-neu-muted">− {money(discount, isBn)}</span>
+                      </span>
+                      <button type="button" onClick={clearCoupon} aria-label={t("কুপন সরান", "Remove coupon")} className="text-neu-muted hover:text-[#c0392b]">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <input
+                        value={coupon}
+                        onChange={(e) => setCoupon(e.target.value)}
+                        /* `min-w-0` + `!w-auto`: `.input` is `w-full`, and inside
+                           this flex row its min-content width pushed the Apply
+                           button out of the card. The box now shrinks instead. */
+                        className="input !w-auto min-w-0 flex-1 !py-2.5 text-[13px]"
+                        placeholder={t("কুপন কোড (ঐচ্ছিক)", "Coupon code (optional)")}
+                        autoComplete="off"
+                        aria-label={t("কুপন কোড", "Coupon code")}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void applyCoupon()}
+                        disabled={couponLoading || !coupon.trim()}
+                        className="btn-ghost shrink-0 !py-2.5 text-[13px] disabled:opacity-50"
+                      >
+                        {couponLoading ? <Spinner className="h-4 w-4" /> : <Tag className="h-4 w-4" />}
+                        {t("প্রয়োগ", "Apply")}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* The account's own usable codes. Four tiny chips used to be
+                      the whole story — a customer could not see what the shop
+                      actually offers, could not see how much they would save, and
+                      had no way to browse.
+
+                      This used to render ONLY when `pickableCoupons.length > 0`,
+                      which is why it vanished on a real checkout: any hiccup in
+                      /api/coupons/mine (or a shop with no public code yet) hid the
+                      one way to browse coupons. It is now always here; the count
+                      line is what changes. */}
+                  {!appliedCoupon ? (
+                    <div className="mt-2 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setCouponPickerOpen(true)}
+                        aria-haspopup="dialog"
+                        aria-expanded={couponPickerOpen}
+                        className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-neu-accent/25 bg-neu-accent/[0.06] px-3 py-2 text-left transition hover:bg-neu-accent/[0.12]"
+                      >
+                        <Ticket className="h-4 w-4 shrink-0 text-neu-accent-strong" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[12px] font-semibold text-neu-ink">
+                            {t("সব কুপন দেখুন", "See all coupons")}
+                          </span>
+                          <span className="block text-[10.5px] text-neu-muted">
+                            {couponListLoading
+                              ? t("কুপন খোঁজা হচ্ছে…", "Looking up coupons…")
+                              : pickableCoupons.length
+                                ? t(
+                                    `${pickableCoupons.length}টি কুপন আপনার অর্ডারে প্রযোজ্য`,
+                                    `${pickableCoupons.length} coupons apply to this order`
+                                  )
+                                : t(
+                                    "এখন কোনো পাবলিক কুপন নেই — কোড থাকলে উপরে লিখুন",
+                                    "No public coupon right now — type a code above"
+                                  )}
+                          </span>
+                        </span>
+                        <span className="shrink-0 rounded-full bg-neu-accent px-2 py-0.5 text-[10.5px] font-bold text-white">
+                          {t("দেখুন", "View")}
+                        </span>
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
               </div>
             ) : (
               <div className="p-5 sm:p-6">
@@ -1187,91 +1383,8 @@ export function CheckoutFlow({
               ) : null}
             </ul>
 
-            {/* coupon */}
-            <div className="border-t border-neu-line/60 px-5 py-4 sm:px-6">
-              {appliedCoupon ? (
-                <div className="flex items-center justify-between gap-2 rounded-xl border border-neu-accent/25 bg-neu-accent/[0.08] px-3 py-2">
-                  <span className="flex min-w-0 items-center gap-1.5 text-[12px] font-semibold text-neu-accent-strong">
-                    <BadgeCheck className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">{appliedCoupon}</span>
-                    <span className="text-neu-muted">− {money(discount, isBn)}</span>
-                  </span>
-                  <button type="button" onClick={clearCoupon} aria-label={t("কুপন সরান", "Remove coupon")} className="text-neu-muted hover:text-[#c0392b]">
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <input
-                    value={coupon}
-                    onChange={(e) => setCoupon(e.target.value)}
-                    /* `min-w-0` + `!w-auto`: `.input` is `w-full`, and inside
-                       this flex row its min-content width pushed the Apply
-                       button out of the card. The box now shrinks instead. */
-                    className="input !w-auto min-w-0 flex-1 !py-2.5 text-[13px]"
-                    placeholder={t("কুপন কোড (ঐচ্ছিক)", "Coupon code (optional)")}
-                    autoComplete="off"
-                    aria-label={t("কুপন কোড", "Coupon code")}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => void applyCoupon()}
-                    disabled={couponLoading || !coupon.trim()}
-                    className="btn-ghost shrink-0 !py-2.5 text-[13px] disabled:opacity-50"
-                  >
-                    {couponLoading ? <Spinner className="h-4 w-4" /> : <Tag className="h-4 w-4" />}
-                    {t("প্রয়োগ", "Apply")}
-                  </button>
-                </div>
-              )}
-
-              {/* The account's own usable codes. Four tiny chips used to be
-                  the whole story — a customer could not see what the shop
-                  actually offers, could not see how much they would save, and
-                  had no way to browse.
-
-                  This used to render ONLY when `pickableCoupons.length > 0`,
-                  which is why it vanished on a real checkout: any hiccup in
-                  /api/coupons/mine (or a shop with no public code yet) hid the
-                  one way to browse coupons. It is now always here; the count
-                  line is what changes. */}
-              {!appliedCoupon ? (
-                <div className="mt-2 flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setCouponPickerOpen(true)}
-                    aria-haspopup="dialog"
-                    aria-expanded={couponPickerOpen}
-                    className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-neu-accent/25 bg-neu-accent/[0.06] px-3 py-2 text-left transition hover:bg-neu-accent/[0.12]"
-                  >
-                    <Ticket className="h-4 w-4 shrink-0 text-neu-accent-strong" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[12px] font-semibold text-neu-ink">
-                        {t("সব কুপন দেখুন", "See all coupons")}
-                      </span>
-                      <span className="block text-[10.5px] text-neu-muted">
-                        {couponListLoading
-                          ? t("কুপন খোঁজা হচ্ছে…", "Looking up coupons…")
-                          : pickableCoupons.length
-                            ? t(
-                                `${pickableCoupons.length}টি কুপন আপনার অর্ডারে প্রযোজ্য`,
-                                `${pickableCoupons.length} coupons apply to this order`
-                              )
-                            : t(
-                                "এখন কোনো পাবলিক কুপন নেই — কোড থাকলে উপরে লিখুন",
-                                "No public coupon right now — type a code above"
-                              )}
-                      </span>
-                    </span>
-                    <span className="shrink-0 rounded-full bg-neu-accent px-2 py-0.5 text-[10.5px] font-bold text-white">
-                      {t("দেখুন", "View")}
-                    </span>
-                  </button>
-                </div>
-              ) : null}
-            </div>
-
-            {/* totals */}
+            {/* totalled from here down; the coupon ENTRY lives in the payment
+                step above, which is the only step where applying one is legal */}
             <dl className="space-y-2 border-t border-neu-line/60 px-5 py-4 text-[13px] sm:px-6">
               <Row label={t("সাবটোটাল", "Subtotal")} value={money(cart.subtotal, isBn)} />
               <Row
@@ -1280,6 +1393,12 @@ export function CheckoutFlow({
                 accent={delivery === 0}
               />
               {discount > 0 ? <Row label={t("ছাড়", "Discount")} value={`− ${money(discount, isBn)}`} accent /> : null}
+              {appliedCoupon ? (
+                <p className="flex items-center gap-1.5 text-[11px] text-neu-accent-strong">
+                  <Tag className="h-3 w-3" />
+                  {t(`${appliedCoupon} প্রয়োগ করা আছে`, `${appliedCoupon} applied`)}
+                </p>
+              ) : null}
               {walletUsed > 0 ? (
                 <Row label={t("ওয়ালেট থেকে", "From wallet")} value={`− ${money(walletUsed, isBn)}`} accent />
               ) : null}
@@ -1371,7 +1490,10 @@ export function CheckoutFlow({
           what it needs, when it expires, and one tap to apply. Only `all`
           codes are in here (pickableCoupons) — an influencer's promo code is
           never browsable. */}
-      {couponPickerOpen ? (
+      {/* The picker only exists while the payment step is on screen. Moving it
+          out of the summary card was the whole point: "সব কুপন দেখুন" must not
+          sit next to a Review screen that cannot apply anything. */}
+      {couponPickerOpen && step === 2 ? (
         <div
           className="fixed inset-0 z-[90] grid place-items-end bg-neu-ink/45 p-0 backdrop-blur-[2px] sm:place-items-center sm:p-4"
           role="dialog"

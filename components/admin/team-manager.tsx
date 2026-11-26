@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldCheck, UserPlus } from "lucide-react";
+import { Search, ShieldCheck, UserPlus, UserRoundCheck } from "lucide-react";
 import { useToast } from "@/lib/toast";
 import { formatDateBn } from "@/lib/format";
 import { Spinner } from "@/components/ui";
@@ -17,6 +17,18 @@ export type TeamRow = {
   role: UserRole;
   is_active: boolean;
   created_at: string;
+};
+
+/** One row from /api/foisal/team/lookup — an existing account to promote. */
+export type LookupRow = {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+  phone: string | null;
+  role: string;
+  is_active: boolean | null;
+  created_at: string | null;
+  can_manage: boolean;
 };
 
 /**
@@ -44,6 +56,83 @@ export function TeamManager({
   const [busy, setBusy] = useState<string | null>(null);
   const [inviting, setInviting] = useState(false);
   const [form, setForm] = useState({ email: "", full_name: "", phone: "", role: "staff" as UserRole });
+
+  /* ── find an EXISTING account ───────────────────────────────────────────
+     The owner already has the person in the panel; making him send an email
+     invite to his own staff was busywork. `mode` switches the card between
+     "search an account that exists" and "invite someone new". */
+  const [mode, setMode] = useState<"existing" | "invite">("existing");
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<LookupRow[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [promoting, setPromoting] = useState<string | null>(null);
+  const [searched, setSearched] = useState(false);
+
+  async function findExisting(e?: React.FormEvent) {
+    e?.preventDefault();
+    const q = query.trim();
+    if (q.length < 2) {
+      toast.error("অন্তত ২ অক্ষর লিখুন", "নাম, মোবাইল বা ইমেইলের অংশ লিখুন");
+      return;
+    }
+    setSearching(true);
+    try {
+      const res = await fetch(`/api/foisal/team/lookup?q=${encodeURIComponent(q)}`, { cache: "no-store" });
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.message ?? "খোঁজা যায়নি");
+      setResults((json.data?.rows ?? []) as LookupRow[]);
+      setSearched(true);
+    } catch (error) {
+      toast.error("খোঁজা হয়নি", (error as Error).message);
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  /**
+   * Promote an existing account. Reuses the SAME PATCH the table uses, so the
+   * one-place rule (cannot act on a peer or above, cannot touch yourself) is
+   * enforced by the server, not by this component.
+   */
+  async function promote(row: LookupRow, role: UserRole) {
+    setPromoting(row.id);
+    try {
+      const res = await fetch("/api/foisal/team", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: row.id, role }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.message ?? "রোল দেওয়া যায়নি");
+      setResults((prev) => prev.map((r) => (r.id === row.id ? { ...r, role } : r)));
+      toast.success(
+        `${row.full_name ?? row.email} এখন ${roleLabelBn(role)}`,
+        "প্যানেলে ঢোকার পর এই রোলটাই কাজ করবে"
+      );
+      // the team table must show the new member immediately, no reload
+      setRows((prev) =>
+        prev.some((r) => r.id === row.id)
+          ? prev.map((r) => (r.id === row.id ? { ...r, role } : r))
+          : [
+              {
+                id: row.id,
+                name: row.full_name,
+                email: row.email,
+                phone: row.phone,
+                role,
+                is_active: row.is_active ?? true,
+                created_at: row.created_at ?? new Date().toISOString(),
+              },
+              ...prev,
+            ]
+      );
+      router.refresh();
+    } catch (error) {
+      toast.error("রোল দেওয়া হয়নি", (error as Error).message);
+    } finally {
+      setPromoting(null);
+    }
+  }
 
   async function invite(e: React.FormEvent) {
     e.preventDefault();
@@ -104,9 +193,109 @@ export function TeamManager({
       )}
 
       {canInvite && (
-        <form onSubmit={invite} className="card space-y-3 p-4">
+        <div className="card space-y-3 p-4">
+          {/* Two doors, and the first one is the one the owner asked for:
+              pick a person who ALREADY has an account. */}
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              onClick={() => setMode("existing")}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold transition ${
+                mode === "existing" ? "bg-leaf-600 text-white" : "bg-white/[0.05] text-sand-100/60 hover:bg-white/10"
+              }`}
+            >
+              <UserRoundCheck className="h-3.5 w-3.5" /> বিদ্যমান ব্যবহারকারী
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("invite")}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold transition ${
+                mode === "invite" ? "bg-leaf-600 text-white" : "bg-white/[0.05] text-sand-100/60 hover:bg-white/10"
+              }`}
+            >
+              <UserPlus className="h-3.5 w-3.5" /> ইমেইলে ইনভাইট
+            </button>
+          </div>
+
+          {mode === "existing" ? (
+            <div className="space-y-2.5">
+              <form onSubmit={findExisting} className="flex flex-wrap gap-2">
+                <div className="relative min-w-0 flex-1">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sand-100/35" />
+                  <input
+                    className={`${field} !pl-9`}
+                    placeholder="নাম, মোবাইল নম্বর বা ইমেইল লিখুন"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={searching}
+                  className="btn-primary min-h-[44px] shrink-0 rounded-xl px-4 text-[13px] font-semibold"
+                >
+                  {searching ? <Spinner className="h-4 w-4" /> : "খুঁজুন"}
+                </button>
+              </form>
+              <p className="text-[11.5px] leading-relaxed text-sand-100/45">
+                যিনি আগে থেকেই কাস্টমার হিসেবে আছেন — তাঁকে খুঁজে সরাসরি স্টাফ/ম্যানেজার/অ্যাডমিন
+                বানাতে পারবেন। ইমেইল ইনভাইট লাগবে না, উনি আগের পাসওয়ার্ড দিয়েই প্যানেলে ঢুকবেন।
+              </p>
+
+              {results.length ? (
+                <ul className="divide-y divide-white/[0.05] rounded-xl border border-white/[0.06]">
+                  {results.map((r) => (
+                    <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5">
+                      <div className="min-w-0">
+                        <p className="truncate text-[12.5px] font-medium text-sand-50">
+                          {r.full_name ?? "নাম নেই"}
+                          <span className="ml-2 rounded-full bg-leaf-600/15 px-1.5 py-0.5 text-[10px] font-semibold text-leaf-700">
+                            {roleLabelBn(r.role as UserRole)}
+                          </span>
+                        </p>
+                        <p className="truncate text-[11px] text-sand-100/40">
+                          {[r.phone, r.email].filter(Boolean).join(" · ") || "ফোন/ইমেইল নেই"}
+                        </p>
+                      </div>
+
+                      {r.can_manage ? (
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          <select
+                            value={r.role}
+                            disabled={promoting === r.id}
+                            onChange={(e) => void promote(r, e.target.value as UserRole)}
+                            className="rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-[11.5px] text-sand-50"
+                          >
+                            <option value="customer" className="bg-neu-raised text-neu-ink">
+                              কাস্টমার (প্যানেল বন্ধ)
+                            </option>
+                            {ROLE_DESCRIPTIONS.map((d) => (
+                              <option key={d.role} value={d.role} className="bg-neu-raised text-neu-ink">
+                                {d.label}
+                              </option>
+                            ))}
+                          </select>
+                          {promoting === r.id ? <Spinner className="h-3.5 w-3.5" /> : null}
+                        </div>
+                      ) : (
+                        <span className="shrink-0 text-[10.5px] text-sand-100/35">
+                          এই অ্যাকাউন্টে আপনার অনুমতি নেই
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : searched && !searching ? (
+                <p className="rounded-xl border border-white/[0.06] px-3 py-2.5 text-[12px] text-sand-100/45">
+                  এই নামে কেউ পাওয়া যায়নি। নামের বানান বা মোবাইল নম্বর দিয়ে আবার চেষ্টা করুন —
+                  অথবা পাশের ট্যাব থেকে ইমেইল ইনভাইট পাঠান।
+                </p>
+              ) : null}
+            </div>
+          ) : (
+        <form onSubmit={invite} className="space-y-3">
           <p className="flex items-center gap-1.5 text-[13px] font-semibold">
-            <UserPlus className="h-4 w-4 text-leaf-300" /> নতুন সদস্য যোগ করুন
+            <UserPlus className="h-4 w-4 text-leaf-300" /> নতুন সদস্য ইনভাইট করুন
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <input
@@ -147,6 +336,8 @@ export function TeamManager({
             {inviting ? <Spinner className="h-4 w-4" /> : "ইনভাইট পাঠান"}
           </button>
         </form>
+          )}
+        </div>
       )}
 
       <div className="card overflow-hidden">

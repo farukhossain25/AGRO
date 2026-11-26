@@ -46,6 +46,15 @@ export async function POST(req: Request) {
 
     if (data.is_default) {
       await db().from("addresses").update({ is_default: false }).eq("user_id", user.id);
+    } else {
+      /* The FIRST address is the default whether or not the caller said so —
+         otherwise the customer's only address is not the one checkout prefills
+         from on the next order. */
+      const { count } = await db()
+        .from("addresses")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id);
+      if (!count) data.is_default = true;
     }
 
     const { data: address, error } = await db()
@@ -56,6 +65,55 @@ export async function POST(req: Request) {
 
     if (error) throw error;
     return created(address);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
+ * PATCH — edit one of my own addresses.
+ *
+ * Checkout creates the row when the customer ticks "save this address"; if they
+ * come back and correct a house number, the row must be UPDATED. Without this
+ * endpoint the client had no choice but to POST again, which left two rows that
+ * differ by one typo — and the older one was still the default.
+ */
+export async function PATCH(req: Request) {
+  try {
+    const limit = limitGuard(req, "api-addresses", 30, 60_000);
+    if (limit) return limit;
+    const user = await currentUser();
+    if (!user) return fail("লগইন করুন", 401);
+
+    const id = new URL(req.url).searchParams.get("id");
+    if (!id) return fail("আইডি দিন", 422);
+
+    /* Every field optional: the caller may be fixing just the house number. */
+    const data = schema.partial().parse(await req.json());
+
+    const { data: existing, error: readError } = await db()
+      .from("addresses")
+      .select("id")
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (readError) throw readError;
+    if (!existing) return fail("ঠিকানাটি পাওয়া যায়নি", 404);
+
+    if (data.is_default) {
+      await db().from("addresses").update({ is_default: false }).eq("user_id", user.id);
+    }
+
+    const { data: address, error } = await db()
+      .from("addresses")
+      .update(data)
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return ok(address);
   } catch (error) {
     return handleError(error);
   }

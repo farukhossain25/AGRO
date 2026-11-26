@@ -25,7 +25,13 @@ export const runtime = "nodejs";
         the last admin can lock everyone (including themselves) out.
    ========================================================================== */
 
-const RANK: Record<string, number> = { staff: 1, manager: 2, admin: 3 };
+/* Rank map for "may I act on this account".
+   `customer` MUST be here with a rank of 0 — it is the row a promotion starts
+   from. It used to be missing, so `RANK["customer"] ?? 99` made every ordinary
+   customer rank ABOVE the admin, and the guard refused the single action this
+   screen exists for ("this account has no permission") while a staff→manager
+   change — a row that already had a rank — went through. */
+const RANK: Record<string, number> = { customer: 0, premium: 0, seller: 0, staff: 1, manager: 2, admin: 3 };
 
 const inviteSchema = z.object({
   email: z.string().trim().toLowerCase().email("সঠিক ইমেইল দিন"),
@@ -41,7 +47,10 @@ const inviteSchema = z.object({
 
 const roleSchema = z.object({
   userId: z.string().uuid(),
-  role: z.enum(["staff", "manager", "admin"]).optional(),
+  /* "customer" is accepted on purpose: it is the only way to take the panel
+     away from someone again. Without it a mis-promoted account stays staff
+     forever (the alternative — deleting the account — loses their orders). */
+  role: z.enum(["customer", "staff", "manager", "admin"]).optional(),
   is_active: z.boolean().optional(),
 });
 
@@ -155,14 +164,20 @@ export async function PATCH(req: Request) {
     if (readError) throw readError;
     if (!target) return fail("টিম মেম্বার পাওয়া যায়নি", 404);
 
-    if (!canActOn(actor.role, String(target.role))) {
+    /* `db()` is the service client, and a missing role on an EXISTING account
+       means a plain customer — the very row we are trying to promote. Defaulting
+       to "customer" (rank 0) is what lets the guard below answer yes instead of
+       refusing the one action this screen exists for. */
+    const targetRole = String(target.role ?? "customer");
+
+    if (!canActOn(actor.role, targetRole)) {
       return fail("এই অ্যাকাউন্টের উপর আপনার অনুমতি নেই", 403);
     }
     if (body.role && !canActOn(actor.role, body.role)) {
       return fail("নিজের চেয়ে বড় রোল দেওয়া যাবে না", 403);
     }
 
-    const patch: { role?: "staff" | "manager" | "admin"; is_active?: boolean } = {};
+    const patch: { role?: "customer" | "staff" | "manager" | "admin"; is_active?: boolean } = {};
     if (body.role) patch.role = body.role;
     if (typeof body.is_active === "boolean") patch.is_active = body.is_active;
     if (!Object.keys(patch).length) return fail("পরিবর্তনের কিছু নেই", 400);
