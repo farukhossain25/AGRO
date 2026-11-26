@@ -3350,8 +3350,13 @@ begin
   -- Credit when the order reaches the configured moment. credit_referral()
   -- re-reads the setting, and the unique index on the ledger keeps it to one
   -- payment per order, so firing on both transitions is safe.
-  if (new.status = 'delivered' and coalesce(old.status, '') <> 'delivered')
-     or (new.payment_status = 'paid' and coalesce(old.payment_status, '') <> 'paid') then
+  /* `is distinct from` (never `coalesce(old.status, '')`): these columns are
+     ENUMS, and comparing an enum to '' makes Postgres try to read '' as an
+     order_status label → 22P02 → EVERY update of orders.status /
+     orders.payment_status fails. That is what made the admin panel unable to
+     change a status or verify a payment. */
+  if (new.status = 'delivered' and old.status is distinct from 'delivered')
+     or (new.payment_status = 'paid' and old.payment_status is distinct from 'paid') then
     perform public.credit_referral(new.id);
   end if;
   return new;

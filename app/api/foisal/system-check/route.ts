@@ -322,6 +322,54 @@ export async function GET() {
     });
   }
 
+  /* ------------------------------------------------ db:order write probe --
+     A no-op UPDATE (`status = status`) on one real order. It changes nothing,
+     but it runs every trigger on public.orders — which is exactly where the
+     "cannot change status / verify payment" bug lived: a trigger compared an
+     ENUM column with '', so EVERY write to orders failed with 22P02 while the
+     panel only said "ব্যর্থ". One click here now proves the write path works.
+     Skipped (not failed) when there are no orders yet. */
+  try {
+    const { data: anyOrder, error: pickError } = await db()
+      .from("orders")
+      .select("id, order_no, status")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (pickError) throw pickError;
+
+    if (!anyOrder) {
+      checks.push({
+        id: "db:orders:write",
+        label: "অর্ডার স্টেটাস লেখা যায়",
+        group: "db",
+        status: "skip",
+        detail: "এখনো কোনো অর্ডার নেই — পরীক্ষা করার মতো রো নেই।",
+      });
+    } else {
+      const { error: writeError } = await db()
+        .from("orders")
+        .update({ status: anyOrder.status })
+        .eq("id", anyOrder.id);
+      if (writeError) throw writeError;
+      checks.push({
+        id: "db:orders:write",
+        label: "অর্ডার স্টেটাস লেখা যায়",
+        group: "db",
+        status: "pass",
+        detail: `${anyOrder.order_no} — ট্রিগারসহ লেখা সফল ✓`,
+      });
+    }
+  } catch (error) {
+    checks.push({
+      id: "db:orders:write",
+      label: "অর্ডার স্টেটাস লেখা যায়",
+      group: "db",
+      status: "fail",
+      detail: `${(error as Error).message} — supabase/sql/25_coupons_referrals_wallet.sql (সর্বশেষ সংস্করণ) আবার চালান।`,
+    });
+  }
+
   /* ----------------------------------------------------------- auth:admin */
   try {
     const [{ count, error: countError }, admin] = await Promise.all([

@@ -63,6 +63,22 @@ export function dbErrorMessage(error: DbError | null | undefined): Mapped | null
     };
   }
 
+  /* --- an enum compared with a value it does not have ---
+     Postgres words this as `invalid input value for enum <type>: "..."`. It is
+     the signature of an "" sentinel being compared to an ENUM column, which
+     makes a column un-writable no matter what the code sends. Name it, because
+     the generic message sent the owner hunting in the wrong place. */
+  const enumHit = /invalid input value for enum (\w+): "([^"]*)"/.exec(raw);
+  if (code === "22P02" || enumHit) {
+    return {
+      message: enumHit
+        ? `ডেটাবেসের "${enumHit[1]}" তালিকায় "${enumHit[2] || "(খালি)"}" মানটি নেই — একটি ট্রিগার/ফাংশন ভুল মান পাঠাচ্ছে। মালিককে জানান (SQL স্ক্রিপ্ট আপডেট দরকার)।`
+        : "মানটির ধরন মেলেনি — মালিককে জানান (SQL স্ক্রিপ্ট আপডেট দরকার)।",
+      code: "DB_ENUM",
+      status: 500,
+    };
+  }
+
   /* --- duplicate key / unique violation --- */
   if (code === "23505" || /duplicate key value/i.test(raw)) {
     const field = /Key \(([^)]+)\)/.exec(raw)?.[1];

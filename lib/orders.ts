@@ -91,6 +91,7 @@ function translate(code: string, detail: string): { message: string; status: num
     case "DB_PERMISSION":
     case "DB_FK":
     case "DB_CHECK":
+    case "DB_ENUM":
       return {
         message:
           "অর্ডারটি সংরক্ষণ করা গেল না — সাইটে একটি কারিগরি সমস্যা আছে। একটু পরে আবার চেষ্টা করুন, অথবা হোয়াটসঅ্যাপে সরাসরি অর্ডার করুন।",
