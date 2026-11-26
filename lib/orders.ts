@@ -258,148 +258,157 @@ export async function createOrder(params: {
 
   return { order, lines: orderItems };
 }
-
 /* ==========================================================================
-   Cancelling an order — undo what place_order() did
+   Cancelling / deleting an order — one call, one transaction
    --------------------------------------------------------------------------
-   Checkout reserves stock, counts the coupon and writes one sub_order per
-   seller (that row IS the seller's money). Cancelling by flipping only
-   `orders.status` left all of that standing: the seller kept the sale and the
-   dashboard kept counting it, the stock never came back.
+   This used to be seven independent HTTP round-trips from here: void the
+   sub_orders, re-read each product, write its new stock, decrement the
+   coupon, delete the redemption, refund the wallet, notify. Two things were
+   wrong with that, and only one of them was theoretical:
 
-   The caller flips `orders.status` FIRST, guarded so only one request can
-   ever win the transition into `cancelled`; this function then runs exactly
-   once. Every step is still written to tolerate a repeat.
+     • **The DELETE route never refunded the wallet at all.** An order worth
+       ৳300 of wallet credit could be deleted and the customer's balance stayed
+       ৳300 lighter, with the ledger row's `order_id` set to null so nothing
+       could ever prove it had happened.
+
+     • Stock was read-modify-write in JavaScript, so two cancellations running
+       together could both read `stock = 5` and both write `stock = 7`.
+
+   Both now run inside `order_cancel()` / `order_delete()` in
+   supabase/sql/30_critical_fixes.sql: the order row is locked FOR UPDATE,
+   the status is checked once, and every consequence — stock, coupon, wallet,
+   sub_orders — is undone in the same transaction. The refund only happens if
+   the ledger really holds a debit for that order, so this function can never
+   invent money.
+
+   What is left here is the part the database cannot do: telling the customer
+   and the sellers. That is deliberately *after* the commit — a notification
+   failure must not roll back a refund.
    ========================================================================== */
 
-export type CancelTarget = {
-  id: string;
-  order_no: string;
-  coupon_code: string | null;
-  user_id: string | null;
-  /** Wallet credit spent on this order — refunded on cancel. */
-  wallet_used?: number | string | null;
+export type CancelOutcome =
+  | { result: "cancelled"; walletRefunded: number; stockRestored: number; couponRestored: boolean }
+  | { result: "already" }
+  | { result: "delivered" };
+
+type CancelRpcRow = {
+  result?: string;
+  wallet_refunded?: number | string;
+  stock_restored?: number | string;
+  coupon_restored?: boolean;
 };
 
-/** Steps never throw: a failing side effect must not stop the ones after it. */
-// PostgrestFilterBuilder is thenable but not a full Promise, hence PromiseLike.
-async function step(name: string, run: () => PromiseLike<unknown>) {
-  try {
-    await run();
-  } catch (error) {
-    console.error(`[cancel:${name}]`, error);
+/** RPC refusals that mean "nothing was changed" — the caller answers 409. */
+const CANCEL_REFUSALS: Record<string, string> = {
+  ORDER_NOT_FOUND: "অর্ডার পাওয়া যায়নি",
+  ORDER_DELIVERED: "ডেলিভারি হয়ে যাওয়া অর্ডার বাতিল করা যায় না",
+  ORDER_PAYMENT_UNRESOLVED: "পেমেন্ট নিষ্পত্তি না করে অর্ডার মোছা যাবে না",
+};
+
+export class OrderActionError extends Error {
+  code: string;
+  status: number;
+  constructor(code: string, message: string, status = 409) {
+    super(message);
+    this.name = "OrderActionError";
+    this.code = code;
+    this.status = status;
   }
 }
 
-export async function applyOrderCancellation(
-  order: CancelTarget,
-  reason: string,
-  /** Staff member performing the cancellation — recorded on the wallet refund. */
-  actorId?: string | null
-): Promise<void> {
-  const client = db();
+function raiseFrom(code: string): never {
+  const key = Object.keys(CANCEL_REFUSALS).find((k) => code.includes(k));
+  if (key) throw new OrderActionError(key, CANCEL_REFUSALS[key]);
+  throw new OrderActionError("ORDER_FAILED", "অর্ডারটি প্রক্রিয়া করা গেল না — আবার চেষ্টা করুন");
+}
 
-  // 1. the sellers' money: every open sub_order is voided, not deleted
-  await step("sub_orders", () =>
-    client
-      .from("sub_orders")
-      .update({ status: "cancelled", updated_at: new Date().toISOString() })
-      .eq("order_id", order.id)
-      .in("status", ["received", "packing", "shipped", "delivered"])
-  );
+/**
+ * Cancel an order. Safe to call twice, safe to call concurrently: the second
+ * call returns "already" and changes nothing.
+ */
+export async function cancelOrder(orderId: string, reason: string, actorId: string | null): Promise<CancelOutcome> {
+  const { data, error } = await db().rpc("order_cancel", {
+    p_order: orderId,
+    p_reason: reason?.trim() || null,
+    p_actor: actorId,
+  } as never);
 
-  // 2. stock that was reserved at checkout goes back on the shelf
-  //    (combo lines carry no product_id — their stock is not tracked per item)
-  await step("stock", async () => {
-    const { data: items } = await client
-      .from("order_items")
-      .select("product_id, quantity")
-      .eq("order_id", order.id)
-      .not("product_id", "is", null);
-    for (const item of items ?? []) {
-      if (!item.product_id) continue;
-      const { data: product } = await client
-        .from("products")
-        .select("stock")
-        .eq("id", item.product_id)
-        .maybeSingle();
-      if (!product) continue;
-      await client
-        .from("products")
-        .update({ stock: Number(product.stock ?? 0) + Number(item.quantity ?? 0) })
-        .eq("id", item.product_id);
-    }
-  });
-
-  // 3. the coupon's used_count was bumped at checkout; give that use back
-  await step("coupon", async () => {
-    if (!order.coupon_code) return;
-    const { data: coupon } = await client
-      .from("coupons")
-      .select("id, used_count")
-      .eq("code", order.coupon_code)
-      .maybeSingle();
-    if (!coupon) return;
-    await client
-      .from("coupons")
-      .update({ used_count: Math.max(0, Number(coupon.used_count ?? 0) - 1) })
-      .eq("id", coupon.id);
-
-    /* …and drop the per-account redemption, otherwise a cancel would burn the
-       customer's one use of a once-per-account coupon. */
-    await client.from("coupon_redemptions").delete().eq("order_id", order.id);
-  });
-
-  /* 3b. money that came out of the wallet goes back in. place_order() debited
-         it with kind 'order'; no wallet debit means nothing to refund. */
-  await step("wallet", async () => {
-    const used = Number(order.wallet_used ?? 0);
-    if (used <= 0 || !order.user_id) return;
-    const { error } = await client.rpc("wallet_apply", {
-      p_user: order.user_id,
-      p_kind: "refund",
-      p_amount: used,
-      p_order: order.id,
-      p_order_no: order.order_no ?? null,
-      p_note: `অর্ডার বাতিল — ওয়ালেট ফেরত (${order.order_no})`,
-      /* p_by is where the money trail says "who": a refund with no actor in
-         the ledger is an audit hole the owner cannot close later. The
-         generated Args type is non-nullable (the introspection drops default
-         nullability), so the actor-less case passes the nil uuid. */
-      p_by: actorId ?? "00000000-0000-0000-0000-000000000000",
-    });
-    if (error) throw error;
-  });
-
-  // 4. tell the customer, then every seller who had a share in the order
-  const note = reason.trim() || "অ্যাডমিনের সিদ্ধান্তে";
-  if (order.user_id) {
-    await step("notify:customer", () =>
-      notify({
-        userId: order.user_id,
-        audience: "user",
-        kind: "order",
-        title: `অর্ডার ${order.order_no} বাতিল করা হয়েছে`,
-        body: note,
-        link: "/account/orders",
-      })
-    );
+  if (error) {
+    console.error("[orders] order_cancel failed:", error.message);
+    raiseFrom(error.message ?? "");
   }
 
-  await step("notify:sellers", async () => {
-    // Two plain reads instead of an embedded join: explicit, and the seller's
-    // login id lives on `sellers.user_id`, not on the sub_order.
-    const { data: shares } = await client
-      .from("sub_orders")
-      .select("seller_id")
-      .eq("order_id", order.id);
+  const row = (data ?? {}) as CancelRpcRow;
+  if (row.result === "already") return { result: "already" };
+  if (row.result === "delivered") return { result: "delivered" };
+  if (row.result !== "cancelled") raiseFrom("ORDER_FAILED");
+
+  return {
+    result: "cancelled",
+    walletRefunded: Number(row.wallet_refunded ?? 0),
+    stockRestored: Number(row.stock_restored ?? 0),
+    couponRestored: Boolean(row.coupon_restored),
+  };
+}
+
+/**
+ * Delete an order, refunding whatever it still holds. The function refuses a
+ * delivered order (that is a sale) and any order whose payment is still marked
+ * paid — those have to be resolved, not erased.
+ */
+export async function deleteOrder(
+  orderId: string,
+  actorId: string | null
+): Promise<{ orderNo: string; walletRefunded: number; stockRestored: number; couponRestored: boolean }> {
+  const { data, error } = await db().rpc("order_delete", {
+    p_order: orderId,
+    p_actor: actorId,
+  } as never);
+
+  if (error) {
+    console.error("[orders] order_delete failed:", error.message);
+    raiseFrom(error.message ?? "");
+  }
+
+  const row = (data ?? {}) as CancelRpcRow & { order_no?: string };
+  return {
+    orderNo: String(row.order_no ?? ""),
+    walletRefunded: Number(row.wallet_refunded ?? 0),
+    stockRestored: Number(row.stock_restored ?? 0),
+    couponRestored: Boolean(row.coupon_restored),
+  };
+}
+
+/**
+ * Tell the people the database cannot reach. Runs after the commit; a failure
+ * here is logged and swallowed because the money has already moved correctly.
+ */
+export async function announceCancellation(
+  order: { id: string; order_no: string; user_id: string | null },
+  reason: string
+): Promise<void> {
+  const client = db();
+  const note = reason.trim() || "অ্যাডমিনের সিদ্ধান্তে";
+
+  if (order.user_id) {
+    await notify({
+      userId: order.user_id,
+      audience: "user",
+      kind: "order",
+      title: `অর্ডার ${order.order_no} বাতিল করা হয়েছে`,
+      body: note,
+      link: "/account/orders",
+    }).catch((error) => console.error("[cancel:notify:customer]", error));
+  }
+
+  try {
+    // Two plain reads instead of an embedded join: the seller's login id lives
+    // on `sellers.user_id`, not on the sub_order.
+    const { data: shares } = await client.from("sub_orders").select("seller_id").eq("order_id", order.id);
     const sellerIds = [...new Set((shares ?? []).map((s) => s.seller_id).filter((v): v is string => !!v))];
     if (!sellerIds.length) return;
 
-    const { data: sellerRows } = await client
-      .from("sellers")
-      .select("id, user_id")
-      .in("id", sellerIds);
+    const { data: sellerRows } = await client.from("sellers").select("id, user_id").in("id", sellerIds);
     for (const seller of sellerRows ?? []) {
       if (!seller.user_id) continue;
       await notify({
@@ -411,5 +420,7 @@ export async function applyOrderCancellation(
         link: "/seller",
       }).catch(() => undefined);
     }
-  });
+  } catch (error) {
+    console.error("[cancel:notify:sellers]", error);
+  }
 }

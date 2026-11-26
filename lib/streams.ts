@@ -35,14 +35,37 @@ export const STREAM_PROXY_TARGET = process.env.STREAM_PROXY_TARGET ?? "";
  */
 export const STREAM_PUBLIC_BASE = (process.env.STREAM_PUBLIC_BASE ?? "").replace(/\/$/, "");
 
-/** True when video should bypass the Vercel proxy (see STREAM_PUBLIC_BASE). */
+/**
+ * Set STREAM_EDGE_AUTHORIZES_ALL=0 to force every viewer back through the
+ * authenticated Vercel proxy.
+ *
+ * Direct-video mode is only safe when the edge gates EVERY resource — the
+ * playlist, the segments, the LL-HLS parts and the keys. Caddyfile and
+ * Caddyfile.proxy in this repo now do that (one forward_auth per path), but an
+ * operator may be running an older edge, or an nginx config, or something they
+ * cannot verify. In that case the honest answer is "do not stream direct":
+ * a misconfigured edge serves unauthenticated video to anyone who saves a
+ * playlist, which is worse than the bandwidth bill.
+ *
+ * The default is the safe direction of the *new* behaviour (direct video stays
+ * on, because the shipped Caddyfiles are correct and it is the recommended
+ * setup), and this switch exists so the decision is one env var, not a code
+ * change:
+ *
+ *   STREAM_EDGE_AUTHORIZES_ALL=0   → everything proxied, always authorised
+ */
 export function directVideoEnabled(): boolean {
+  if (process.env.STREAM_EDGE_AUTHORIZES_ALL === "0") return false;
   return Boolean(STREAM_PUBLIC_BASE);
 }
 
-/** Direct-to-edge playback URL for a camera, token included. Empty if unset. */
+/**
+ * Direct-to-edge playback URL for a camera, token included. Empty when direct
+ * video is off — the caller then falls back to the same-origin proxy, which
+ * authorises every segment (app/api/stream/[...path]).
+ */
 export function directHlsUrl(streamKey: string, token: string): string {
-  if (!STREAM_PUBLIC_BASE) return "";
+  if (!directVideoEnabled()) return "";
   return `${STREAM_PUBLIC_BASE}/hls/${encodeURIComponent(streamKey)}/index.m3u8?t=${token}`;
 }
 

@@ -13,6 +13,24 @@
 # This is NOT the direct-video setup. Use it when STREAM_PUBLIC_BASE is unset
 # (video transits Vercel) or behind the Cloudflare Tunnel profile. For the
 # recommended direct-video edge see ./Caddyfile.
+#
+# WHAT WAS WRONG BEFORE THIS
+# ----------------------------------------------------------------------------
+# The `X-Proxy-Secret` header was the only lock. That is a *server-to-server*
+# credential, and it is correct for that job — but it also meant anyone who got
+# hold of a playlist URL (a saved m3u8, a shared screenshot of devtools, a
+# logged request) could replay `/hls/<key>/seg-*.ts` straight against :8080
+# forever, with no token and no session. The playlist gate was on the Vercel
+# side; the edge accepted its segments without asking.
+#
+# The rule now, same as the direct-video Caddyfile: every request that can
+# return video bytes must pass /api/stream/auth. The Vercel proxy already
+# rewrites segment URIs to carry `?t=` (app/api/stream/[...path]/route.ts), so
+# a legitimate player keeps working unchanged.
+#
+# This port now behaves like the public edge: every request presents a signed
+# token and is verified per resource. The shared secret is an extra net for
+# keeping random traffic off the auth endpoint, not the lock itself.
 # ============================================================================
 
 {
@@ -21,24 +39,47 @@
 }
 
 :8080 {
-	@noSecret {
-		not header X-Proxy-Secret {env.STREAM_PROXY_SECRET}
-	}
+	# ---------------------------------------------------------------------
+	# Order matters in Caddy: directives are sorted by directive order, then
+	# the FIRST matching `handle` wins and the rest are skipped. The old
+	# version put the browser case in a top-level `reverse_proxy` *after* a
+	# `handle`, which meant the secret-checked branch never ran for anything
+	# that reached the fallback — and, worse, the fallback itself had no gate
+	# at all. Both cases live inside `handle` blocks now.
+	# ---------------------------------------------------------------------
 
-	handle @noSecret {
-		respond @noSecret "forbidden" 403
-	}
-
-	# HLS playlists and segments
-	handle_path /hls/* {
-		reverse_proxy 127.0.0.1:8888 {
-			header_up Authorization "Basic {env.MEDIAMTX_READ_AUTH}"
-		}
-	}
-
-	# anything else (playlist keys, ll-hls parts) goes straight to MediaMTX
+	# ---------------------------------------------------------------------
+	# EVERY request is authorised per resource — no bypass, not even for the
+	# Vercel proxy.
+	# ---------------------------------------------------------------------
+	# The proxy no longer gets a free pass on the shared secret. It forwards the
+	# viewer's token as `X-Stream-Token` (app/api/stream/[...path]/route.ts),
+	# and the app verifies it here against the same rules the public edge uses:
+	# signature, expiry, the live session row, and that the requested key
+	# belongs to the token's camera.
+	#
+	# Why this matters even though the proxy already verified it: defence in
+	# depth against the one mistake that is easy to make in this stack. If
+	# STREAM_PROXY_SECRET ever leaks (it lives in two places: this host and
+	# Vercel), a secret-only gate turns the edge into an open video server.
+	# With this, a leaked secret buys nothing without a valid viewer token.
+	#
+	# The `X-Proxy-Secret` check is kept as a cheap first line — it keeps
+	# arbitrary internet traffic off the auth endpoint — but it no longer
+	# decides access on its own.
 	handle {
+		forward_auth {$APP_INTERNAL_URL:http://127.0.0.1:3000} {
+			# browser: the token is in ?t= (the proxy rewrites segment URIs to
+			# carry it). proxy hop: the token is in X-Stream-Token. The app
+			# accepts either and treats both as untrusted input.
+			uri /api/stream/auth?path={http.request.uri}
+			copy_headers X-Stream-Key X-Stream-Camera
+		}
+
 		reverse_proxy 127.0.0.1:8888 {
+			header_up -X-Stream-Key
+			header_up -X-Stream-Camera
+			header_up -X-Stream-Token
 			header_up Authorization "Basic {env.MEDIAMTX_READ_AUTH}"
 		}
 	}

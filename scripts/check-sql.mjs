@@ -40,7 +40,8 @@ const EXTRA_FILES = [
      without it place_order() stays callable by anon. So it sits in the chain
      that 13_verify_setup.sql checks, not in the optional extras. */
   "29_security_hardening.sql",
-  "30_team_permission_console.sql",
+  "30_critical_fixes.sql",
+  "31_team_permission_console.sql",
 ];
 
 async function run(file, round) {

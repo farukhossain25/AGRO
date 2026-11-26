@@ -4,7 +4,7 @@ import type { TablesUpdate } from "@/lib/database.types";
 import { clientIp, fail, handleError, ok, requirePermission } from "@/lib/api";
 import { notify } from "@/lib/notify";
 import { recordAudit, diffOf } from "@/lib/audit";
-import { applyOrderCancellation } from "@/lib/orders";
+import { announceCancellation, cancelOrder, deleteOrder, OrderActionError } from "@/lib/orders";
 
 export const dynamic = "force-dynamic";
 
@@ -64,36 +64,88 @@ export async function PATCH(req: Request) {
     }
     if (!Object.keys(patch).length) return fail("আপডেট করার কিছু নেই", 422);
 
-    // A cancelled order stays cancelled. The flip below is guarded in the
-    // database, so a repeat click, a retry or two admins at once can never run
-    // the side effects (stock back, coupon back, seller notifications) twice.
-    const cancelling = patch.status === "cancelled" && before.status !== "cancelled";
-    const query = db()
-      .from("orders")
-      .update({ ...patch, updated_at: new Date().toISOString() })
-      .eq("id", id);
-    const gated = cancelling ? query.not("status", "eq", "cancelled") : query;
-    const { data, error } = await gated.select("id, order_no, status, payment_status, user_id").maybeSingle();
-    if (error) throw error;
+    /* ---------------------------------------------------------------------
+       Cancelling is NOT a status update any more.
+       ---------------------------------------------------------------------
+       Flipping `orders.status` here and undoing the side effects afterwards
+       (seven separate calls in the old build) meant a failure halfway left an
+       order cancelled while its stock, coupon or wallet stayed put. Worse, the
+       route had no way to refund a payment that had already arrived.
 
-    if (!data) {
-      // Someone else cancelled it between the read above and this update.
+       Now the whole thing — status, stock, coupon, wallet, sub_orders — is one
+       locked transaction in order_cancel(). It answers "already" for a repeat
+       or a race, and "delivered" for an order that is a finished sale.
+       --------------------------------------------------------------------- */
+    const cancelling = patch.status === "cancelled" || rejecting;
+
+    if (cancelling) {
+      const outcome = await cancelOrder(id, patch.cancel_reason ?? "", actor.id);
+
+      if (outcome.result === "delivered") {
+        return fail("ডেলিভারি হয়ে যাওয়া অর্ডার বাতিল করা যায় না — টাকা ফেরত দিতে চাইলে পেমেন্ট আলাদা ভাবে সামলান", 409);
+      }
+
+      const finalStatus = "cancelled";
+      const after = await db()
+        .from("orders")
+        .select("id, order_no, status, payment_status, user_id, cancel_reason")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (outcome.result === "cancelled") {
+        await announceCancellation(before, patch.cancel_reason ?? "");
+      }
+
+      await recordAudit({
+        actor,
+        action: rejecting ? "reject" : "deactivate",
+        entity: "orders",
+        entityId: id,
+        diff: {
+          status: { from: before.status, to: finalStatus },
+          ...(patch.cancel_reason ? { cancel_reason: { from: before.cancel_reason ?? null, to: patch.cancel_reason } } : {}),
+          ...(outcome.result === "cancelled"
+            ? { wallet_refunded: { from: 0, to: outcome.walletRefunded } }
+            : {}),
+        },
+        ip: clientIp(req),
+        userAgent: req.headers.get("user-agent"),
+      }).catch(() => undefined);
+
+      if (before.user_id && outcome.result === "cancelled" && rejecting) {
+        await notify({
+          userId: before.user_id,
+          audience: "user",
+          kind: "order",
+          title: `পেমেন্ট গৃহীত হয়নি — ${before.order_no}`,
+          body: patch.cancel_reason || "প্রেরিত TrxID যাচাই হয়নি। সঠিক তথ্য দিয়ে নতুন অর্ডার করুন।",
+          link: "/account/orders",
+        }).catch(() => undefined);
+      }
+
       return ok({
         id,
-        status: "cancelled",
-        payment_status: before.payment_status,
-        cancel_reason: before.cancel_reason ?? patch.cancel_reason ?? null,
-        already: true,
+        status: finalStatus,
+        payment_status: after.data?.payment_status ?? before.payment_status,
+        cancel_reason: after.data?.cancel_reason ?? patch.cancel_reason ?? null,
+        already: outcome.result === "already",
+        wallet_refunded: outcome.result === "cancelled" ? outcome.walletRefunded : 0,
       });
     }
 
-    if (cancelling) {
-      await applyOrderCancellation(before, patch.cancel_reason ?? "", actor.id);
-    }
+    /* ---- everything that is not a cancellation ------------------------- */
+    const { data, error } = await db()
+      .from("orders")
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select("id, order_no, status, payment_status, user_id")
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return fail("অর্ডার পাওয়া যায়নি", 404);
 
     // The order's progress is the sellers' progress too — their dashboard
     // reads sub_orders.status, which used to stay "received" until delivery.
-    if (patch.status && patch.status !== "cancelled") {
+    if (patch.status) {
       await db()
         .from("sub_orders")
         .update({ status: patch.status as "received" | "packing" | "shipped" | "delivered", updated_at: new Date().toISOString() })
@@ -101,13 +153,8 @@ export async function PATCH(req: Request) {
         .in("status", ["received", "packing", "shipped"]);
     }
 
-    const auditAction = rejecting
-      ? "reject"
-      : cancelling
-        ? "deactivate"
-        : patch.payment_status === "paid" && before.payment_status !== "paid"
-          ? "verify"
-          : "update";
+    const auditAction =
+      patch.payment_status === "paid" && before.payment_status !== "paid" ? "verify" : "update";
     await recordAudit({
       actor,
       action: auditAction,
@@ -149,6 +196,7 @@ export async function PATCH(req: Request) {
 
     return ok({ id: data.id, status: data.status, payment_status: data.payment_status, cancel_reason: patch.cancel_reason ?? null });
   } catch (error) {
+    if (error instanceof OrderActionError) return fail(error.message, error.status);
     const code = (error as { status?: number }).status;
     if (code === 401) return fail("অনুমতি নেই", 401);
     if (code === 403) return fail("এই কাজের অনুমতি আপনার নেই", 403);
@@ -159,13 +207,28 @@ export async function PATCH(req: Request) {
 /**
  * DELETE /api/foisal/orders?id=<uuid>  — orders.write
  *
- * "Remove this order from the history": the owner asked for a way to delete
- * an order outright (test orders, duplicates, a customer's request). Everything
- * hanging off the row goes with it — order_items, sub_orders and the parcel are
- * ON DELETE CASCADE. What checkout RESERVED is given back first, but only when
- * the order was still live: a delivered order consumed its stock and a
- * cancelled one already had it restored. Nobody is notified — there is no
- * order left for the link to point at. The audit log keeps the deleted row.
+ * "Remove this order from the history": test orders, duplicates, a customer
+ * asking for it to be gone. The audit log keeps a full snapshot of the row.
+ *
+ * WHAT WAS WRONG BEFORE THIS
+ * --------------------------------------------------------------------------
+ * This handler restored the stock and the coupon and then deleted the row. It
+ * never touched the wallet. An order that had spent ৳300 of wallet credit could
+ * be deleted — the customer stayed ৳300 poorer, and because
+ * `wallet_transactions.order_id` is `on delete set null`, the ledger row lost
+ * the very link that would prove the debit had happened. The money was simply
+ * gone, with no record to reconstruct it from.
+ *
+ * It also deleted a paid-but-undelivered order on request, which destroys the
+ * only link between the customer's money and their purchase.
+ *
+ * Now the whole thing is one transaction in `order_delete()`: refund the wallet
+ * if (and only if) the ledger holds a real debit, restore stock and coupon,
+ * void the sub_orders, delete the row, and write the audit entry *inside* the
+ * transaction. It refuses:
+ *   • a delivered order — that is a sale, not a mistake (409 ORDER_DELIVERED)
+ *   • a paid, undelivered order — resolve the payment first
+ *     (409 ORDER_PAYMENT_UNRESOLVED)
  */
 export async function DELETE(req: Request) {
   try {
@@ -175,74 +238,27 @@ export async function DELETE(req: Request) {
 
     const { data: before, error: loadError } = await db()
       .from("orders")
-      .select("id, order_no, status, payment_status, payment_ref, user_id, coupon_code, total")
+      .select("id, order_no, status, payment_status, payment_ref, user_id, coupon_code, total, wallet_used, cancel_reason")
       .eq("id", id)
       .maybeSingle<OrderRow>();
     if (loadError) throw loadError;
     if (!before) return fail("অর্ডার পাওয়া যায়নি", 404);
 
-    let restockedItems = 0;
-    let couponRestored = false;
-    const live = before.status !== "delivered" && before.status !== "cancelled";
-    if (live) {
-      // 1. stock reserved at checkout goes back on the shelf
-      //    (combo lines carry no product_id — their stock is not tracked per item)
-      const { data: items, error: itemError } = await db()
-        .from("order_items")
-        .select("product_id, quantity")
-        .eq("order_id", id)
-        .not("product_id", "is", null);
-      if (itemError) throw itemError;
-      for (const item of items ?? []) {
-        if (!item.product_id) continue;
-        const { data: product } = await db().from("products").select("stock").eq("id", item.product_id).maybeSingle();
-        if (!product) continue;
-        const { error: stockError } = await db()
-          .from("products")
-          .update({ stock: Number(product.stock ?? 0) + Number(item.quantity ?? 0) })
-          .eq("id", item.product_id);
-        if (stockError) throw stockError;
-        restockedItems += Number(item.quantity ?? 0);
-      }
-      // 2. the coupon's used_count was bumped at checkout; give that use back
-      if (before.coupon_code) {
-        const { data: coupon } = await db()
-          .from("coupons")
-          .select("id, used_count")
-          .eq("code", before.coupon_code)
-          .maybeSingle();
-        if (coupon) {
-          const { error: couponError } = await db()
-            .from("coupons")
-            .update({ used_count: Math.max(0, Number(coupon.used_count ?? 0) - 1) })
-            .eq("id", coupon.id);
-          if (couponError) throw couponError;
-          couponRestored = true;
-        }
-      }
-    }
+    const outcome = await deleteOrder(id, actor.id);
 
-    const { error } = await db().from("orders").delete().eq("id", id);
-    if (error) throw error;
-
-    await recordAudit({
-      actor,
-      action: "delete",
-      entity: "orders",
-      entityId: id,
-      diff: { deleted: { from: before, to: null }, restocked_items: restockedItems, coupon_restored: couponRestored },
-      ip: clientIp(req),
-      userAgent: req.headers.get("user-agent"),
-    }).catch(() => undefined);
-
+    /* The RPC writes the audit row itself, inside the transaction, so it can
+       never record a delete that was rolled back. Nothing is added here — a
+       second record would only duplicate it. */
     return ok({
       id,
-      order_no: before.order_no,
+      order_no: outcome.orderNo || before.order_no,
       deleted: true,
-      restocked_items: restockedItems,
-      coupon_restored: couponRestored,
+      restocked_items: outcome.stockRestored,
+      coupon_restored: outcome.couponRestored,
+      wallet_refunded: outcome.walletRefunded,
     });
   } catch (error) {
+    if (error instanceof OrderActionError) return fail(error.message, error.status);
     return handleError(error);
   }
 }
