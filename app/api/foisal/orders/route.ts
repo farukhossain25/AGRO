@@ -88,7 +88,7 @@ export async function PATCH(req: Request) {
     }
 
     if (cancelling) {
-      await applyOrderCancellation(before, patch.cancel_reason ?? "");
+      await applyOrderCancellation(before, patch.cancel_reason ?? "", actor.id);
     }
 
     // The order's progress is the sellers' progress too — their dashboard

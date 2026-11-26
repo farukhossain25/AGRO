@@ -64,6 +64,9 @@ export const PERMISSIONS = [
   /* ---- moderation & premium ---- */
   "reviews.moderate",
   "complaints.handle",
+  /** Live chat: see every incoming chat, claim one, reply to it. Read is open
+   *  to all staff — the claim is what decides who may type (see chat_claim()). */
+  "chats.handle",
   "cams.manage",
   "premium.manage",
 
@@ -89,6 +92,7 @@ const STAFF: Permission[] = [
   "media.write",
   "reviews.moderate",
   "complaints.handle",
+  "chats.handle",
   "customers.read",
   "sellers.read",
   "cams.manage",

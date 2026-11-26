@@ -11,6 +11,7 @@ import {
   Camera,
   CreditCard,
   FileText,
+  Headset,
   HelpCircle,
   Image as ImageIcon,
   Images,
@@ -42,6 +43,7 @@ import {
 import { Logo } from "@/components/icon-logo";
 import type { SessionUser } from "@/lib/session";
 import { can, roleLabelBn, type Permission } from "@/lib/permissions";
+import { isStaffPanelPath } from "@/lib/paths";
 import { ADMIN_BASE, adminHref } from "@/lib/paths";
 import { IdleGuard } from "./idle-guard";
 
@@ -53,6 +55,14 @@ type NavItem = {
    *  real gate — this only stops staff seeing doors they cannot open. */
   perm?: Permission;
 };
+
+/** Can this role actually open `href`? Mirrors middleware.ts + the layout. */
+function isPageReachable(role: string | null | undefined, href: string): boolean {
+  if (!role) return false;
+  if (role === "admin") return true;
+  if (role !== "staff" && role !== "manager") return false;
+  return isStaffPanelPath(href);
+}
 
 const navGroups: { title: string; items: NavItem[] }[] = [
   {
@@ -106,6 +116,10 @@ const navGroups: { title: string; items: NavItem[] }[] = [
       { href: adminHref("combos"), label: "কম্বো বক্স", Icon: Package, perm: "combos.write" },
       { href: adminHref("reviews"), label: "রিভিউ", Icon: MessageSquare, perm: "reviews.moderate" },
       { href: adminHref("complaints"), label: "অভিযোগ", Icon: AlertTriangle, perm: "complaints.handle" },
+      /* Live chat sits next to অভিযোগ because both are "a customer is talking
+         to us". Every staff member sees it in the sidebar — reading is open,
+         replying is what needs the claim. */
+      { href: adminHref("chats"), label: "লাইভ চ্যাট", Icon: Headset, perm: "chats.handle" },
     ],
   },
   {
@@ -188,7 +202,20 @@ export function AdminShell({ user, children }: { user: SessionUser; children: Re
 
       <nav className="mob-scroll flex-1 space-y-5 overflow-y-auto px-3 pb-4 pt-1" aria-label="অ্যাডমিন নেভিগেশন">
         {navGroups
-          .map((group) => ({ ...group, items: group.items.filter((item) => !item.perm || can(user, item.perm)) }))
+          /*
+           * Two filters, on purpose:
+           *   1. permission — the role must hold the right to the screen;
+           *   2. page reachable — every panel URL except the staff list
+           *      (STAFF_PANEL_SUBPATHS) returns a 404 for a non-admin. A staff
+           *      link that lands on a 404 reads as a broken panel, so the item
+           *      is hidden instead.
+           */
+          .map((group) => ({
+            ...group,
+            items: group.items.filter(
+              (item) => (!item.perm || can(user, item.perm)) && isPageReachable(user.role, item.href)
+            ),
+          }))
           .filter((group) => group.items.length > 0)
           .map((group) => (
             <div key={group.title}>

@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { ADMIN_BASE, LEGACY_ADMIN_BASE } from "@/lib/paths";
+import { ADMIN_BASE, LEGACY_ADMIN_BASE, isStaffPanelPath } from "@/lib/paths";
 import { updateSession } from "@/lib/supabase/middleware";
 
 /* ==========================================================================
@@ -146,6 +146,22 @@ function randomNonce(): string {
   return btoa(binary);
 }
 
+/**
+ * Pass "which URL is this" to the server component.
+ *
+ * `headers()` inside a layout reads the *request*; response headers would only
+ * reach the browser. So the forwarded request gets the extra header, and every
+ * header the session helper already set on the response (the rotated cookies)
+ * is copied across — losing those would sign the user out on every page.
+ */
+function withRequestHeader(req: NextRequest, response: NextResponse, name: string, value: string): NextResponse {
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set(name, value);
+  const next = NextResponse.next({ request: { headers: requestHeaders } });
+  for (const [key, val] of response.headers.entries()) next.headers.append(key, val);
+  return next;
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
   const isDev = process.env.NODE_ENV === "development";
@@ -194,13 +210,19 @@ export async function middleware(req: NextRequest) {
       url.searchParams.set("next", `${pathname}${search}`);
       return noStore(NextResponse.redirect(url));
     }
+    /* Staff/manager get exactly the pages in STAFF_PANEL_SUBPATHS (live chat),
+       and nothing else: every other panel URL keeps returning the identical
+       404 a stranger sees, so the panel's shape is still not advertised. */
     if (role !== "admin") {
-      // Signed in, not an admin: identical response to a URL that never existed.
-      return plain404();
+      const staffRole = role === "staff" || role === "manager";
+      if (!(staffRole && isStaffPanelPath(pathname))) return plain404();
     }
 
+    /* The panel layout has to re-check "is this sub-path open to staff?" and it
+       cannot read the URL on the server otherwise. Passed as a REQUEST header
+       so `headers()` inside the layout sees it. */
     response.headers.set("Content-Security-Policy", contentSecurityPolicy(nonce, isDev));
-    return noStore(response);
+    return noStore(withRequestHeader(req, response, "x-pathname", pathname));
   }
 
   // ── 5. private customer pages

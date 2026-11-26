@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
 import { cache } from "react";
 import {
   SUPABASE_PUBLIC_KEY,
@@ -79,6 +79,23 @@ export function supabaseAdmin(): SupabaseClient<Database> {
 /** Cached per request: one auth round-trip even if ten components ask. */
 export const getServerUser = cache(async () => {
   if (!isSupabasePublicConfigured) return null;
+
+  /* Stub-project override — see lib/supabase/middleware.ts. A local harness has
+     no /auth/v1/user, so without this every server component saw "signed out"
+     while middleware saw a user, and the panel bounced back to its login. Unset
+     in production, therefore inert there. */
+  const devUser = process.env.SUPABASE_DEV_USER_ID;
+  if (devUser) {
+    return {
+      id: devUser,
+      email: process.env.SUPABASE_DEV_USER_EMAIL ?? "dev@local",
+      app_metadata: {},
+      user_metadata: { full_name: process.env.SUPABASE_DEV_USER_NAME ?? "ডেভ টিম" },
+      aud: "authenticated",
+      created_at: new Date().toISOString(),
+    } as unknown as User;
+  }
+
   try {
     const supabase = await createServerSupabaseClient();
     const {

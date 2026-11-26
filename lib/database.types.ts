@@ -688,75 +688,6 @@ export type Database = {
       }
       Relationships: []
     }
-      coupons: {
-      Row: {
-        id: string
-        code: string
-        description_bn: string | null
-        type: Database["public"]["Enums"]["coupon_type"]
-        value: number
-        min_order: number
-        max_discount: number | null
-        usage_limit: number | null
-        used_count: number
-        per_user_limit: number
-        starts_at: string | null
-        expires_at: string | null
-        is_active: boolean
-        audience: string
-        funder_user_id: string | null
-        funder_note: string | null
-        is_referral: boolean
-        share_token: string | null
-        created_at: string
-        updated_at: string
-      }
-      Insert: {
-        id?: string
-        code: string
-        description_bn?: string | null
-        type?: Database["public"]["Enums"]["coupon_type"]
-        value?: number
-        min_order?: number
-        max_discount?: number | null
-        usage_limit?: number | null
-        used_count?: number
-        per_user_limit?: number
-        starts_at?: string | null
-        expires_at?: string | null
-        is_active?: boolean
-        audience?: string
-        funder_user_id?: string | null
-        funder_note?: string | null
-        is_referral?: boolean
-        share_token?: string | null
-        created_at?: string
-        updated_at?: string
-      }
-      Update: {
-        id?: string
-        code?: string
-        description_bn?: string | null
-        type?: Database["public"]["Enums"]["coupon_type"]
-        value?: number
-        min_order?: number
-        max_discount?: number | null
-        usage_limit?: number | null
-        used_count?: number
-        per_user_limit?: number
-        starts_at?: string | null
-        expires_at?: string | null
-        is_active?: boolean
-        audience?: string
-        funder_user_id?: string | null
-        funder_note?: string | null
-        is_referral?: boolean
-        share_token?: string | null
-        created_at?: string
-        updated_at?: string
-      }
-      Relationships: []
-    }
       coupon_audiences: {
       Row: {
         coupon_id: string
@@ -779,7 +710,7 @@ export type Database = {
       Row: {
         id: string
         coupon_id: string
-        user_id: string
+        user_id: string | null
         order_id: string | null
         order_no: string | null
         amount: number
@@ -788,7 +719,7 @@ export type Database = {
       Insert: {
         id?: string
         coupon_id: string
-        user_id: string
+        user_id?: string | null
         order_id?: string | null
         order_no?: string | null
         amount?: number
@@ -797,11 +728,80 @@ export type Database = {
       Update: {
         id?: string
         coupon_id?: string
-        user_id?: string
+        user_id?: string | null
         order_id?: string | null
         order_no?: string | null
         amount?: number
         created_at?: string
+      }
+      Relationships: []
+    }
+      coupons: {
+      Row: {
+        id: string
+        code: string
+        description_bn: string | null
+        type: Database["public"]["Enums"]["coupon_type"]
+        value: number
+        min_order: number
+        max_discount: number | null
+        usage_limit: number | null
+        used_count: number
+        per_user_limit: number
+        starts_at: string | null
+        expires_at: string | null
+        is_active: boolean
+        created_at: string
+        updated_at: string
+        audience: string
+        funder_user_id: string | null
+        funder_note: string | null
+        is_referral: boolean
+        share_token: string | null
+      }
+      Insert: {
+        id?: string
+        code: string
+        description_bn?: string | null
+        type?: Database["public"]["Enums"]["coupon_type"]
+        value?: number
+        min_order?: number
+        max_discount?: number | null
+        usage_limit?: number | null
+        used_count?: number
+        per_user_limit?: number
+        starts_at?: string | null
+        expires_at?: string | null
+        is_active?: boolean
+        created_at?: string
+        updated_at?: string
+        audience?: string
+        funder_user_id?: string | null
+        funder_note?: string | null
+        is_referral?: boolean
+        share_token?: string | null
+      }
+      Update: {
+        id?: string
+        code?: string
+        description_bn?: string | null
+        type?: Database["public"]["Enums"]["coupon_type"]
+        value?: number
+        min_order?: number
+        max_discount?: number | null
+        usage_limit?: number | null
+        used_count?: number
+        per_user_limit?: number
+        starts_at?: string | null
+        expires_at?: string | null
+        is_active?: boolean
+        created_at?: string
+        updated_at?: string
+        audience?: string
+        funder_user_id?: string | null
+        funder_note?: string | null
+        is_referral?: boolean
+        share_token?: string | null
       }
       Relationships: []
     }
@@ -1398,7 +1398,6 @@ export type Database = {
         delivery_charge: number
         discount: number
         total: number
-        wallet_used: number
         coupon_code: string | null
         payment_method: string
         payment_status: Database["public"]["Enums"]["payment_status"]
@@ -1411,6 +1410,7 @@ export type Database = {
         delivered_by: string | null
         created_at: string
         updated_at: string
+        wallet_used: number
       }
       Insert: {
         id?: string
@@ -1428,7 +1428,6 @@ export type Database = {
         delivery_charge?: number
         discount?: number
         total?: number
-        wallet_used?: number
         coupon_code?: string | null
         payment_method?: string
         payment_status?: Database["public"]["Enums"]["payment_status"]
@@ -1441,6 +1440,7 @@ export type Database = {
         delivered_by?: string | null
         created_at?: string
         updated_at?: string
+        wallet_used?: number
       }
       Update: {
         id?: string
@@ -1458,7 +1458,6 @@ export type Database = {
         delivery_charge?: number
         discount?: number
         total?: number
-        wallet_used?: number
         coupon_code?: string | null
         payment_method?: string
         payment_status?: Database["public"]["Enums"]["payment_status"]
@@ -1471,6 +1470,7 @@ export type Database = {
         delivered_by?: string | null
         created_at?: string
         updated_at?: string
+        wallet_used?: number
       }
       Relationships: []
     }
@@ -1537,10 +1537,10 @@ export type Database = {
         requires_trx: boolean
         requires_sender: boolean
         is_active: boolean
-        show_on_checkout: boolean
         sort_order: number
         created_at: string
         updated_at: string
+        show_on_checkout: boolean
       }
       Insert: {
         id?: string
@@ -1562,10 +1562,10 @@ export type Database = {
         requires_trx?: boolean
         requires_sender?: boolean
         is_active?: boolean
-        show_on_checkout?: boolean
         sort_order?: number
         created_at?: string
         updated_at?: string
+        show_on_checkout?: boolean
       }
       Update: {
         id?: string
@@ -1587,10 +1587,10 @@ export type Database = {
         requires_trx?: boolean
         requires_sender?: boolean
         is_active?: boolean
-        show_on_checkout?: boolean
         sort_order?: number
         created_at?: string
         updated_at?: string
+        show_on_checkout?: boolean
       }
       Relationships: []
     }
@@ -1829,14 +1829,14 @@ export type Database = {
         onboarded: boolean
         mfa_enrolled: boolean
         last_login_at: string | null
+        created_at: string
+        updated_at: string
         referral_code: string | null
         referred_by: string | null
         referred_at: string | null
         wallet_balance: number
         wallet_earned: number
         wallet_spent: number
-        created_at: string
-        updated_at: string
       }
       Insert: {
         id: string
@@ -1856,14 +1856,14 @@ export type Database = {
         onboarded?: boolean
         mfa_enrolled?: boolean
         last_login_at?: string | null
+        created_at?: string
+        updated_at?: string
         referral_code?: string | null
         referred_by?: string | null
         referred_at?: string | null
         wallet_balance?: number
         wallet_earned?: number
         wallet_spent?: number
-        created_at?: string
-        updated_at?: string
       }
       Update: {
         id?: string
@@ -1883,14 +1883,14 @@ export type Database = {
         onboarded?: boolean
         mfa_enrolled?: boolean
         last_login_at?: string | null
+        created_at?: string
+        updated_at?: string
         referral_code?: string | null
         referred_by?: string | null
         referred_at?: string | null
         wallet_balance?: number
         wallet_earned?: number
         wallet_spent?: number
-        created_at?: string
-        updated_at?: string
       }
       Relationships: []
     }
@@ -2068,6 +2068,60 @@ export type Database = {
       }
       Relationships: []
     }
+      seller_applications: {
+      Row: {
+        id: string
+        user_id: string
+        shop_name: string
+        phone: string
+        address: string
+        farm_photos: string[]
+        product_types: string
+        nid_number: string
+        payout_details: string
+        status: string
+        rejection_reason: string | null
+        reviewed_by: string | null
+        reviewed_at: string | null
+        created_at: string
+        updated_at: string
+      }
+      Insert: {
+        id?: string
+        user_id: string
+        shop_name: string
+        phone: string
+        address: string
+        farm_photos?: string[]
+        product_types?: string
+        nid_number: string
+        payout_details: string
+        status?: string
+        rejection_reason?: string | null
+        reviewed_by?: string | null
+        reviewed_at?: string | null
+        created_at?: string
+        updated_at?: string
+      }
+      Update: {
+        id?: string
+        user_id?: string
+        shop_name?: string
+        phone?: string
+        address?: string
+        farm_photos?: string[]
+        product_types?: string
+        nid_number?: string
+        payout_details?: string
+        status?: string
+        rejection_reason?: string | null
+        reviewed_by?: string | null
+        reviewed_at?: string | null
+        created_at?: string
+        updated_at?: string
+      }
+      Relationships: []
+    }
       seller_payouts: {
       Row: {
         id: string
@@ -2165,6 +2219,8 @@ export type Database = {
         approved_at: string | null
         created_at: string
         updated_at: string
+        panel_path: string | null
+        auto_approve_products: boolean
       }
       Insert: {
         id?: string
@@ -2193,6 +2249,8 @@ export type Database = {
         approved_at?: string | null
         created_at?: string
         updated_at?: string
+        panel_path?: string | null
+        auto_approve_products?: boolean
       }
       Update: {
         id?: string
@@ -2221,6 +2279,8 @@ export type Database = {
         approved_at?: string | null
         created_at?: string
         updated_at?: string
+        panel_path?: string | null
+        auto_approve_products?: boolean
       }
       Relationships: []
     }
@@ -2274,16 +2334,19 @@ export type Database = {
         key: string
         value: Json
         updated_at: string
+        seller_panel_path: string
       }
       Insert: {
         key: string
         value?: Json
         updated_at?: string
+        seller_panel_path?: string
       }
       Update: {
         key?: string
         value?: Json
         updated_at?: string
+        seller_panel_path?: string
       }
       Relationships: []
     }
@@ -2578,6 +2641,108 @@ export type Database = {
         cancelled_at?: string | null
         created_at?: string
         updated_at?: string
+      }
+      Relationships: []
+    }
+      support_chats: {
+      Row: {
+        id: string
+        user_id: string | null
+        guest_key: string | null
+        customer_name: string | null
+        customer_phone: string | null
+        customer_email: string | null
+        page_path: string | null
+        subject: string | null
+        status: string
+        claimed_by: string | null
+        claimed_at: string | null
+        closed_by: string | null
+        closed_at: string | null
+        closed_reason: string | null
+        last_customer_at: string
+        last_staff_at: string | null
+        reply_window_min: number
+        message_count: number
+        created_at: string
+        updated_at: string
+      }
+      Insert: {
+        id?: string
+        user_id?: string | null
+        guest_key?: string | null
+        customer_name?: string | null
+        customer_phone?: string | null
+        customer_email?: string | null
+        page_path?: string | null
+        subject?: string | null
+        status?: string
+        claimed_by?: string | null
+        claimed_at?: string | null
+        closed_by?: string | null
+        closed_at?: string | null
+        closed_reason?: string | null
+        last_customer_at?: string
+        last_staff_at?: string | null
+        reply_window_min?: number
+        message_count?: number
+        created_at?: string
+        updated_at?: string
+      }
+      Update: {
+        id?: string
+        user_id?: string | null
+        guest_key?: string | null
+        customer_name?: string | null
+        customer_phone?: string | null
+        customer_email?: string | null
+        page_path?: string | null
+        subject?: string | null
+        status?: string
+        claimed_by?: string | null
+        claimed_at?: string | null
+        closed_by?: string | null
+        closed_at?: string | null
+        closed_reason?: string | null
+        last_customer_at?: string
+        last_staff_at?: string | null
+        reply_window_min?: number
+        message_count?: number
+        created_at?: string
+        updated_at?: string
+      }
+      Relationships: []
+    }
+      support_messages: {
+      Row: {
+        id: string
+        chat_id: string
+        author_role: string
+        author_id: string | null
+        author_name: string | null
+        body: string
+        is_system: boolean
+        created_at: string
+      }
+      Insert: {
+        id?: string
+        chat_id: string
+        author_role?: string
+        author_id?: string | null
+        author_name?: string | null
+        body: string
+        is_system?: boolean
+        created_at?: string
+      }
+      Update: {
+        id?: string
+        chat_id?: string
+        author_role?: string
+        author_id?: string | null
+        author_name?: string | null
+        body?: string
+        is_system?: boolean
+        created_at?: string
       }
       Relationships: []
     }
@@ -2954,7 +3119,43 @@ export type Database = {
     }
     }
     Functions: {
+      apply_referral: {
+      Args: { p_user: string; p_code: string }
+      Returns: Json
+    }
+      assign_referral_code: {
+      Args: {  }
+      Returns: Json
+    }
+      chat_claim: {
+      Args: { p_chat: string }
+      Returns: Json
+    }
+      chat_close: {
+      Args: { p_chat: string; p_reason: string }
+      Returns: Json
+    }
+      chat_sweep: {
+      Args: {  }
+      Returns: Json
+    }
+      coupon_allows_user: {
+      Args: { p_coupon: string; p_user: string }
+      Returns: boolean
+    }
+      coupon_refusal: {
+      Args: { p_coupon: string; p_user: string }
+      Returns: string
+    }
+      credit_referral: {
+      Args: { p_order: string }
+      Returns: undefined
+    }
       gen_order_no: {
+      Args: {  }
+      Returns: string
+    }
+      gen_referral_code: {
       Args: {  }
       Returns: string
     }
@@ -2994,56 +3195,37 @@ export type Database = {
       Args: { p_email: string }
       Returns: Json
     }
-      place_order: {
-      Args: {
-        p_user: string
-        p_customer: Json
-        p_items: Json
-        p_payment_method: string
-        p_coupon: string
-        p_wallet?: number
-      }
-      Returns: Json
-    }
-      apply_referral: {
-      Args: { p_user: string; p_code: string }
-      Returns: Json
-    }
-      coupon_allows_user: {
-      Args: { p_coupon: string; p_user: string }
-      Returns: boolean
-    }
-      wallet_apply: {
-      Args: {
-        p_user: string
-        p_kind: string
-        p_amount: number
-        p_order?: string | null
-        p_order_no?: string | null
-        p_note?: string | null
-        p_by?: string | null
-      }
-      Returns: number
-    }
       move_payment_method: {
       Args: { p_id: string; p_direction: number }
       Returns: Json
     }
-      credit_referral: {
-      Args: { p_order: string }
-      Returns: undefined
+      notify_admins_on_new_order: {
+      Args: {  }
+      Returns: Json
     }
-      referrer_for_token: {
-      Args: { p_code: string; p_user: string }
-      Returns: string | null
+      notify_seller_on_new_sub_order: {
+      Args: {  }
+      Returns: Json
     }
-      resolve_ref: {
-      Args: { p_code: string; p_user?: string | null }
+      on_order_delivered: {
+      Args: {  }
+      Returns: Json
+    }
+      place_order: {
+      Args: { p_user: string; p_customer: Json; p_items: Json; p_payment_method: string; p_coupon: string; p_wallet: number }
       Returns: Json
     }
       recalc_product_rating: {
       Args: { p_product: string }
       Returns: undefined
+    }
+      referrer_for_token: {
+      Args: { p_code: string; p_user: string }
+      Returns: string
+    }
+      resolve_ref: {
+      Args: { p_code: string; p_user: string }
+      Returns: Json
     }
       set_complaint_ticket: {
       Args: {  }
@@ -3053,9 +3235,17 @@ export type Database = {
       Args: {  }
       Returns: Json
     }
+      support_touch_chat: {
+      Args: {  }
+      Returns: Json
+    }
       sync_product_images: {
       Args: { p_product: string }
       Returns: undefined
+    }
+      touch_updated_at: {
+      Args: {  }
+      Returns: Json
     }
       trg_product_images_sync: {
       Args: {  }
@@ -3069,10 +3259,14 @@ export type Database = {
       Args: {  }
       Returns: Json
     }
+      wallet_apply: {
+      Args: { p_user: string; p_kind: string; p_amount: number; p_order: string; p_order_no: string; p_note: string; p_by: string }
+      Returns: number
+    }
     }
     Enums: {
       access_code_status: "unused" | "used" | "revoked" | "expired"
-      camera_protocol: "hls" | "webrtc"
+      camera_protocol: "hls" | "webrtc" | "cloud"
       camera_status: "online" | "offline" | "maintenance"
       combo_kind: "daily" | "weekly" | "monthly"
       complaint_problem: "spoiled" | "short_weight" | "wrong_item" | "late" | "other"

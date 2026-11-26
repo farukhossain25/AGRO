@@ -47,6 +47,23 @@ export function isAdminPath(pathname: string): boolean {
   return pathname === ADMIN_BASE || pathname.startsWith(`${ADMIN_BASE}/`);
 }
 
+/**
+ * Panel pages a staff/manager account may open even though the rest of the
+ * panel stays admin-only.
+ *
+ * This exists because live chat is useless otherwise: the owner's rule is
+ * "every staff member sees an incoming chat and one of them claims it", but
+ * before this list a staff account could not open /foisal at all. Keep this
+ * list SMALL — a page belongs here only when the role model already grants it
+ * (see lib/permissions.ts) and the page's own API re-checks the permission.
+ */
+export const STAFF_PANEL_SUBPATHS = ["chats"] as const;
+
+/** True when `pathname` is exactly one of the staff-accessible panel pages. */
+export function isStaffPanelPath(pathname: string): boolean {
+  return STAFF_PANEL_SUBPATHS.some((sub) => pathname === `${ADMIN_BASE}/${sub}`);
+}
+
 /** True when a pathname is the admin login screen. */
 export const ADMIN_LOGIN_PATH = `${ADMIN_BASE}/login`;
 

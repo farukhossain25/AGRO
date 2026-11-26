@@ -291,7 +291,12 @@ async function step(name: string, run: () => PromiseLike<unknown>) {
   }
 }
 
-export async function applyOrderCancellation(order: CancelTarget, reason: string): Promise<void> {
+export async function applyOrderCancellation(
+  order: CancelTarget,
+  reason: string,
+  /** Staff member performing the cancellation — recorded on the wallet refund. */
+  actorId?: string | null
+): Promise<void> {
   const client = db();
 
   // 1. the sellers' money: every open sub_order is voided, not deleted
@@ -355,8 +360,13 @@ export async function applyOrderCancellation(order: CancelTarget, reason: string
       p_kind: "refund",
       p_amount: used,
       p_order: order.id,
-      p_order_no: order.order_no,
+      p_order_no: order.order_no ?? null,
       p_note: `অর্ডার বাতিল — ওয়ালেট ফেরত (${order.order_no})`,
+      /* p_by is where the money trail says "who": a refund with no actor in
+         the ledger is an audit hole the owner cannot close later. The
+         generated Args type is non-nullable (the introspection drops default
+         nullability), so the actor-less case passes the nil uuid. */
+      p_by: actorId ?? "00000000-0000-0000-0000-000000000000",
     });
     if (error) throw error;
   });

@@ -69,7 +69,9 @@ declare
     -- migration 25/26 tables: without these three the reset leaves them
     -- behind (and 13_verify then reads a half-reset database)
     'wallet_transactions','coupon_redemptions','coupon_audiences',
-    'seller_applications'
+    'seller_applications',
+    -- migration 27: live chat. Without these two the reset leaves them behind.
+    'support_messages','support_chats'
   ];
 begin
   foreach t in array tables loop

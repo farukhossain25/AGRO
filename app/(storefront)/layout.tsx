@@ -4,7 +4,7 @@ import { SiteHeader } from "@/components/site-header";
 import { AnnouncementMarquee } from "@/components/announcement-marquee";
 import { SiteFooter, type FooterPaymentMethod } from "@/components/site-footer";
 import { SocialLinks } from "@/components/social-links";
-import { FloatingActions } from "@/components/floating-actions";
+import { ContactBubble } from "@/components/chat/contact-bubble";
 import { currentUser } from "@/lib/api";
 import { getProfileByLegacyId } from "@/lib/profile";
 import { resolvePremiumState } from "@/lib/premium";
@@ -80,7 +80,7 @@ export default async function StorefrontLayout({ children }: { children: React.R
         paymentMethods={paymentMethods}
         socials={<SocialLinks placement="footer" className="mt-5" />}
       />
-      <FloatingActions />
+      <ContactBubble />
     </AuthProvider>
     </StoreInfoProvider>
   );
