@@ -95,7 +95,15 @@ export async function POST(req: Request) {
         { status: 409 }
       );
     }
-    if (status === 422) return fail((error as Error).message, 422);
+    /* Every translated refusal is an intentional answer, not a server crash:
+       422 (cart/customer/coupon/wallet), 403 (coupon not for this account),
+       503 (database unreachable, thrown by handleError below). Without this
+       pass-through a 403 lost its status and the browser showed a bare
+       "অর্ডার ব্যর্থ হয়েছে" with the generic 500 text — which is what made a
+       perfectly explainable refusal look like a broken shop. */
+    if (status && ((status >= 400 && status < 500) || status === 503)) {
+      return fail((error as Error).message, status);
+    }
 
     console.error("[orders] placement failed:", (error as Error).message, error);
     return handleError(error);

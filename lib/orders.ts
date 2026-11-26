@@ -72,13 +72,36 @@ function translate(code: string, detail: string): { message: string; status: num
     case "WALLET_INSUFFICIENT":
       return { message: "ওয়ালেট ব্যালেন্স যথেষ্ট নয় — অঙ্কটি কমিয়ে আবার চেষ্টা করুন।", status: 422 };
     case "COMBO_UNAVAILABLE":
-      return { message: "কার্টে থাকা একটি কম্বো এখন পাওয়া যাচ্ছে না — কার্ট থেকে সরিয়ে আবার চেষ্টা করুন।", status: 409 };
+      return {
+        message: detail
+          ? `"${detail}" কম্বোটি এখন পাওয়া যাচ্ছে না — কার্ট থেকে সরিয়ে আবার চেষ্টা করুন।`
+          : "কার্টে থাকা একটি কম্বো এখন পাওয়া যাচ্ছে না — কার্ট থেকে সরিয়ে আবার চেষ্টা করুন।",
+        status: 409,
+      };
     case "PRODUCT_UNAVAILABLE":
       return { message: `"${detail}" এখন পাওয়া যাচ্ছে না — কার্ট থেকে সরিয়ে আবার চেষ্টা করুন।`, status: 409 };
     case "OUT_OF_STOCK":
       return { message: `"${detail}" এর স্টক শেষ — পরিমাণ কমিয়ে বা সরিয়ে আবার চেষ্টা করুন।`, status: 409 };
+    /* The database itself refused because our SQL and its schema disagree —
+       a missing column, a NOT NULL without a value, a missing GRANT. That is a
+       deployment bug, not a customer mistake, so say so instead of the generic
+       "try again" (which is what made the broken shop look like a fluke). */
+    case "DB_NOT_NULL":
+    case "DB_COLUMN":
+    case "DB_PERMISSION":
+    case "DB_FK":
+    case "DB_CHECK":
+      return {
+        message:
+          "অর্ডারটি সংরক্ষণ করা গেল না — সাইটে একটি কারিগরি সমস্যা আছে। একটু পরে আবার চেষ্টা করুন, অথবা হোয়াটসঅ্যাপে সরাসরি অর্ডার করুন।",
+        status: 503,
+      };
     default:
-      return { message: "অর্ডারটি সম্পন্ন করা যায়নি — একটু পরে আবার চেষ্টা করুন।", status: 500 };
+      return {
+        message:
+          "অর্ডারটি সম্পন্ন করা যায়নি — একটু পরে আবার চেষ্টা করুন। সমস্যা থেকে গেলে হোয়াটসঅ্যাপে জানান।",
+        status: 500,
+      };
   }
 }
 
@@ -132,6 +155,20 @@ export async function createOrder(params: {
 
   if (error) {
     const raw = error.message ?? "";
+
+    /* Not a refusal at all — the connection to the database died. Say that,
+       because "আবার চেষ্টা করুন" is the right advice and the owner needs to
+       know it was infra, not a cart problem. */
+    if (/fetch failed|ECONNRESET|ENOTFOUND|ETIMEDOUT|socket hang up|Failed to fetch/i.test(raw)) {
+      console.error("[orders] place_order unreachable:", raw, error.details ?? "");
+      const offline = new Error(
+        "ডেটাবেসে সংযোগ করা যাচ্ছে না — একটু পরে আবার চেষ্টা করুন, অথবা হোয়াটসঅ্যাপে সরাসরি অর্ডার করুন।"
+      ) as Error & { status?: number; code?: string };
+      offline.status = 503;
+      offline.code = "DB_UNREACHABLE";
+      throw offline;
+    }
+
     const [code, ...rest] = raw.split(":");
     const detail = rest.join(":").trim();
     const { message, status } = translate(code.trim(), detail);
@@ -155,7 +192,11 @@ export async function createOrder(params: {
           name: item.name ?? item.id,
           reason: "স্টক শেষ বা বন্ধ",
         }));
-      if (code.trim() === "PRODUCT_UNAVAILABLE" || code.trim() === "OUT_OF_STOCK") {
+      if (
+        code.trim() === "PRODUCT_UNAVAILABLE" ||
+        code.trim() === "OUT_OF_STOCK" ||
+        code.trim() === "COMBO_UNAVAILABLE"
+      ) {
         const named = extras.filter((item) => item.name === detail);
         wrapped.unavailable = named.length ? named : extras;
       } else {

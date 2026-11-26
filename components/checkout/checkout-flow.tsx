@@ -131,7 +131,10 @@ export function CheckoutFlow({
      place_order() applies, so what the customer sees here always goes through. */
   const [walletBalance, setWalletBalance] = useState(0);
   const [walletPercent, setWalletPercent] = useState(30);
-  const [walletInput, setWalletInput] = useState(0);
+  /* null = "nothing typed yet" → the ceiling is used once the box is ticked.
+     A number (including 0) is the customer's own choice and is never
+     overridden. */
+  const [walletInput, setWalletInput] = useState<number | null>(null);
   /** The customer chooses to spend wallet credit — it is never automatic. */
   const [useWallet, setUseWallet] = useState(false);
   const [walletKnown, setWalletKnown] = useState(false);
@@ -213,14 +216,19 @@ export function CheckoutFlow({
     0,
     Math.min(walletBalance, Math.round(((total * walletPercent) / 100) * 100) / 100)
   );
-  const walletUsedRaw = useWallet ? Math.max(0, Math.min(walletInput || walletMax, walletMax)) : 0;
+  /* An untouched field means "use the ceiling"; an explicit 0 means "use
+     none". `walletInput || walletMax` treated a typed 0 as empty, so the
+     customer could not switch the wallet off by clearing the amount. */
+  const walletUsedRaw = useWallet
+    ? Math.max(0, Math.min(walletInput === null ? walletMax : walletInput, walletMax))
+    : 0;
   /** After the payment method's floor is honoured (see methodFloor below). */
   let walletUsed = walletUsedRaw;
 
   /* If the total drops (coupon, cart edit) below the amount already typed in,
      the wallet part has to shrink with it. */
   useEffect(() => {
-    if (walletInput > walletMax) setWalletInput(walletMax);
+    if (walletInput !== null && walletInput > walletMax) setWalletInput(walletMax);
   }, [walletMax, walletInput]);
 
   /* At most `wallet_max_percent` of an order — the admin's number, shown to the
@@ -760,7 +768,7 @@ export function CheckoutFlow({
                         checked={useWallet}
                         onChange={(e) => {
                           setUseWallet(e.target.checked);
-                          if (e.target.checked && !walletInput) setWalletInput(walletMax);
+                          if (e.target.checked && walletInput === null) setWalletInput(walletMax);
                         }}
                         className="h-4 w-4 rounded border-neu-line accent-[var(--neu-accent,#2f855a)]"
                       />
