@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   BadgeCheck,
   Banknote,
@@ -124,6 +124,18 @@ export function CheckoutFlow({
   const [discount, setDiscount] = useState(0);
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
   const [couponLoading, setCouponLoading] = useState(false);
+
+  /* ── wallet (referral credit) ─────────────────────────────────────────
+     `wallet_balance` and `wallet_max_percent` come from the server on mount.
+     The input is clamped to min(balance, total × percent) — the same ceiling
+     place_order() applies, so what the customer sees here always goes through. */
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [walletPercent, setWalletPercent] = useState(30);
+  const [walletInput, setWalletInput] = useState(0);
+  /** coupons this account may still use — already filtered by per-user cap */
+  const [myCoupons, setMyCoupons] = useState<
+    Array<{ code: string; type: string; value: number; min_order: number; description_bn: string | null }>
+  >([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [unavailable, setUnavailable] = useState<
@@ -146,6 +158,51 @@ export function CheckoutFlow({
   const freeDelivery = cart.subtotal >= rules.free_over;
   const delivery = cart.items.some((l) => l.kind === "combo") ? 0 : freeDelivery ? 0 : baseDelivery;
   const total = Math.max(0, cart.subtotal + delivery - discount);
+
+  /* The wallet may cover a slice of the order, never the whole thing: the
+     ceiling is the admin's `wallet_max_percent` (default 30%) and never more
+     than the actual balance. */
+  const walletMax = Math.max(0, Math.min(walletBalance, Math.round(((total * walletPercent) / 100) * 100) / 100));
+  const walletUsed = Math.max(0, Math.min(walletInput, walletMax));
+  /** What is still owed after the wallet — the number the customer really pays. */
+  const payable = Math.max(0, Math.round((total - walletUsed) * 100) / 100);
+
+  /* If the total drops (coupon, cart edit) below the amount already typed in,
+     the wallet part has to shrink with it. */
+  useEffect(() => {
+    if (walletInput > walletMax) setWalletInput(walletMax);
+  }, [walletMax, walletInput]);
+
+  /* Wallet + a "your coupons" strip are only meaningful for a signed-in
+     account, and a failure here must never block checkout. */
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      try {
+        const res = await fetch("/api/wallet", { cache: "no-store" });
+        if (!res.ok) return;
+        const json = await res.json();
+        if (!alive) return;
+        setWalletBalance(Number(json.data?.balance ?? 0));
+        setWalletPercent(Number(json.data?.max_percent ?? 30));
+      } catch {
+        /* offline — checkout still works, the wallet just shows 0 */
+      }
+    })();
+    void (async () => {
+      try {
+        const res = await fetch("/api/coupons/mine", { cache: "no-store" });
+        if (!res.ok) return;
+        const json = await res.json();
+        if (alive) setMyCoupons(json.data?.coupons ?? []);
+      } catch {
+        /* the manual code box still works */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const selectedMethod = methods.find((m) => m.code === payment) ?? methods[0];
   /* The owner can cap a method (e.g. COD only up to ৳5,000). */
@@ -256,6 +313,7 @@ export function CheckoutFlow({
           ...form,
           payment_method: payment,
           coupon_code: appliedCoupon ?? "",
+          wallet_amount: walletUsed,
           items: cart.items.map((l) => ({
             id: l.id,
             kind: l.kind,
@@ -837,7 +895,89 @@ export function CheckoutFlow({
                   </button>
                 </div>
               )}
+
+              {/* The account's own usable codes — a used-up one is already
+                  filtered out server-side, so tapping one always works. */}
+              {!appliedCoupon && myCoupons.length ? (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {myCoupons.slice(0, 4).map((c) => (
+                    <button
+                      key={c.code}
+                      type="button"
+                      onClick={() => {
+                        setCoupon(c.code);
+                        void (async () => {
+                          // Apply straight away — an extra tap here is friction.
+                          setCouponLoading(true);
+                          try {
+                            const res = await fetch("/api/coupons/validate", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ code: c.code, subtotal: cart.subtotal }),
+                            });
+                            const json = await res.json();
+                            if (!res.ok) throw new Error(json.message ?? "কুপন সঠিক নয়");
+                            setDiscount(json.data.discount);
+                            setAppliedCoupon(json.data.code);
+                            toast.success(t("কুপন প্রয়োগ হয়েছে", "Coupon applied"), json.data.code);
+                          } catch (err) {
+                            toast.error(t("কুপন কাজ করেনি", "Coupon failed"), (err as Error).message);
+                          } finally {
+                            setCouponLoading(false);
+                          }
+                        })();
+                      }}
+                      className="rounded-full border border-neu-accent/30 bg-neu-accent/[0.08] px-2.5 py-1 font-mono text-[10.5px] font-semibold text-neu-accent-strong hover:bg-neu-accent/15"
+                      title={c.description_bn ?? undefined}
+                    >
+                      {c.code}
+                      {c.type === "percent" ? ` · ${c.value}%` : ` · ৳${c.value}`}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
+
+            {/* wallet — only when the account actually has credit */}
+            {walletBalance > 0 ? (
+              <div className="border-t border-neu-line/60 px-5 py-4 sm:px-6">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5 text-[12px] font-semibold text-neu-ink">
+                    <Wallet className="h-3.5 w-3.5 text-neu-accent-strong" />
+                    {t("ওয়ালেট ব্যালেন্স", "Wallet balance")}
+                  </span>
+                  <span className="text-[12.5px] font-bold text-neu-accent-strong">
+                    {money(walletBalance, isBn)}
+                  </span>
+                </div>
+                <p className="mt-1 text-[10.5px] text-neu-muted">
+                  {t(
+                    `এই অর্ডারে সর্বোচ্চ ${money(walletMax, isBn)} ব্যবহার করা যাবে (${walletPercent}%)`,
+                    `Up to ${money(walletMax, isBn)} on this order (${walletPercent}%)`
+                  )}
+                </p>
+                <div className="mt-2 flex gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    max={walletMax}
+                    step="any"
+                    value={walletUsed || ""}
+                    onChange={(e) => setWalletInput(Math.max(0, Number(e.target.value) || 0))}
+                    className="input !py-2.5 text-[13px]"
+                    placeholder={t("কত টাকা ব্যবহার করবেন", "Amount to use")}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setWalletInput(walletMax)}
+                    disabled={walletMax <= 0}
+                    className="btn-ghost shrink-0 !py-2.5 text-[12.5px] disabled:opacity-50"
+                  >
+                    {t("সর্বোচ্চ", "Max")}
+                  </button>
+                </div>
+              </div>
+            ) : null}
 
             {/* totals */}
             <dl className="space-y-2 border-t border-neu-line/60 px-5 py-4 text-[13px] sm:px-6">
@@ -848,14 +988,21 @@ export function CheckoutFlow({
                 accent={delivery === 0}
               />
               {discount > 0 ? <Row label={t("ছাড়", "Discount")} value={`− ${money(discount, isBn)}`} accent /> : null}
+              {walletUsed > 0 ? (
+                <Row label={t("ওয়ালেট থেকে", "From wallet")} value={`− ${money(walletUsed, isBn)}`} accent />
+              ) : null}
               {freeDelivery ? (
                 <p className="rounded-lg bg-neu-accent/10 px-2.5 py-1.5 text-[11px] font-semibold text-neu-accent-strong">
                   {t("ফ্রি ডেলিভারি পেয়েছেন", "You got free delivery")}
                 </p>
               ) : null}
               <div className="mt-1 flex items-center justify-between border-t border-neu-line/60 pt-3">
-                <dt className="text-[14px] font-bold text-neu-ink">{t("মোট", "Total")}</dt>
-                <dd className="text-[19px] font-extrabold text-neu-accent-strong">{money(total, isBn)}</dd>
+                <dt className="text-[14px] font-bold text-neu-ink">
+                  {walletUsed > 0 ? t("পরিশোধ করতে হবে", "To pay") : t("মোট", "Total")}
+                </dt>
+                <dd className="text-[19px] font-extrabold text-neu-accent-strong">
+                  {money(payable, isBn)}
+                </dd>
               </div>
             </dl>
 

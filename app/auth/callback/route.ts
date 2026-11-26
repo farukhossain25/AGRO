@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient, getSessionUser } from "@/lib/supabase/server";
 import { safeNextPath } from "@/lib/session";
@@ -63,8 +64,29 @@ export async function GET(req: Request) {
     // Make sure the profile row exists (the DB trigger normally does this).
     await getSessionUser();
 
+    /* A referral link is clicked days before signup, so the code waits in a
+       cookie (see components/referral-catcher.tsx). This is the first moment
+       there is a profile to attach it to. Failure is logged, never shown: the
+       account exists either way and the code can still be entered by hand on
+       /account/wallet. */
+    try {
+      const ref = (await cookies()).get("agro_ref")?.value;
+      if (ref) {
+        const { db } = await import("@/lib/db");
+        const { error: refError } = await db().rpc("apply_referral", {
+          p_user: data.user.id,
+          p_code: decodeURIComponent(ref),
+        });
+        if (refError) console.warn("[auth/callback] referral not applied:", refError.message);
+      }
+    } catch (refProblem) {
+      console.warn("[auth/callback] referral step skipped:", (refProblem as Error).message);
+    }
+
     const res = NextResponse.redirect(new URL(next, url.origin), 303);
     res.headers.set("Cache-Control", "no-store, max-age=0, must-revalidate");
+    // The code has been claimed; leaving it would re-claim on the next login.
+    res.cookies.set("agro_ref", "", { path: "/", maxAge: 0 });
     return res;
   } catch (error) {
     const message = error instanceof Error ? error.message : "unexpected error";

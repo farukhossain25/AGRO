@@ -441,6 +441,27 @@ Supabase Dashboard → **SQL Editor**-এ নিচের ৫টি ফাইল
 4. `supabase/sql/20_payments_rls_storage.sql` — RLS পলিসি, `payment-logos` ও `payment-proofs` বাকেট এবং `payments` Realtime চালু করে।
 5. `supabase/sql/21_payments_seed.sql` — bKash, Nagad, Rocket, Upay, Bank, COD ডিফল্ট মেথড যোগ করে (অ্যাডমিন চালু না করা পর্যন্ত নিষ্ক্রিয় থাকবে)।
 
+---
+
+## কুপন, রেফারেল ও ওয়ালেট (SQL ফাইল ২৫)
+একটি ফাইলই — Supabase → **SQL Editor**-এ `supabase/sql/25_coupons_referrals_wallet.sql`
+পুরোটা পেস্ট করে **Run**। রি-রানেবল (দুবার চালালেও ক্ষতি নেই)।
+
+যা তৈরি/বদলায়:
+
+| কী | বিস্তারিত |
+| --- | --- |
+| `coupons` কলাম | `audience` (`all`/`assigned`/`influencer`), `funder_user_id`, `funder_note`, `is_referral` |
+| নতুন টেবিল | `coupon_redemptions` (কে কখন কোন কুপন ব্যবহার করল), `coupon_audiences` (কারা পারবে), `wallet_transactions` (লেনদেন) |
+| `profiles` | `referral_code`, `referred_by`, `referred_at`, `wallet_balance`, `wallet_earned`, `wallet_spent` — প্রতিটি প্রোফাইলে কোড স্বয়ংক্রিয়ভাবে বসে |
+| `orders` | `wallet_used` (ওয়ালেট থেকে কত টাকা গেল) |
+| ফাংশন | `wallet_apply`, `credit_referral`, `coupon_allows_user`, `coupon_refusal`, `apply_referral`, `gen_referral_code` |
+| `place_order` | নতুন আর্গুমেন্ট `p_wallet`; **পুরোনো ৫-আর্গুমেন্ট ভার্সন drop করা হয়** যাতে PostgREST "could not choose best candidate" না দেয় |
+| `site_settings.referral` | `{enabled, commission_percent:5, wallet_max_percent:30, credit_on:'delivered', min_order:300}` — অ্যাডমিন → সাইট সেটিংস → "রেফারেল ও ওয়ালেট" |
+
+চালানোর পরে অ্যাডমিন → **System Check** দেখুন, তারপর
+`/foisal/coupons`, `/foisal/wallet`, `/foisal/settings` ঘুরে নিন।
+
 ### সমস্যা সমাধান (Troubleshooting)
 - **Bucket not found:** `14_storage_fix.sql` এবং `20_payments_rls_storage.sql` চালান, তারপর অ্যাডমিন → **System Check** পেজ দেখুন।
 - **Duplicate TrxID:** একই TrxID দিয়ে দ্বিতীয়বার সাবমিট করলে বাতিল হবে (শুধুমাত্র অ্যাডমিন Reject করলে পুনরায় সাবমিট করা যাবে)।

@@ -68,6 +68,11 @@ export default async function PaymentPage({
     order?.payment_status === "paid" || sub?.status === "active";
 
   const amount = order ? Number(order.total) : sub ? Number(sub.amount) : null;
+  /* Money already taken from the referral wallet: `orders.total` is what the
+     customer owes, so the wallet part has to come off before we ask them to
+     send it. Otherwise they would pay twice. */
+  const paidByWallet = order ? Number((order as { wallet_used?: number }).wallet_used ?? 0) : 0;
+  const due = amount == null ? null : Math.max(0, Math.round((amount - paidByWallet) * 100) / 100);
   const refLabel = order ? `#${order.order_no}` : sub ? sub.sub_no : "";
   const trackHref = order ? `/track?order=${order.order_no}` : "/account";
 
@@ -110,6 +115,9 @@ export default async function PaymentPage({
                   {amount != null ? (
                     <SummaryRow label="পরিশোধিত পরিমাণ" value={money(amount, true)} accent />
                   ) : null}
+                  {paidByWallet > 0 ? (
+                    <SummaryRow label="ওয়ালেট থেকে" value={`− ${money(paidByWallet, true)}`} />
+                  ) : null}
                 </>
               ) : null}
               <div className="mt-5 flex flex-col gap-2 sm:flex-row">
@@ -148,8 +156,13 @@ export default async function PaymentPage({
                   পরিশোধযোগ্য পরিমাণ
                 </p>
                 <p className="mt-0.5 text-[30px] font-bold leading-tight text-leaf-200">
-                  {amount != null ? money(amount, true) : "—"}
+                  {due != null ? money(due, true) : "—"}
                 </p>
+                {paidByWallet > 0 && due != null ? (
+                  <p className="mt-1 text-[11.5px] text-leaf-300/70">
+                    মোট {money(amount!, true)} · ওয়ালেট থেকে {money(paidByWallet, true)} কেটে নেওয়া হয়েছে
+                  </p>
+                ) : null}
                 {target ? (
                   <p className="mt-1 text-[11.5px] text-sand-100/40">
                     {order ? `অর্ডার #${order.order_no}` : `সাবস্ক্রিপশন ${sub!.sub_no}`}
@@ -199,7 +212,7 @@ export default async function PaymentPage({
               <PaymentSubmitForm
                 orderNo={orderNo ?? undefined}
                 subNo={subNo ?? undefined}
-                amount={amount}
+                amount={due}
                 methodName={method.name_bn}
                 requiresTrx={method.requires_trx}
                 requiresSender={method.requires_sender}

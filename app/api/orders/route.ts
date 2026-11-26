@@ -32,6 +32,7 @@ export async function POST(req: Request) {
       paymentMethod: data.payment_method,
       items: data.items,
       couponCode: data.coupon_code || undefined,
+      walletAmount: data.wallet_amount ?? 0,
     });
 
     /* Sub-orders, the payment row, the parcel/QR token and the in-app

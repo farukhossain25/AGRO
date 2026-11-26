@@ -337,6 +337,9 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
       }
 
       toast.success("লগইন সফল", "স্বাগতম!");
+      // A referral code parked by a share link is claimed the moment there is
+      // a session. Fire-and-forget: a failed claim must never block sign-in.
+      void fetch("/api/referral", { method: "GET" }).catch(() => undefined);
       router.replace(next);
       router.refresh();
     } catch (err) {

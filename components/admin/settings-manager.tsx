@@ -26,8 +26,10 @@ type Field = {
   path: string;
   label: string;
   hint?: string;
-  type: "number" | "text" | "boolean" | "textarea";
+  type: "number" | "text" | "boolean" | "textarea" | "select";
   suffix?: string;
+  /** for `select`: the fixed choices (the stored value is the `value`) */
+  options?: { value: string; label: string }[];
 };
 
 type Group = {
@@ -125,6 +127,49 @@ const GROUPS: Group[] = [
       { path: "reviews.max_photos", label: "সর্বোচ্চ ছবি", type: "number" },
       { path: "reviews.edit_window_days", label: "রিভিউ সম্পাদনার সময়", type: "number", suffix: "দিন" },
       { path: "reviews.low_rating_threshold", label: "এই রেটিং হলে সতর্ক হোন", type: "number", suffix: "★" },
+    ],
+  },
+  {
+    key: "referral",
+    title: "রেফারেল ও ওয়ালেট",
+    desc: "বন্ধুকে রেফার করলে তার অর্ডার থেকে কত % বোনাস, আর ওয়ালেটে জমা টাকা দিয়ে একটি অর্ডারের সর্বোচ্চ কত % দেওয়া যাবে — দুটোই এখান থেকে।",
+    fields: [
+      {
+        path: "referral.enabled",
+        label: "রেফারেল চালু",
+        type: "boolean",
+        hint: "বন্ধ করলে নতুন কেউ রেফার কোড নিতে পারবে না, আগের ব্যালেন্স ব্যবহারযোগ্য থাকবে।",
+      },
+      {
+        path: "referral.commission_percent",
+        label: "ইনভাইটের অর্ডারে বোনাস",
+        type: "number",
+        suffix: "%",
+        hint: "৫ থেকে ১০% — ছাড়ের পর নয়, পণ্যের দামের ওপর হিসাব হয়।",
+      },
+      {
+        path: "referral.wallet_max_percent",
+        label: "একটি অর্ডারে ওয়ালেট সর্বোচ্চ",
+        type: "number",
+        suffix: "%",
+        hint: "২০–৩০% রাখাই নিয়ম — বাকিটা গ্রাহক স্বাভাবিকভাবে পরিশোধ করবে।",
+      },
+      {
+        path: "referral.min_order",
+        label: "বোনাসের জন্য ন্যূনতম অর্ডার",
+        type: "number",
+        suffix: "৳",
+      },
+      {
+        path: "referral.credit_on",
+        label: "বোনাস কখন জমা হবে",
+        type: "select",
+        options: [
+          { value: "delivered", label: "ডেলিভারি সম্পন্ন হলে" },
+          { value: "paid", label: "পেমেন্ট নিশ্চিত হলে" },
+        ],
+        hint: "ডেলিভারির পরই সবচেয়ে নিরাপদ — ফেরত গেলে বোনাস যাবে না।",
+      },
     ],
   },
   {
@@ -296,6 +341,18 @@ export function SettingsManager({ initial }: { initial: Values }) {
                           />
                         </span>
                       </button>
+                    ) : field.type === "select" ? (
+                      <select
+                        className="inp min-h-[38px]"
+                        value={value === undefined || value === null ? "" : String(value)}
+                        onChange={(e) => set(field.path, e.target.value)}
+                      >
+                        {field.options?.map((o) => (
+                          <option key={o.value} value={o.value} className="bg-ink-800">
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
                     ) : field.type === "textarea" ? (
                       <textarea
                         className="inp min-h-[72px] resize-y py-2"

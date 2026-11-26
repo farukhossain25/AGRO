@@ -65,6 +65,7 @@ const navGroups: { title: string; items: NavItem[] }[] = [
       { href: adminHref("orders"), label: "অর্ডার", Icon: ShoppingCart, perm: "orders.read" },
       { href: adminHref("subscriptions"), label: "সাবস্ক্রিপশন", Icon: Repeat, perm: "orders.read" },
       { href: adminHref("customers"), label: "কাস্টমার", Icon: Users, perm: "customers.read" },
+      { href: adminHref("wallet"), label: "ওয়ালেট ও রেফারেল", Icon: Wallet, perm: "customers.read" },
       { href: adminHref("reports"), label: "রিপোর্ট", Icon: BarChart3, perm: "reports.view" },
     ],
   },
