@@ -707,6 +707,7 @@ export type Database = {
         funder_user_id: string | null
         funder_note: string | null
         is_referral: boolean
+        share_token: string | null
         created_at: string
         updated_at: string
       }
@@ -728,6 +729,7 @@ export type Database = {
         funder_user_id?: string | null
         funder_note?: string | null
         is_referral?: boolean
+        share_token?: string | null
         created_at?: string
         updated_at?: string
       }
@@ -749,6 +751,7 @@ export type Database = {
         funder_user_id?: string | null
         funder_note?: string | null
         is_referral?: boolean
+        share_token?: string | null
         created_at?: string
         updated_at?: string
       }
@@ -3022,6 +3025,10 @@ export type Database = {
       credit_referral: {
       Args: { p_order: string }
       Returns: undefined
+    }
+      referrer_for_token: {
+      Args: { p_code: string; p_user: string }
+      Returns: string | null
     }
       recalc_product_rating: {
       Args: { p_product: string }

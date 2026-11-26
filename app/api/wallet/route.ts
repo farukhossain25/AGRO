@@ -1,4 +1,4 @@
-import { currentUser, fail, handleError, ok } from "@/lib/api";
+import { currentUser, handleError, ok } from "@/lib/api";
 import { getWalletLedger, getWalletSummary } from "@/lib/referral";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +13,11 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     const user = await currentUser();
-    if (!user?.id) return fail("লগইন করুন", 401);
+    /* Signed out is a normal state on the checkout page, not an error: answer
+       with a zero wallet so the summary can simply hide the block. */
+    if (!user?.id) {
+      return ok({ balance: 0, earned: 0, spent: 0, max_percent: 30, ledger: [], signedIn: false });
+    }
 
     const [summary, ledger] = await Promise.all([
       getWalletSummary(user.id),
@@ -26,6 +30,7 @@ export async function GET() {
       spent: summary.spent,
       max_percent: summary.max_percent,
       ledger,
+      signedIn: true,
     });
   } catch (error) {
     return handleError(error);

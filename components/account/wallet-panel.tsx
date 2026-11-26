@@ -22,6 +22,8 @@ import { walletKindLabel, type WalletRow } from "@/lib/types-wallet";
 
 type Props = {
   code: string | null;
+  /** An influencer's own promo code + its public share token (may be null). */
+  promo: { code: string; share_token: string | null; value: number; type: string } | null;
   balance: number;
   earned: number;
   spent: number;
@@ -36,6 +38,7 @@ type Props = {
 
 export function WalletPanel({
   code,
+  promo,
   balance,
   earned,
   spent,
@@ -134,10 +137,30 @@ export function WalletPanel({
               <h2 className="text-[13.5px] font-bold">বন্ধুকে রেফার করুন</h2>
             </div>
             <p className="text-[11.5px] leading-relaxed text-sand-100/50">
-              আপনার কোড দিয়ে কেউ অ্যাকাউন্ট খুলে প্রথম অর্ডার করলে (ন্যূনতম{" "}
-              {money(minOrder, true)}) তার অর্ডারের <b className="text-leaf-300">{toBn(commissionPercent)}%</b>{" "}
-              আপনার ওয়ালেটে জমা হবে — ডেলিভারির পর, একবারই।
+              আপনার কোড বা লিংক দিয়ে কেউ অ্যাকাউন্ট খুললে (প্রোডাক্ট শেয়ার
+              লিংকও কাজ করে) তার <b>প্রতিটি</b> ডেলিভারি হওয়া অর্ডার থেকে{" "}
+              <b className="text-leaf-300">{toBn(commissionPercent)}%</b> আপনার ওয়ালেটে জমা হবে
+              {minOrder > 0 ? ` — ন্যূনতম অর্ডার ${money(minOrder, true)}` : ""}।
             </p>
+
+            {/* An influencer also has a promo code of their own; the link is
+                what they paste anywhere. */}
+            {promo ? (
+              <div className="rounded-xl border border-leaf-500/25 bg-leaf-500/[0.07] px-3 py-2.5">
+                <p className="text-[11px] font-semibold text-leaf-100/85">
+                  আপনার প্রোমো কোড:{" "}
+                  <span className="font-mono text-[12.5px] tracking-wider text-leaf-300">{promo.code}</span>
+                  <span className="ml-1 text-sand-100/50">
+                    ({promo.type === "percent" ? `${toBn(promo.value)}%` : money(promo.value, true)} ছাড়)
+                  </span>
+                </p>
+                {promo.share_token ? (
+                  <p className="mt-1 break-all font-mono text-[10.5px] text-sand-100/45">
+                    শেয়ার লিংক: /?ref={promo.share_token}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
 
             <div className="grid gap-2 sm:grid-cols-2">
               <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">

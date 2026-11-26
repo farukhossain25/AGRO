@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
+import { REF_COOKIE, REF_COOKIE_MAX_AGE } from "@/lib/referral-cookie";
 
 /* ==========================================================================
    ReferralCatcher
@@ -14,8 +15,6 @@ import { usePathname, useSearchParams } from "next/navigation";
    Kept deliberately tiny: it runs on every page, does nothing unless `ref` is
    in the URL, and never blocks rendering.
    ========================================================================== */
-
-export const REF_COOKIE = "agro_ref";
 
 export function ReferralCatcher() {
   const params = useSearchParams();
@@ -30,8 +29,7 @@ export function ReferralCatcher() {
 
     // 30 days, whole site, lax — the code is not a secret, but the visitor
     // should not have to click the link twice.
-    const maxAge = 60 * 60 * 24 * 30;
-    document.cookie = `${REF_COOKIE}=${encodeURIComponent(clean)}; path=/; max-age=${maxAge}; samesite=lax`;
+    document.cookie = `${REF_COOKIE}=${encodeURIComponent(clean)}; path=/; max-age=${REF_COOKIE_MAX_AGE}; samesite=lax`;
 
     // Drop `ref` from the address bar so a refresh or a shared screenshot does
     // not keep re-announcing it. route:replace keeps the history clean.

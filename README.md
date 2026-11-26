@@ -457,7 +457,10 @@ Supabase Dashboard → **SQL Editor**-এ নিচের ৫টি ফাইল
 | `orders` | `wallet_used` (ওয়ালেট থেকে কত টাকা গেল) |
 | ফাংশন | `wallet_apply`, `credit_referral`, `coupon_allows_user`, `coupon_refusal`, `apply_referral`, `gen_referral_code` |
 | `place_order` | নতুন আর্গুমেন্ট `p_wallet`; **পুরোনো ৫-আর্গুমেন্ট ভার্সন drop করা হয়** যাতে PostgREST "could not choose best candidate" না দেয় |
-| `site_settings.referral` | `{enabled, commission_percent:5, wallet_max_percent:30, credit_on:'delivered', min_order:300}` — অ্যাডমিন → সাইট সেটিংস → "রেফারেল ও ওয়ালেট" |
+| `site_settings.referral` | `{enabled, commission_percent:5, wallet_max_percent:30, credit_on:'delivered', min_order:300, commission_base:'subtotal'}` — অ্যাডমিন → সাইট সেটিংস → "রেফারেল ও ওয়ালেট" |
+| `coupons.share_token` | ইনফ্লুয়েন্সার কুপনের পাবলিক শেয়ার টোকেন (`?ref=TOKEN`), স্বয়ংক্রিয়ভাবে তৈরি |
+
+**রেফারেল কীভাবে কাজ করে (রিভিশন ২):** ইনভাইট করা গ্রাহকের **প্রতিটি** ডেলিভারি হওয়া অর্ডার থেকে ইনভাইটার কমিশন পান (অর্ডারপ্রতি একবার)। যে কোনো শেয়ার লিংক — প্রোফাইল লিংক বা **প্রোডাক্ট লিংক** — `?ref=` বহন করে, তাই ওই লিংক দিয়ে কেউ অ্যাকাউন্ট খুললেই সে ইনভাইটার হিসেবে যুক্ত হয়। ইনফ্লুয়েন্সারের কোড খোলা: তিনি যাকেই খুশি দিতে পারেন।
 
 চালানোর পরে অ্যাডমিন → **System Check** দেখুন, তারপর
 `/foisal/coupons`, `/foisal/wallet`, `/foisal/settings` ঘুরে নিন।
