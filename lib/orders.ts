@@ -44,6 +44,7 @@ type RpcResult = {
   subtotal: number;
   delivery_charge: number;
   discount: number;
+  wallet_used?: number;
   total: number;
   method_code: string;
   eta_days: string;
@@ -62,8 +63,14 @@ function translate(code: string, detail: string): { message: string; status: num
       return { message: "এই পেমেন্ট মাধ্যমটি এখন বন্ধ আছে — অন্য একটি বেছে নিন।", status: 422 };
     case "COUPON_INVALID":
       return { message: "কুপন কোডটি সঠিক নয় বা মেয়াদ শেষ হয়েছে।", status: 422 };
+    case "COUPON_USED_BY_USER":
+      return { message: "এই কুপন আপনি ইতিমধ্যে ব্যবহার করেছেন — প্রতিটি অ্যাকাউন্টে একবারই চলে।", status: 409 };
+    case "COUPON_NOT_FOR_USER":
+      return { message: "এই কুপনটি আপনার অ্যাকাউন্টের জন্য প্রযোজ্য নয়।", status: 403 };
     case "COUPON_MIN_ORDER":
       return { message: `এই কুপনের জন্য কমপক্ষে ৳${detail} টাকার অর্ডার লাগবে।`, status: 422 };
+    case "WALLET_INSUFFICIENT":
+      return { message: "ওয়ালেট ব্যালেন্স যথেষ্ট নয় — অঙ্কটি কমিয়ে আবার চেষ্টা করুন।", status: 422 };
     case "COMBO_UNAVAILABLE":
       return { message: "কার্টে থাকা একটি কম্বো এখন পাওয়া যাচ্ছে না — কার্ট থেকে সরিয়ে আবার চেষ্টা করুন।", status: 409 };
     case "PRODUCT_UNAVAILABLE":
@@ -90,6 +97,8 @@ export async function createOrder(params: {
   paymentMethod: PaymentMethod;
   items: IncomingItem[];
   couponCode?: string;
+  /** Taka to take from the wallet. Clamped server-side by place_order(). */
+  walletAmount?: number;
 }): Promise<{ order: Order & { order_items: OrderItem[] }; lines: OrderItem[] }> {
   const client = db();
 
@@ -118,6 +127,7 @@ export async function createOrder(params: {
     p_items: items,
     p_payment_method: params.paymentMethod,
     p_coupon: params.couponCode ?? null,
+    p_wallet: Math.max(0, Number(params.walletAmount ?? 0)),
   } as unknown as Database["public"]["Functions"]["place_order"]["Args"]);
 
   if (error) {
@@ -182,6 +192,7 @@ export async function createOrder(params: {
       subtotal: result.subtotal,
       delivery_charge: result.delivery_charge,
       discount: result.discount,
+      wallet_used: result.wallet_used ?? 0,
       total: result.total,
       coupon_code: params.couponCode ?? null,
       payment_method: (result.method_code as PaymentMethod) ?? params.paymentMethod,
@@ -224,6 +235,8 @@ export type CancelTarget = {
   order_no: string;
   coupon_code: string | null;
   user_id: string | null;
+  /** Wallet credit spent on this order — refunded on cancel. */
+  wallet_used?: number | string | null;
 };
 
 /** Steps never throw: a failing side effect must not stop the ones after it. */
@@ -284,6 +297,26 @@ export async function applyOrderCancellation(order: CancelTarget, reason: string
       .from("coupons")
       .update({ used_count: Math.max(0, Number(coupon.used_count ?? 0) - 1) })
       .eq("id", coupon.id);
+
+    /* …and drop the per-account redemption, otherwise a cancel would burn the
+       customer's one use of a once-per-account coupon. */
+    await client.from("coupon_redemptions").delete().eq("order_id", order.id);
+  });
+
+  /* 3b. money that came out of the wallet goes back in. place_order() debited
+         it with kind 'order'; no wallet debit means nothing to refund. */
+  await step("wallet", async () => {
+    const used = Number(order.wallet_used ?? 0);
+    if (used <= 0 || !order.user_id) return;
+    const { error } = await client.rpc("wallet_apply", {
+      p_user: order.user_id,
+      p_kind: "refund",
+      p_amount: used,
+      p_order: order.id,
+      p_order_no: order.order_no,
+      p_note: `অর্ডার বাতিল — ওয়ালেট ফেরত (${order.order_no})`,
+    });
+    if (error) throw error;
   });
 
   // 4. tell the customer, then every seller who had a share in the order

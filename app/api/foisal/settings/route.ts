@@ -37,6 +37,9 @@ const ALLOWED_KEYS = [
   "reviews",
   "profile",
   "announcement",
+  /* Referral commission, the wallet ceiling and the "credit on delivered"
+     switch. Read at checkout by lib/referral.ts. */
+  "referral",
 ] as const;
 
 /* Scalars only. Nested objects would make the shallow merge ambiguous, and

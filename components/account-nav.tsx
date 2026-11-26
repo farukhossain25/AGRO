@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, Heart, Layers, LifeBuoy, LogOut, MapPin, Package, Repeat, ShieldCheck, Sparkles, Store, User } from "lucide-react";
+import { Bell, Heart, Layers, LifeBuoy, LogOut, MapPin, Package, Repeat, ShieldCheck, Sparkles, Store, User, Wallet } from "lucide-react";
 import { useLocale } from "@/lib/locale";
 
 const links = [
@@ -12,6 +12,7 @@ const links = [
   { href: "/account/complaints", labelBn: "আমার অভিযোগ", labelEn: "Complaints", Icon: LifeBuoy },
   { href: "/account/subscriptions", labelBn: "সাবস্ক্রিপশন", labelEn: "Subscriptions", Icon: Repeat },
   { href: "/account/addresses", labelBn: "সেভ করা ঠিকানা", labelEn: "Saved addresses", Icon: MapPin },
+  { href: "/account/wallet", labelBn: "ওয়ালেট ও রেফারেল", labelEn: "Wallet & referral", Icon: Wallet },
   { href: "/account/wishlist", labelBn: "পছন্দের তালিকা", labelEn: "Wishlist", Icon: Heart },
   { href: "/account/combos", labelBn: "আমার কম্বো", labelEn: "My combos", Icon: Layers },
   { href: "/account/premium", labelBn: "প্রিমিয়াম", labelEn: "Premium", Icon: Sparkles },

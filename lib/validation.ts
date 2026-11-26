@@ -67,6 +67,9 @@ export const checkoutSchema = z.object({
    *  admin panel, so the list is open-ended, not a fixed enum. */
   payment_method: z.string().trim().min(2).max(40),
   coupon_code: z.string().trim().max(24).optional().or(z.literal("")),
+  /** Wallet credit to apply. The server clamps it to the balance and to the
+   *  admin's `wallet_max_percent` — never trusted as-is. */
+  wallet_amount: z.coerce.number().min(0).max(1_000_000).optional(),
   items: z.array(cartItemSchema).min(1, "কার্ট খালি"),
 });
 
@@ -193,6 +196,13 @@ export const categorySchema = z.object({
   is_active: z.coerce.boolean().default(true),
 });
 
+/**
+ * Coupons — every knob is admin-editable:
+ *   usage_limit     how many USERS may redeem the code in total (null = ∞)
+ *   per_user_limit  how many times ONE account may use it (default 1)
+ *   audience        all = anybody · assigned = only listed accounts
+ *                   influencer = the influencer + the accounts they hand it to
+ */
 export const couponSchema = z.object({
   id: z.string().uuid().optional(),
   code: z
@@ -202,13 +212,40 @@ export const couponSchema = z.object({
     .min(3)
     .max(24)
     .regex(/^[A-Z0-9]+$/, "কুপন কোড: শুধু A-Z ও 0-9"),
+  description_bn: z.string().trim().max(160).optional().or(z.literal("")),
   type: z.enum(["percent", "fixed"]),
   value: z.coerce.number().min(0),
   min_order: z.coerce.number().min(0).default(0),
   max_discount: z.coerce.number().min(0).optional().nullable(),
   usage_limit: z.coerce.number().int().min(0).optional().nullable(),
+  per_user_limit: z.coerce.number().int().min(0).max(100).default(1),
+  starts_at: z.string().optional().or(z.literal("")),
   expires_at: z.string().optional().or(z.literal("")),
   is_active: z.coerce.boolean().default(true),
+  audience: z.enum(["all", "assigned", "influencer"]).default("all"),
+  /* A UUID from an older client, or a phone/email the API resolves. */
+  funder_user_id: z.string().trim().max(120).optional().nullable().or(z.literal("")),
+  funder_note: z.string().trim().max(120).optional().or(z.literal("")),
+  /* The accounts this code is handed to (audience = assigned/influencer).
+     Each entry is a phone or an email — the API resolves it to a profile id,
+     so the admin never has to hunt for a UUID. */
+  audience_contacts: z.array(z.string().trim().min(5)).max(500).optional(),
+});
+
+/** Wallet adjustment made by an admin from the panel. */
+export const walletAdjustSchema = z.object({
+  user_id: z.string().uuid(),
+  amount: z.coerce.number().refine((n) => n !== 0, "শূন্য নয় এমন অঙ্ক দিন"),
+  note_bn: z.string().trim().max(160).optional().or(z.literal("")),
+});
+
+/** Referral + wallet settings (site_settings key = 'referral'). */
+export const referralSettingsSchema = z.object({
+  enabled: z.coerce.boolean().default(true),
+  commission_percent: z.coerce.number().min(0).max(50).default(5),
+  wallet_max_percent: z.coerce.number().min(0).max(100).default(30),
+  credit_on: z.enum(["delivered", "paid"]).default("delivered"),
+  min_order: z.coerce.number().min(0).default(300),
 });
 
 export const blogSchema = z.object({

@@ -31,6 +31,8 @@ type OrderRow = {
   user_id: string | null;
   coupon_code: string | null;
   total: number | string;
+  /** Taka taken from the referral wallet at checkout (migration 25). */
+  wallet_used?: number | string | null;
   cancel_reason?: string | null;
 };
 
@@ -42,7 +44,7 @@ export async function PATCH(req: Request) {
 
     const { data: before, error: loadError } = await db()
       .from("orders")
-      .select("id, order_no, status, payment_status, payment_ref, user_id, coupon_code, total, cancel_reason")
+      .select("id, order_no, status, payment_status, payment_ref, user_id, coupon_code, total, wallet_used, cancel_reason")
       .eq("id", id)
       .maybeSingle<OrderRow>();
     if (loadError) throw loadError;

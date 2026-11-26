@@ -20,6 +20,10 @@ async function loadCoupons(): Promise<Coupon[]> {
       .from("coupons")
       .select("*")
       .eq("is_active", true)
+      /* `assigned` / `influencer` codes are handed to named accounts. The
+         page is public and cached for 5 minutes — publishing them here would
+         defeat the whole restriction. */
+      .eq("audience", "all")
       .order("value", { ascending: false });
     return (data ?? []) as Coupon[];
   } catch {
@@ -28,7 +32,16 @@ async function loadCoupons(): Promise<Coupon[]> {
 }
 
 export default async function OffersPage() {
-  const coupons = await loadCoupons();
+  /* An expired or used-up code must not look available. The window and the
+     cap are checked here because this page is a plain read — the real gate is
+     coupon_allows_user() at checkout. */
+  const now = Date.now();
+  const coupons = (await loadCoupons()).filter((c) => {
+    if (c.starts_at && new Date(c.starts_at).getTime() > now) return false;
+    if (c.expires_at && new Date(c.expires_at).getTime() < now) return false;
+    if (c.usage_limit != null && Number(c.used_count ?? 0) >= Number(c.usage_limit)) return false;
+    return true;
+  });
 
   return (
     <div className="container-x py-8 sm:py-12">
@@ -60,11 +73,10 @@ export default async function OffersPage() {
               ন্যূনতম অর্ডার {money(Number(c.min_order), true)}
               {c.max_discount ? ` · সর্বোচ্চ ছাড় ${money(Number(c.max_discount), true)}` : ""}
             </p>
-            {c.usage_limit ? (
-              <p className="mt-1 text-[11px] text-sand-100/35">
-                {c.usage_limit} বার ব্যবহারযোগ্য
-              </p>
-            ) : null}
+            <p className="mt-1 text-[11px] text-sand-100/35">
+              {c.usage_limit ? `মোট ${c.usage_limit} জন ব্যবহার করতে পারবেন · ` : ""}
+              প্রতি অ্যাকাউন্টে একবার
+            </p>
 
             <CopyCode code={c.code} />
           </article>

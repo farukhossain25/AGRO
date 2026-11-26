@@ -703,6 +703,10 @@ export type Database = {
         starts_at: string | null
         expires_at: string | null
         is_active: boolean
+        audience: string
+        funder_user_id: string | null
+        funder_note: string | null
+        is_referral: boolean
         created_at: string
         updated_at: string
       }
@@ -720,6 +724,10 @@ export type Database = {
         starts_at?: string | null
         expires_at?: string | null
         is_active?: boolean
+        audience?: string
+        funder_user_id?: string | null
+        funder_note?: string | null
+        is_referral?: boolean
         created_at?: string
         updated_at?: string
       }
@@ -737,8 +745,60 @@ export type Database = {
         starts_at?: string | null
         expires_at?: string | null
         is_active?: boolean
+        audience?: string
+        funder_user_id?: string | null
+        funder_note?: string | null
+        is_referral?: boolean
         created_at?: string
         updated_at?: string
+      }
+      Relationships: []
+    }
+      coupon_audiences: {
+      Row: {
+        coupon_id: string
+        user_id: string
+        added_at: string
+      }
+      Insert: {
+        coupon_id: string
+        user_id: string
+        added_at?: string
+      }
+      Update: {
+        coupon_id?: string
+        user_id?: string
+        added_at?: string
+      }
+      Relationships: []
+    }
+      coupon_redemptions: {
+      Row: {
+        id: string
+        coupon_id: string
+        user_id: string
+        order_id: string | null
+        order_no: string | null
+        amount: number
+        created_at: string
+      }
+      Insert: {
+        id?: string
+        coupon_id: string
+        user_id: string
+        order_id?: string | null
+        order_no?: string | null
+        amount?: number
+        created_at?: string
+      }
+      Update: {
+        id?: string
+        coupon_id?: string
+        user_id?: string
+        order_id?: string | null
+        order_no?: string | null
+        amount?: number
+        created_at?: string
       }
       Relationships: []
     }
@@ -1335,6 +1395,7 @@ export type Database = {
         delivery_charge: number
         discount: number
         total: number
+        wallet_used: number
         coupon_code: string | null
         payment_method: string
         payment_status: Database["public"]["Enums"]["payment_status"]
@@ -1364,6 +1425,7 @@ export type Database = {
         delivery_charge?: number
         discount?: number
         total?: number
+        wallet_used?: number
         coupon_code?: string | null
         payment_method?: string
         payment_status?: Database["public"]["Enums"]["payment_status"]
@@ -1393,6 +1455,7 @@ export type Database = {
         delivery_charge?: number
         discount?: number
         total?: number
+        wallet_used?: number
         coupon_code?: string | null
         payment_method?: string
         payment_status?: Database["public"]["Enums"]["payment_status"]
@@ -1760,6 +1823,12 @@ export type Database = {
         onboarded: boolean
         mfa_enrolled: boolean
         last_login_at: string | null
+        referral_code: string | null
+        referred_by: string | null
+        referred_at: string | null
+        wallet_balance: number
+        wallet_earned: number
+        wallet_spent: number
         created_at: string
         updated_at: string
       }
@@ -1781,6 +1850,12 @@ export type Database = {
         onboarded?: boolean
         mfa_enrolled?: boolean
         last_login_at?: string | null
+        referral_code?: string | null
+        referred_by?: string | null
+        referred_at?: string | null
+        wallet_balance?: number
+        wallet_earned?: number
+        wallet_spent?: number
         created_at?: string
         updated_at?: string
       }
@@ -1802,6 +1877,12 @@ export type Database = {
         onboarded?: boolean
         mfa_enrolled?: boolean
         last_login_at?: string | null
+        referral_code?: string | null
+        referred_by?: string | null
+        referred_at?: string | null
+        wallet_balance?: number
+        wallet_earned?: number
+        wallet_spent?: number
         created_at?: string
         updated_at?: string
       }
@@ -2653,6 +2734,45 @@ export type Database = {
       }
       Relationships: []
     }
+      wallet_transactions: {
+      Row: {
+        id: string
+        user_id: string
+        kind: string
+        amount: number
+        balance_after: number
+        order_id: string | null
+        order_no: string | null
+        note_bn: string | null
+        created_by: string | null
+        created_at: string
+      }
+      Insert: {
+        id?: string
+        user_id: string
+        kind: string
+        amount: number
+        balance_after: number
+        order_id?: string | null
+        order_no?: string | null
+        note_bn?: string | null
+        created_by?: string | null
+        created_at?: string
+      }
+      Update: {
+        id?: string
+        user_id?: string
+        kind?: string
+        amount?: number
+        balance_after?: number
+        order_id?: string | null
+        order_no?: string | null
+        note_bn?: string | null
+        created_by?: string | null
+        created_at?: string
+      }
+      Relationships: []
+    }
       wishlist: {
       Row: {
         id: string
@@ -2869,8 +2989,39 @@ export type Database = {
       Returns: Json
     }
       place_order: {
-      Args: { p_user: string; p_customer: Json; p_items: Json; p_payment_method: string; p_coupon: string }
+      Args: {
+        p_user: string
+        p_customer: Json
+        p_items: Json
+        p_payment_method: string
+        p_coupon: string
+        p_wallet?: number
+      }
       Returns: Json
+    }
+      apply_referral: {
+      Args: { p_user: string; p_code: string }
+      Returns: Json
+    }
+      coupon_allows_user: {
+      Args: { p_coupon: string; p_user: string }
+      Returns: boolean
+    }
+      wallet_apply: {
+      Args: {
+        p_user: string
+        p_kind: string
+        p_amount: number
+        p_order?: string | null
+        p_order_no?: string | null
+        p_note?: string | null
+        p_by?: string | null
+      }
+      Returns: number
+    }
+      credit_referral: {
+      Args: { p_order: string }
+      Returns: undefined
     }
       recalc_product_rating: {
       Args: { p_product: string }

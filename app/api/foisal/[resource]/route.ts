@@ -15,6 +15,7 @@ import {
   categorySchema,
   couponSchema,
   deliveryZoneSchema,
+  walletAdjustSchema,
 } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
@@ -207,6 +208,11 @@ const schemas: Record<string, LightSchema> = {
   faq: lightSchema(["sort_order"]),
   menus: lightSchema([], []),
   "static-pages": lightSchema(["sort_order"], []),
+  /* Who may use a restricted coupon. Rows are (coupon_id, user_id); the admin
+     form sends a phone or an email and this route resolves it. */
+  "coupon-audiences": lightSchema([], []),
+  /* Wallet — read-only list of balances plus a manual credit/debit action. */
+  wallet: lightSchema([], []),
 };
 
 const tables: Record<string, string> = {
@@ -229,6 +235,8 @@ const tables: Record<string, string> = {
   faq: "faq_items",
   menus: "menus",
   "static-pages": "static_pages",
+  "coupon-audiences": "coupon_audiences",
+  wallet: "profiles",
 };
 
 function tableFor(resource: string): string | null {
@@ -258,6 +266,8 @@ const ACCESS: Record<string, { read: Permission; write: Permission }> = {
   faq: { read: "content.write", write: "content.write" },
   menus: { read: "content.write", write: "content.write" },
   "static-pages": { read: "content.write", write: "content.write" },
+  "coupon-audiences": { read: "orders.read", write: "coupons.write" },
+  wallet: { read: "customers.read", write: "settings.write" },
 };
 
 function accessFor(resource: string) {
@@ -269,7 +279,16 @@ function normalise(resource: string, input: Record<string, unknown>) {
   delete out.id;
 
   if (resource === "coupons") {
+    out.starts_at = out.starts_at ? new Date(String(out.starts_at)).toISOString() : null;
     out.expires_at = out.expires_at ? new Date(String(out.expires_at)).toISOString() : null;
+    out.audience = ["all", "assigned", "influencer"].includes(String(out.audience))
+      ? out.audience
+      : "all";
+    // `all` never keeps a funder; the other two always do.
+    if (out.audience === "all") out.funder_user_id = null;
+    // The contact list is handled separately (it maps to another table), so it
+    // must never reach the UPDATE/INSERT on `coupons`.
+    delete out.audience_contacts;
   }
   if (resource === "blog") {
     out.is_active = out.is_active !== false;
@@ -365,12 +384,122 @@ function errorResponse(error: unknown) {
   return handleError(error);
 }
 
+
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The admin may type the influencer's phone/email instead of a UUID. */
+async function resolveFunder(value: unknown): Promise<string | null | "MISSING"> {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  if (UUID_RE.test(raw)) return raw;
+  const { ids, missing } = await resolveContacts([raw]);
+  if (missing.length || !ids.length) return "MISSING";
+  return ids[0];
+}
+
+/* ---------------------------------------------------------------- coupons --
+   A restricted coupon is handed out as a list of people, not UUIDs. The admin
+   types phones/emails; we resolve each to a profile and write coupon_audiences.
+   Unknown contacts are reported back by name so nothing is silently dropped. */
+async function resolveContacts(
+  contacts: string[]
+): Promise<{ ids: string[]; missing: string[] }> {
+  const ids = new Set<string>();
+  const missing: string[] = [];
+
+  const clean = contacts
+    .map((c) => String(c).trim())
+    .filter(Boolean)
+    .slice(0, 500);
+
+  for (const contact of clean) {
+    const isEmail = contact.includes("@");
+    let query = dbDynamic().from("profiles").select("id, full_name").limit(1);
+    query = isEmail
+      ? query.ilike("email", contact)
+      : query.eq("phone", normalizePhone(contact));
+
+    const { data } = await query.maybeSingle();
+    if (data?.id) ids.add(data.id);
+    else missing.push(contact);
+  }
+
+  return { ids: [...ids], missing };
+}
+
+function normalizePhone(value: string): string {
+  const digits = String(value).replace(/[^0-9]/g, "");
+  if (digits.startsWith("880")) return `0${digits.slice(3)}`;
+  if (digits.startsWith("0")) return digits;
+  return digits.length === 10 ? `0${digits}` : digits;
+}
+
+/** Replace a coupon's audience list with exactly these accounts. */
+async function syncCouponAudience(couponId: string, userIds: string[]) {
+  await dbDynamic().from("coupon_audiences").delete().eq("coupon_id", couponId);
+  if (!userIds.length) return;
+  const { error } = await dbDynamic()
+    .from("coupon_audiences")
+    .insert(userIds.map((user_id) => ({ coupon_id: couponId, user_id })));
+  if (error) throw error;
+}
+
+/** The contacts a coupon already has, for the edit form. */
+async function audienceContacts(couponId: string): Promise<string[]> {
+  const { data: links } = await dbDynamic()
+    .from("coupon_audiences")
+    .select("user_id")
+    .eq("coupon_id", couponId);
+  const ids = (links ?? []).map((l) => l.user_id);
+  if (!ids.length) return [];
+
+  const { data: people } = await dbDynamic()
+    .from("profiles")
+    .select("id, phone, email")
+    .in("id", ids);
+
+  return (people ?? []).map((p) => p.phone || p.email || p.id);
+}
+
+/* ----------------------------------------------------------------- wallet --
+   Money never moves from the browser: the admin's adjustment is validated and
+   then handed to wallet_apply(), which owns the arithmetic and the ledger. */
+async function walletBalances(q: string | null) {
+  let query = dbDynamic()
+    .from("profiles")
+    .select("id, full_name, phone, email, wallet_balance, wallet_earned, wallet_spent, referral_code")
+    .order("wallet_balance", { ascending: false })
+    .limit(100);
+
+  if (q && q.trim()) {
+    const term = q.trim();
+    const digits = normalizePhone(term);
+    query = query.or(`full_name.ilike.%${term}%,phone.eq.${digits},email.ilike.%${term}%`);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data ?? [];
+}
+
 export async function GET(_req: Request, { params }: { params: Promise<{ resource: string }> }) {
   try {
     const { resource } = await params;
     await requirePermission(accessFor(resource).read);
     const table = tableFor(resource);
     if (!table) return fail("অজানা রিসোর্স", 404);
+
+    /* ?id=<coupon> on coupon-audiences returns that coupon's contacts (the
+       edit form needs phones/emails, not profile ids). */
+    if (resource === "coupon-audiences") {
+      const id = new URL(_req.url).searchParams.get("id");
+      if (id) return ok({ contacts: await audienceContacts(id) });
+    }
+
+    if (resource === "wallet") {
+      return ok(await walletBalances(new URL(_req.url).searchParams.get("q")));
+    }
 
     const { data, error } = await dbDynamic().from(table).select("*").limit(500);
     if (error) throw error;
@@ -389,7 +518,90 @@ export async function POST(req: Request, { params }: { params: Promise<{ resourc
     if (!table || !schema) return fail("অজানা রিসোর্স", 404);
 
     const raw = await req.json();
+
+    /* Wallet adjustments are not rows in a table — they are an RPC call. */
+    if (resource === "wallet") {
+      const adj = walletAdjustSchema.parse(raw);
+      const { data: balance, error } = await dbDynamic().rpc("wallet_apply", {
+        p_user: adj.user_id,
+        p_kind: "admin",
+        p_amount: adj.amount,
+        p_note: adj.note_bn || (adj.amount > 0 ? "অ্যাডমিন ক্রেডিট" : "অ্যাডমিন ডেবিট"),
+        p_by: actor.id,
+      });
+      if (error) {
+        if ((error.message ?? "").includes("WALLET_INSUFFICIENT")) {
+          return fail("ব্যালেন্স ঋণাত্মক হয়ে যাবে — অঙ্কটি কমিয়ে দিন", 422);
+        }
+        throw error;
+      }
+      await recordAudit({
+        actor,
+        action: "update",
+        entity: "wallet_transactions",
+        entityId: adj.user_id,
+        diff: { wallet_adjust: { amount: adj.amount, note: adj.note_bn ?? null } },
+        ip: clientIp(req),
+        userAgent: req.headers.get("user-agent"),
+      });
+      return ok({ balance });
+    }
+
     const parsed = schema.parse(raw);
+
+    /* A coupon is saved first; the people it is handed to are a second table,
+       so the audience is written after we have the coupon's id. */
+    if (resource === "coupons") {
+      const contacts = Array.isArray((parsed as { audience_contacts?: string[] }).audience_contacts)
+        ? ((parsed as { audience_contacts?: string[] }).audience_contacts as string[])
+        : [];
+      const row = normalise(resource, parsed);
+
+      // "ইনফ্লুয়েন্সার" may arrive as a phone/email — resolve it to a profile
+      // id, and refuse to save a coupon attributed to nobody.
+      if (row.audience !== "all") {
+        const funder = await resolveFunder(row.funder_user_id);
+        if (funder === "MISSING") {
+          return fail("ইনফ্লুয়েন্সারের ফোন/ইমেইল খুঁজে পাওয়া যায়নি — আগে তাকে অ্যাকাউন্ট খুলতে হবে", 422);
+        }
+        row.funder_user_id = funder;
+      }
+
+      const { data: created, error } = await dbDynamic()
+        .from(table)
+        .insert(row)
+        .select()
+        .single();
+      if (error) throw error;
+
+      if (created?.id && row.audience !== "all" && contacts.length) {
+        const { ids, missing } = await resolveContacts(contacts);
+        await syncCouponAudience(created.id, ids);
+        await afterWrite(resource);
+        await recordAudit({
+          actor,
+          action: "create",
+          entity: table,
+          entityId: created.id,
+          diff: diffOf(null, row),
+          ip: clientIp(req),
+          userAgent: req.headers.get("user-agent"),
+        });
+        return ok({ ...created, audience_added: ids.length, audience_missing: missing });
+      }
+
+      await afterWrite(resource);
+      await recordAudit({
+        actor,
+        action: "create",
+        entity: table,
+        entityId: created?.id ?? null,
+        diff: diffOf(null, row),
+        ip: clientIp(req),
+        userAgent: req.headers.get("user-agent"),
+      });
+      return ok(created);
+    }
 
     const { data, error } = await dbDynamic()
       .from(table)
@@ -430,6 +642,51 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ resour
 
     const parsed = schema.parse(raw);
     const patch = normalise(resource, parsed);
+
+    /* Coupons: keep the audience table in step with the form. Editing the
+       contact list replaces it; switching back to `all` clears it. */
+    if (resource === "coupons") {
+      const contacts = Array.isArray((parsed as { audience_contacts?: string[] }).audience_contacts)
+        ? ((parsed as { audience_contacts?: string[] }).audience_contacts as string[])
+        : null;
+
+      if (patch.audience !== "all") {
+        const funder = await resolveFunder(patch.funder_user_id);
+        if (funder === "MISSING") {
+          return fail("ইনফ্লুয়েন্সারের ফোন/ইমেইল খুঁজে পাওয়া যায়নি — আগে তাকে অ্যাকাউন্ট খুলতে হবে", 422);
+        }
+        patch.funder_user_id = funder;
+      }
+
+      const { data: updated, error } = await dbDynamic()
+        .from(table)
+        .update(patch)
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw error;
+
+      let missing: string[] = [];
+      if (patch.audience === "all") {
+        await syncCouponAudience(id, []);
+      } else if (contacts) {
+        const resolved = await resolveContacts(contacts);
+        missing = resolved.missing;
+        await syncCouponAudience(id, resolved.ids);
+      }
+
+      await afterWrite(resource);
+      await recordAudit({
+        actor,
+        action: "update",
+        entity: table,
+        entityId: id,
+        diff: diffOf(null, patch),
+        ip: clientIp(req),
+        userAgent: req.headers.get("user-agent"),
+      });
+      return ok({ ...updated, audience_missing: missing });
+    }
 
     const { data: before } = await dbDynamic().from(table).select("*").eq("id", id).maybeSingle();
 
@@ -558,6 +815,23 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ resou
 
     const id = new URL(req.url).searchParams.get("id");
     if (!id) return fail("আইডি দিন", 422);
+
+    /* Removing a person from a coupon's audience: DELETE
+       /api/foisal/coupon-audiences?coupon=<id>&user=<id> */
+    if (resource === "coupon-audiences") {
+      const userId = new URL(req.url).searchParams.get("user");
+      if (!userId) return fail("ইউজার আইডি দিন", 422);
+      const { error } = await dbDynamic()
+        .from("coupon_audiences")
+        .delete()
+        .eq("coupon_id", id)
+        .eq("user_id", userId);
+      if (error) throw error;
+      return ok({ deleted: true });
+    }
+
+    /* A wallet ledger row is history — it is never deleted. */
+    if (resource === "wallet") return fail("ওয়ালেট লেনদেন মুছা যায় না", 405);
 
     const { data: before } = await dbDynamic().from(table).select("*").eq("id", id).maybeSingle();
     const { error } = await dbDynamic().from(table).delete().eq("id", id);

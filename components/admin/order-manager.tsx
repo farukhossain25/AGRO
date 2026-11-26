@@ -184,7 +184,7 @@ export function OrderManager({ initial, dbReady }: { initial: Order[]; dbReady: 
   }
 
   function exportCsv() {
-    const header = ["অর্ডার", "তারিখ", "কাস্টমার", "ফোন", "জেলা", "স্টেটাস", "পেমেন্ট", "সাবটোটাল", "ডেলিভারি", "ছাড়", "মোট"];
+    const header = ["অর্ডার", "তারিখ", "কাস্টমার", "ফোন", "জেলা", "স্টেটাস", "পেমেন্ট", "সাবটোটাল", "ডেলিভারি", "ছাড়", "ওয়ালেট", "মোট"];
     const rows = filtered.map((o) => [
       o.order_no,
       new Date(o.created_at).toISOString(),
@@ -196,6 +196,7 @@ export function OrderManager({ initial, dbReady }: { initial: Order[]; dbReady: 
       o.subtotal,
       o.delivery_charge,
       o.discount,
+      o.wallet_used,
       o.total,
     ]);
     const csv = [header, ...rows]
@@ -558,6 +559,14 @@ export function OrderManager({ initial, dbReady }: { initial: Order[]; dbReady: 
                 <div className="flex justify-between">
                   <span className="opacity-60">ছাড় {selected.coupon_code ? `(${selected.coupon_code})` : ""}</span>
                   <span>−{money(Number(selected.discount), true)}</span>
+                </div>
+              ) : null}
+              {Number((selected as { wallet_used?: number }).wallet_used ?? 0) > 0 ? (
+                <div className="flex justify-between">
+                  <span className="opacity-60">ওয়ালেট থেকে</span>
+                  <span>
+                    −{money(Number((selected as { wallet_used?: number }).wallet_used), true)}
+                  </span>
                 </div>
               ) : null}
               <div className="flex justify-between border-t border-white/[0.08] pt-1.5 text-[13px] font-bold print:border-black/20">

@@ -119,9 +119,24 @@ export default async function OrderSuccessPage({
                       <dd>−{money(Number(order.discount), true)}</dd>
                     </div>
                   ) : null}
+                  {Number((order as { wallet_used?: number }).wallet_used ?? 0) > 0 ? (
+                    <div className="flex justify-between text-leaf-300">
+                      <dt>ওয়ালেট থেকে</dt>
+                      <dd>−{money(Number((order as { wallet_used?: number }).wallet_used), true)}</dd>
+                    </div>
+                  ) : null}
                   <div className="flex justify-between pt-1 text-[14px] font-bold">
-                    <dt>সর্বমোট</dt>
-                    <dd className="text-leaf-200">{money(Number(order.total), true)}</dd>
+                    <dt>
+                      {Number((order as { wallet_used?: number }).wallet_used ?? 0) > 0
+                        ? "পরিশোধ করতে হবে"
+                        : "সর্বমোট"}
+                    </dt>
+                    <dd className="text-leaf-200">
+                      {money(
+                        Number(order.total) - Number((order as { wallet_used?: number }).wallet_used ?? 0),
+                        true
+                      )}
+                    </dd>
                   </div>
                 </dl>
               </div>

@@ -91,6 +91,14 @@ export type Coupon = {
   max_discount: number | null;
   usage_limit: number | null;
   used_count: number;
+  /** Migration 25 — how many times ONE account may use this code. */
+  per_user_limit?: number;
+  /** `all` = anybody; `assigned`/`influencer` = only the listed accounts. */
+  audience?: "all" | "assigned" | "influencer";
+  /** The influencer this code belongs to (informational). */
+  funder_user_id?: string | null;
+  starts_at?: string | null;
+  description_bn?: string | null;
   expires_at: string | null;
   is_active: boolean;
 };
@@ -128,6 +136,8 @@ export type Order = {
   subtotal: number;
   delivery_charge: number;
   discount: number;
+  /** Taka paid from the referral wallet (migration 25). */
+  wallet_used?: number;
   total: number;
   coupon_code: string | null;
   payment_method: PaymentMethod;
