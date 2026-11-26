@@ -73,7 +73,9 @@ declare
     -- migration 27: live chat. Without these two the reset leaves them behind.
     'support_messages','support_chats',
     -- migration 29: reported TrxIDs. Same reason.
-    'payment_refs'
+    'payment_refs',
+    -- migration 30: what the admin granted each role.
+    'permission_catalog','role_permissions'
   ];
 begin
   foreach t in array tables loop

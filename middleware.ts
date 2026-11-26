@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { ADMIN_BASE, LEGACY_ADMIN_BASE, canOpenPanelPath, firstReachablePanelPath } from "@/lib/paths";
 import { canForRole } from "@/lib/permissions";
+import { getRoleOverrides } from "@/lib/role-access";
 import { updateSession } from "@/lib/supabase/middleware";
 
 /* ==========================================================================
@@ -221,6 +222,10 @@ export async function middleware(req: NextRequest) {
        it. The page's own API re-checks the permission; this is only the door. */
     if (role !== "admin") {
       const staffRole = role === "staff" || role === "manager";
+      /* The admin may have changed what staff/manager can reach (migration 30).
+         One cached read per request; a failure falls back to the code defaults,
+         which is exactly what an unconfigured panel does. */
+      const overrides = staffRole ? await getRoleOverrides() : null;
       /* The panel root is a front door, not a wall. Send the account to the
          first page it may actually open. This MUST happen here rather than in
          the layout: `redirect()` from a Server Component renders the loading
@@ -229,9 +234,9 @@ export async function middleware(req: NextRequest) {
          A middleware response is a real 307 with no body at all. */
       if (pathname === ADMIN_BASE) {
         if (!staffRole) return plain404();
-        const target = firstReachablePanelPath((perm) => canForRole(role, perm));
+        const target = firstReachablePanelPath((perm) => canForRole(role, perm, overrides));
         if (target !== ADMIN_BASE) return noStore(NextResponse.redirect(new URL(target, req.url)));
-      } else if (!(staffRole && canOpenPanelPath(pathname, (perm) => canForRole(role, perm)))) {
+      } else if (!(staffRole && canOpenPanelPath(pathname, (perm) => canForRole(role, perm, overrides)))) {
         return plain404();
       }
     }

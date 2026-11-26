@@ -1621,6 +1621,36 @@ export type Database = {
       }
       Relationships: []
     }
+      permission_catalog: {
+      Row: {
+        permission: string
+        group_key: string
+        group_bn: string
+        label_bn: string
+        hint_bn: string | null
+        is_sensitive: boolean
+        sort_order: number
+      }
+      Insert: {
+        permission: string
+        group_key: string
+        group_bn: string
+        label_bn: string
+        hint_bn?: string | null
+        is_sensitive?: boolean
+        sort_order?: number
+      }
+      Update: {
+        permission?: string
+        group_key?: string
+        group_bn?: string
+        label_bn?: string
+        hint_bn?: string | null
+        is_sensitive?: boolean
+        sort_order?: number
+      }
+      Relationships: []
+    }
       plans: {
       Row: {
         id: string
@@ -2091,6 +2121,30 @@ export type Database = {
         seller_replied_at?: string | null
         edited_at?: string | null
         created_at?: string
+        updated_at?: string
+      }
+      Relationships: []
+    }
+      role_permissions: {
+      Row: {
+        role: string
+        permission: string
+        is_granted: boolean
+        updated_by: string | null
+        updated_at: string
+      }
+      Insert: {
+        role: string
+        permission: string
+        is_granted: boolean
+        updated_by?: string | null
+        updated_at?: string
+      }
+      Update: {
+        role?: string
+        permission?: string
+        is_granted?: boolean
+        updated_by?: string | null
         updated_at?: string
       }
       Relationships: []
@@ -3271,6 +3325,22 @@ export type Database = {
     }
       resolve_ref: {
       Args: { p_code: string; p_user: string }
+      Returns: Json
+    }
+      role_permission_defaults: {
+      Args: {  }
+      Returns: Json[]
+    }
+      role_permissions_effective: {
+      Args: { p_role: string }
+      Returns: string[]
+    }
+      role_permissions_reset: {
+      Args: { p_role: string; p_actor: string }
+      Returns: Json
+    }
+      role_permissions_set: {
+      Args: { p_role: string; p_grants: string[]; p_revokes: string[]; p_actor: string }
       Returns: Json
     }
       set_complaint_ticket: {

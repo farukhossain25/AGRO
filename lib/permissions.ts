@@ -78,6 +78,24 @@ export const PERMISSIONS = [
 
 export type Permission = (typeof PERMISSIONS)[number];
 
+/** The two roles an admin may configure. `admin` is never configurable. */
+export const CONFIGURABLE_ROLES = ["staff", "manager"] as const;
+export type ConfigurableRole = (typeof CONFIGURABLE_ROLES)[number];
+
+/**
+ * What the admin has changed, as stored in `public.role_permissions`.
+ *
+ * Only the DIFFERENCES from the defaults below are present — an empty object
+ * means "behave exactly like the code". That is deliberate: a role that has
+ * never been configured must not freeze a snapshot of today's permission list,
+ * or a permission added in a later release would silently never reach staff.
+ *
+ *   { staff: { "settings.write": true, "products.write": false } }
+ */
+export type RolePermissionOverrides = Partial<
+  Record<ConfigurableRole, Partial<Record<Permission, boolean>>>
+>;
+
 const STAFF: Permission[] = [
   "admin.access",
   "dashboard.view",
@@ -141,12 +159,39 @@ export function isStaffRole(role: UserRole | null | undefined): boolean {
   return !!role && STAFF_ROLES.includes(role);
 }
 
-/** Does this session hold the permission? Unknown roles get nothing. */
-export function can(user: SessionUser | null | undefined, permission: Permission): boolean {
+/**
+ * Does this session hold the permission? Unknown roles get nothing.
+ *
+ * `overrides` is the admin's configuration from `role_permissions`. It applies
+ * to staff and manager ONLY — an admin's answer is always yes, so a stray row
+ * for 'admin' could never lock the owner out of their own panel. Omitting the
+ * argument gives the built-in defaults, which is what a caller that has not
+ * loaded the configuration (or a unit test) should get.
+ */
+export function can(
+  user: SessionUser | null | undefined,
+  permission: Permission,
+  overrides?: RolePermissionOverrides | null
+): boolean {
   if (!user) return false;
+
+  /* admin is all-or-nothing by design: never configurable, never reducible. */
+  if (user.role === "admin") return true;
+
+  if (!isConfigurableRole(user.role)) {
+    const set = ROLE_PERMISSIONS[user.role];
+    return !!set && set.has(permission);
+  }
+
+  const decided = overrides?.[user.role]?.[permission];
+  if (typeof decided === "boolean") return decided;
+
   const set = ROLE_PERMISSIONS[user.role];
-  if (!set) return false;
-  return set.has(permission);
+  return !!set && set.has(permission);
+}
+
+export function isConfigurableRole(role: string | null | undefined): role is ConfigurableRole {
+  return role === "staff" || role === "manager";
 }
 
 export function canAny(user: SessionUser | null | undefined, permissions: Permission[]): boolean {
@@ -161,11 +206,31 @@ export function canAny(user: SessionUser | null | undefined, permissions: Permis
  * never imports this file. Unknown roles get nothing — fail closed, exactly
  * like `can()`.
  */
-export function canForRole(role: UserRole | null | undefined, permission: string): boolean {
+export function canForRole(
+  role: UserRole | null | undefined,
+  permission: string,
+  overrides?: RolePermissionOverrides | null
+): boolean {
   if (!role) return false;
+  if (role === "admin") return true;
+  if (!isConfigurableRole(role)) {
+    const set = ROLE_PERMISSIONS[role];
+    return !!set && set.has(permission as Permission);
+  }
+  const decided = overrides?.[role]?.[permission as Permission];
+  if (typeof decided === "boolean") return decided;
   const set = ROLE_PERMISSIONS[role];
-  if (!set) return false;
-  return set.has(permission as Permission);
+  return !!set && set.has(permission as Permission);
+}
+
+/**
+ * The built-in defaults, as data — the TypeScript twin of the SQL function
+ * `public.role_permission_defaults()` in migration 30.
+ * `scripts/check-permissions.mjs` runs both and fails if they disagree, so the
+ * list living in two places cannot drift silently.
+ */
+export function rolePermissionDefaults(): Record<ConfigurableRole, Permission[]> {
+  return { staff: [...STAFF], manager: [...MANAGER] };
 }
 
 /** Bangla label for the role — used in the team table and the audit log. */

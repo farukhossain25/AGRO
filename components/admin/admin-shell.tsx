@@ -13,6 +13,7 @@ import {
   FileText,
   Headset,
   HelpCircle,
+  KeyRound,
   Image as ImageIcon,
   Images,
   LayoutGrid,
@@ -42,7 +43,7 @@ import {
 } from "lucide-react";
 import { Logo } from "@/components/icon-logo";
 import type { SessionUser } from "@/lib/session";
-import { can, roleLabelBn, type Permission } from "@/lib/permissions";
+import { can, roleLabelBn, type Permission, type RolePermissionOverrides } from "@/lib/permissions";
 import { canOpenPanelPath } from "@/lib/paths";
 import { ADMIN_BASE, adminHref } from "@/lib/paths";
 import { IdleGuard } from "./idle-guard";
@@ -64,10 +65,11 @@ type NavItem = {
  */
 function isPageReachable(
   user: SessionUser,
-  href: string
+  href: string,
+  overrides?: RolePermissionOverrides | null
 ): boolean {
   if (user.role === "admin") return true;
-  return canOpenPanelPath(href, (permission) => can(user, permission));
+  return canOpenPanelPath(href, (permission) => can(user, permission, overrides));
 }
 
 const navGroups: { title: string; items: NavItem[] }[] = [
@@ -157,6 +159,7 @@ const navGroups: { title: string; items: NavItem[] }[] = [
     title: "টিম ও সিস্টেম",
     items: [
       { href: adminHref("team"), label: "টিম ও রোল", Icon: ShieldCheck, perm: "team.read" },
+      { href: adminHref("access"), label: "প্যানেল অ্যাক্সেস", Icon: KeyRound, perm: "team.read" },
       { href: adminHref("audit"), label: "অডিট লগ", Icon: ScrollText, perm: "audit.read" },
       { href: adminHref("delivery"), label: "ডেলিভারি জোন", Icon: Truck, perm: "settings.write" },
       { href: adminHref("settings"), label: "সাইট সেটিংস", Icon: Settings, perm: "settings.write" },
@@ -165,7 +168,17 @@ const navGroups: { title: string; items: NavItem[] }[] = [
   },
 ];
 
-export function AdminShell({ user, children }: { user: SessionUser; children: ReactNode }) {
+export function AdminShell({
+  user,
+  overrides,
+  children,
+}: {
+  user: SessionUser;
+  /** The admin's per-role configuration (migration 30). Only the diff against
+   *  the code defaults crosses to the browser; an admin passes null. */
+  overrides?: RolePermissionOverrides | null;
+  children: ReactNode;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -218,7 +231,9 @@ export function AdminShell({ user, children }: { user: SessionUser; children: Re
           .map((group) => ({
             ...group,
             items: group.items.filter(
-              (item) => (!item.perm || can(user, item.perm)) && isPageReachable(user, item.href)
+              (item) =>
+                  (!item.perm || can(user, item.perm, overrides)) &&
+                  isPageReachable(user, item.href, overrides)
             ),
           }))
           .filter((group) => group.items.length > 0)

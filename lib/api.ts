@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { getSessionUser } from "./supabase/server";
+import { getRoleOverrides } from "./role-access";
 import type { SessionUser } from "./session";
 import { can, isStaffRole, type Permission } from "./permissions";
 import { describeError } from "./errors";
@@ -125,7 +126,14 @@ export async function requirePermission(permission: Permission): Promise<Session
     err.status = 401;
     throw err;
   }
-  if (!can(user, permission)) {
+
+  /* The admin may have changed what this role holds (migration 30). Reading it
+     HERE — the one gate every mutating route goes through — means a route
+     cannot accidentally enforce the built-in defaults while the panel shows the
+     configured ones. Cached per request; an admin short-circuits inside can(). */
+  const overrides = user.role === "admin" ? null : await getRoleOverrides();
+
+  if (!can(user, permission, overrides)) {
     const err = new Error("FORBIDDEN") as Error & { status?: number; permission?: string };
     err.status = 403;
     err.permission = permission;
