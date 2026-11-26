@@ -110,6 +110,33 @@ function stripFarm(row: Record<string, unknown>): Farm {
   return farm;
 }
 
+/**
+ * Farms with a live camera float to the top.
+ *
+ * WHY THIS IS NOT AN SQL ORDER BY
+ *   "Live" is not a column — it is `cameras.status = 'online'`, and the public
+ *   camera embed is already fetched with the farm. Ordering in SQL would need
+ *   an aggregate over the embed (and the two embeds fall back to different
+ *   column sets, see selectFarms). Sorting the page of rows we already have is
+ *   both exact and free.
+ *
+ * ORDER
+ *   1. farms with at least one online camera
+ *   2. the rest, each group in the admin's sort_order (the query already
+ *      returns them that way, and Array.prototype.sort is stable)
+ *
+ * The directory page still applies its own filters before this runs, so
+ * filtering by type/district never reorders anything unexpectedly.
+ */
+function liveFirst(farms: Farm[]): Farm[] {
+  return [...farms].sort((a, b) => {
+    const aLive = (a.online_cameras ?? 0) > 0 ? 0 : 1;
+    const bLive = (b.online_cameras ?? 0) > 0 ? 0 : 1;
+    if (aLive !== bLive) return aLive - bLive;
+    return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+  });
+}
+
 export async function listFarms(filters: FarmFilters = {}): Promise<Farm[]> {
   if (!dbUsable()) return [];
 
@@ -142,7 +169,7 @@ export async function listFarms(filters: FarmFilters = {}): Promise<Farm[]> {
 
     if (!data?.length) return [];
 
-    return data.map((row) => {
+    const mapped = data.map((row) => {
       const farm = applySellerBrand(stripFarm(row as unknown as Record<string, unknown>) as FarmWithSeller);
       const cams = (farm.cameras ?? []).sort((a, b) => a.sort_order - b.sort_order);
       farm.cameras = cams;
@@ -150,6 +177,10 @@ export async function listFarms(filters: FarmFilters = {}): Promise<Farm[]> {
       farm.online_cameras = cams.filter((c) => c.status === "online").length;
       return farm;
     });
+
+    /* The directory, the /live grid and the home teaser all read this one
+       function, so a farm that is live right now is first everywhere. */
+    return liveFirst(mapped);
   } catch (error) {
     markDbUnreachable();
     console.warn("[farms] list failed:", (error as Error).message);

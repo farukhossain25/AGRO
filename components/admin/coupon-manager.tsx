@@ -377,10 +377,17 @@ export function CouponManager({ initial }: { initial: Row[] }) {
               <label className="sm:col-span-2">
                 <span className="label">কে ব্যবহার করতে পারবে</span>
                 <select value={String(form.audience ?? "all")} onChange={(e) => set("audience", e.target.value)} className="input">
-                  <option value="all" className="bg-ink-800">সবার জন্য (পাবলিক কোড)</option>
-                  <option value="assigned" className="bg-ink-800">শুধু নিচের তালিকার অ্যাকাউন্ট</option>
-                  <option value="influencer" className="bg-ink-800">ইনফ্লুয়েন্সার (যাকেই খুশি দিতে পারবেন)</option>
+                  <option value="all" className="bg-ink-800">সবার জন্য (চেকআউটে সবার তালিকায় দেখাবে)</option>
+                  <option value="assigned" className="bg-ink-800">নির্দিষ্ট অ্যাকাউন্ট (তালিকায় দেখাবে না)</option>
+                  <option value="influencer" className="bg-ink-800">ইনফ্লুয়েন্সার কোড (তালিকায় দেখাবে না)</option>
                 </select>
+                <span className="mt-1 block text-[10.5px] leading-relaxed text-sand-100/40">
+                  {form.audience === "all"
+                    ? "চেকআউটে “সব কুপন” তালিকায় সবাই এই কোডটি দেখতে পাবে।"
+                    : form.audience === "influencer"
+                      ? "ইনফ্লুয়েন্সারের লিংক (?ref=) বা কোড টাইপ করলেই কাজ করবে — চেকআউটের তালিকায় থাকবে না, তাই অন্য কাস্টমার এটি তুলে নিতে পারবে না।"
+                      : "শুধু নিচের তালিকার অ্যাকাউন্ট কোডটি ব্যবহার করতে পারবে; চেকআউটের তালিকায় দেখাবে না।"}
+                </span>
               </label>
 
               {form.audience !== "all" ? (

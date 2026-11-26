@@ -121,12 +121,22 @@ export default async function LiveHubPage() {
           title="যে খামারগুলো দেখতে পারবেন"
           subtitle="প্রতিটি খামারের কৃষক, অবস্থান, সার্টিফিকেশন ও লাইভ ক্যামেরার সংখ্যা দেখুন।"
           action={
-            <Link href="/live/farms" className="text-[13px] font-semibold text-mint hover:underline">
-              সব দেখুন →
+            /* This used to be a 13px text link — the only route to the whole
+               directory, and easy to miss under six cards. It is now the same
+               button shape as the rest of the page, so it reads as the way to
+               see everything rather than decoration. */
+            <Link
+              href="/live/farms"
+              className="inline-flex items-center gap-2 rounded-full bg-neu-accent px-5 py-2.5 text-[13px] font-bold text-white shadow-neu-accent-sm transition hover:gap-2.5 hover:bg-neu-accent-strong"
+            >
+              সব দেখুন
+              <ArrowRight className="h-4 w-4" />
             </Link>
           }
         />
 
+        {/* farms.slice — listFarms() puts every farm with a live camera first,
+            so these six are the six that are actually running right now. */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {farms.slice(0, 6).map((farm) => (
             <Link

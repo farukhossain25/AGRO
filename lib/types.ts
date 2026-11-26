@@ -284,6 +284,8 @@ export type Subscription = {
   price_monthly: number;
   status: "active" | "paused" | "cancelled";
   paused_until: string | null;
+  /** set when the subscription is cancelled from the panel or by the customer */
+  cancelled_at?: string | null;
   created_at: string;
 };
 

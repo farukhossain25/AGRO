@@ -1,7 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { dbDynamic } from "@/lib/db";
 import { fail, handleError, ok, requirePermission } from "@/lib/api";
-import { slugifyAscii } from "@/lib/format";
+import { slugifyAscii, toBn } from "@/lib/format";
 import { recordAudit, diffOf } from "@/lib/audit";
 import { notify } from "@/lib/notify";
 import { clientIp } from "@/lib/api";
@@ -123,6 +123,23 @@ const FARM_COLUMNS = [
   "updated_at",
 ];
 
+/** Real columns of `subscription_plans` — the monthly food boxes. */
+const SUBSCRIPTION_PLAN_COLUMNS = [
+  "slug",
+  "name_bn",
+  "name_en",
+  "members_label",
+  "members_min",
+  "members_max",
+  "price_monthly",
+  "saving_label",
+  "features",
+  "image",
+  "is_popular",
+  "is_active",
+  "sort_order",
+];
+
 /** Real columns of `camera_requests` (seller/farm names are joined for display). */
 /** Real columns of `combos` — the storefront combo boxes (/combos). `contents`
  *  is the jsonb list of {name, qty} lines printed on the card. */
@@ -197,6 +214,14 @@ const schemas: Record<string, LightSchema> = {
     CAMERA_COLUMNS
   ),
   "premium-plans": lightSchema(["price", "compare_price", "duration_days", "max_devices", "sort_order"]),
+  /* The monthly food plans the storefront sells (/subscription). price_monthly
+     and the member band are numbers; features is a text[] the form sends as an
+     array of lines. */
+  "subscription-plans": lightSchema(
+    ["price_monthly", "members_min", "members_max", "sort_order"],
+    [],
+    SUBSCRIPTION_PLAN_COLUMNS
+  ),
   "access-codes": lightSchema([], ["expires_at"]),
   sellers: lightSchema(["commission_percent"], ["approved_at"], SELLER_COLUMNS),
   payouts: lightSchema(["amount"], ["paid_at"]),
@@ -224,6 +249,7 @@ const tables: Record<string, string> = {
   farms: "farms",
   cameras: "cameras",
   "premium-plans": "plans",
+  "subscription-plans": "subscription_plans",
   "access-codes": "access_codes",
   sellers: "sellers",
   payouts: "seller_payouts",
@@ -255,6 +281,9 @@ const ACCESS: Record<string, { read: Permission; write: Permission }> = {
   farms: { read: "cams.manage", write: "cams.manage" },
   cameras: { read: "cams.manage", write: "cams.manage" },
   "premium-plans": { read: "premium.manage", write: "premium.manage" },
+  /* What the family pays per month is a commercial decision — same permission
+     as the premium plans. */
+  "subscription-plans": { read: "orders.read", write: "settings.write" },
   "access-codes": { read: "premium.manage", write: "premium.manage" },
   sellers: { read: "sellers.read", write: "sellers.approve" },
   payouts: { read: "payouts.read", write: "payouts.write" },
@@ -337,6 +366,36 @@ function normalise(resource: string, input: Record<string, unknown>) {
       out.slug = slugifyAscii(String(out.name_en || out.name_bn || "combo"), `combo-${Date.now().toString(36)}`);
     }
   }
+  if (resource === "subscription-plans") {
+    /* The monthly food plans. Three things the generic schema cannot know:
+       a slug is required, the member band must stay ordered (max >= min), and
+       `features` is a text[] — the form sends one line per item, and a stray
+       "[]"/JSON string from an older client must not be stored verbatim. */
+    if (!out.slug) {
+      out.slug = slugifyAscii(String(out.name_en || out.name_bn || "plan"), `plan-${Date.now().toString(36)}`);
+    }
+    out.price_monthly = Number(out.price_monthly ?? 0);
+    const min = Math.max(1, Math.round(Number(out.members_min ?? 1)) || 1);
+    const max = Math.max(min, Math.round(Number(out.members_max ?? 10)) || 10);
+    out.members_min = min;
+    out.members_max = max;
+    /* Bangla digits: the label is customer-facing copy on /subscription and
+       the home page, where every other number is already Bengali. */
+    if (!out.members_label) out.members_label = `${toBn(min)}-${toBn(max)} জন`;
+    out.is_popular = out.is_popular === true;
+    out.is_active = out.is_active !== false;
+    const f = out.features;
+    if (typeof f === "string") {
+      out.features = f
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean);
+    } else if (Array.isArray(f)) {
+      out.features = f.map((l) => String(l).trim()).filter(Boolean);
+    } else {
+      delete out.features;
+    }
+  }
   if (resource === "cms-pages") {
     // blocks arrive as JSON text from the textarea
     if (typeof out.blocks === "string") {
@@ -380,6 +439,15 @@ function normalise(resource: string, input: Record<string, unknown>) {
 /** The storefront pages that read this resource are ISR-cached; drop their
  *  cache after a write so the panel's change shows up on the next visit. */
 async function afterWrite(resource: string) {
+  if (resource === "subscription-plans") {
+    /* The home page's plan strip, /subscription and the sitemap all print
+       these rows, and they are ISR-cached — without this an edited price can
+       keep showing the old number for up to five minutes. */
+    revalidatePath("/subscription");
+    revalidatePath("/");
+    revalidatePath("/sitemap.xml");
+    return;
+  }
   if (resource !== "combos") return;
   revalidatePath("/combos");
   revalidatePath("/combos/[slug]", "page");

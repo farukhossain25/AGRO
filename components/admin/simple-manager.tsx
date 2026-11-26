@@ -11,7 +11,20 @@ import { ImageField } from "@/components/admin/image-field";
 export type Field = {
   name: string;
   label: string;
-  type: "text" | "number" | "textarea" | "select" | "checkbox" | "date" | "image" | "lines";
+  type:
+    | "text"
+    | "number"
+    | "textarea"
+    | "select"
+    | "checkbox"
+    | "date"
+    | "image"
+    /** combo contents: "name | qty" per line → jsonb [{name, qty}] */
+    | "lines"
+    /** one item per line → text[] (features, bullet lists) */
+    | "array"
+    /** "label | min | max" per line → members_label / members_min / members_max */
+    | "members";
   required?: boolean;
   options?: { value: string; label: string }[];
   placeholder?: string;
@@ -158,6 +171,97 @@ function Cell({ row, col }: { row: Record<string, unknown>; col: Column }) {
         </>
       );
   }
+}
+
+/**
+ * Family-size band of a monthly food plan, edited as ONE control.
+ *
+ * WHY NOT TWO NUMBER INPUTS
+ *   `members_label` is the text the customer reads ("৪-৫ জন"), while
+ *   `members_min` / `members_max` are what the order actually validates
+ *   against. Typed separately they drift ("৮-১০ জন" with max 6), and a customer
+ *   then gets an error they cannot act on. The label here is derived from the
+ *   numbers whenever they change, and the admin can still type a custom label
+ *   (e.g. "৪-৬ জন (বড় পরিবার)").
+ */
+function MembersField({
+  label,
+  min,
+  max,
+  hint,
+  onChange,
+}: {
+  label: string;
+  min: number;
+  max: number;
+  hint?: string;
+  onChange: (next: { label: string; min: number; max: number }) => void;
+}) {
+  const [custom, setCustom] = useState(false);
+  const auto = `${toBn(min)}-${toBn(max)} জন`;
+
+  return (
+    <div>
+      <div className="flex gap-2">
+        <label className="flex-1">
+          <span className="mb-1 block text-[10.5px] text-sand-100/40">সর্বনিম্ন সদস্য</span>
+          <input
+            type="number"
+            min={1}
+            max={30}
+            value={min}
+            onChange={(e) => {
+              const next = Math.max(1, Math.min(30, Number(e.target.value) || 1));
+              onChange({ label: custom ? label : `${toBn(next)}-${toBn(Math.max(next, max))} জন`, min: next, max: Math.max(next, max) });
+            }}
+            className="input"
+          />
+        </label>
+        <label className="flex-1">
+          <span className="mb-1 block text-[10.5px] text-sand-100/40">সর্বোচ্চ সদস্য</span>
+          <input
+            type="number"
+            min={1}
+            max={30}
+            value={max}
+            onChange={(e) => {
+              const next = Math.max(1, Math.min(30, Number(e.target.value) || 1));
+              onChange({ label: custom ? label : `${toBn(Math.min(next, min))}-${toBn(next)} জন`, min: Math.min(next, min), max: next });
+            }}
+            className="input"
+          />
+        </label>
+      </div>
+
+      <div className="mt-2 flex items-center gap-2">
+        <input
+          value={label}
+          onChange={(e) => {
+            setCustom(true);
+            onChange({ label: e.target.value, min, max });
+          }}
+          onFocus={() => setCustom(true)}
+          className="input"
+          placeholder={auto}
+        />
+        {custom ? (
+          <button
+            type="button"
+            onClick={() => {
+              setCustom(false);
+              onChange({ label: auto, min, max });
+            }}
+            className="shrink-0 rounded-lg border border-white/10 px-2 py-1.5 text-[10.5px] text-sand-100/60 hover:bg-white/5"
+          >
+            স্বয়ংক্রিয়
+          </button>
+        ) : null}
+      </div>
+      <p className="mt-1 text-[10.5px] leading-relaxed text-sand-100/40">
+        {hint ?? "কাস্টমার এই লেখাটি দেখবে (যেমন “৪-৫ জন”)। সংখ্যা বদলালে লেখাটি নিজেই বদলে যাবে।"}
+      </p>
+    </div>
+  );
 }
 
 /**
@@ -352,6 +456,49 @@ export function SimpleManager({
                         }
                         className="input resize-y font-[inherit]"
                         placeholder={f.placeholder}
+                      />
+                    ) : f.type === "array" ? (
+                      /* text[] columns (subscription_plans.features). One item
+                         per line; blank lines are dropped, order is kept. */
+                      <textarea
+                        rows={5}
+                        value={
+                          Array.isArray(value)
+                            ? (value as unknown[]).map((v) => String(v)).join("\n")
+                            : String(value ?? "")
+                        }
+                        onChange={(e) =>
+                          set(
+                            e.target.value
+                              .split("\n")
+                              .map((l) => l.trim())
+                              .filter(Boolean)
+                          )
+                        }
+                        className="input resize-y"
+                        placeholder={f.placeholder ?? "প্রতি লাইনে একটি করে"}
+                      />
+                    ) : f.type === "members" ? (
+                      /* The plan's family-size band. The storefront prints the
+                         label; place_order validates against min/max, so all
+                         three have to be edited together or they drift apart. */
+                      <MembersField
+                        label={String(form?.members_label ?? "")}
+                        min={Number(form?.members_min ?? 1)}
+                        max={Number(form?.members_max ?? 10)}
+                        hint={f.hint}
+                        onChange={(next) => {
+                          setForm((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  members_label: next.label,
+                                  members_min: next.min,
+                                  members_max: next.max,
+                                }
+                              : prev
+                          );
+                        }}
                       />
                     ) : f.type === "textarea" ? (
                       <textarea rows={4} value={String(value ?? "")} onChange={(e) => set(e.target.value)} className="input resize-none" placeholder={f.placeholder} />
