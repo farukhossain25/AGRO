@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   Banknote,
   Check,
+  ChevronDown,
   Clock,
   Landmark,
   Mail,
@@ -13,7 +14,6 @@ import {
   Send,
   ShieldCheck,
   Sprout,
-  Truck,
   Wallet,
   type LucideIcon,
 } from "lucide-react";
@@ -31,11 +31,15 @@ import { Spinner } from "./ui";
    One large raised neumorphic panel — the same surface language as
    the floating header bar and the home cards (soft grey-blue, white hairline,
    dual shadows) — so the page ends on the theme instead of on a dark slab.
-   Inside, four rows separated by hairlines:
-     1. brand (logo, story, tagline pill, contact, socials) + newsletter card
-     2. link columns
-     3. three trust tiles
-     4. payment methods + legal
+   Inside, three rows separated by hairlines:
+     1. brand (small seal, story, tagline pill, contact, socials) + newsletter card
+     2. link columns — an accordion on phones, four columns from md
+     3. payment methods + legal
+
+   The seal is deliberately small (132 px, 88 px on a phone): it is a signature,
+   not the headline. The three "straight from the farm / delivery / secure
+   payment" tiles were removed — the same promises already sit in the header
+   strip and the product page badges, and they cost a third of a phone screen.
    Depth is the decoration: raised panel → raised newsletter card → inset
    input, mint glows and a few hairline rings in the corner. Nothing else.
 
@@ -97,12 +101,6 @@ export function SiteFooter({
     labelEn: c.name_en,
   }));
 
-  const trust: { Icon: LucideIcon; bn: string; en: string; subBn: string; subEn: string }[] = [
-    { Icon: Sprout, bn: "খামার থেকে সরাসরি", en: "Straight from the farm", subBn: "কোনো মধ্যস্বত্বভোগী নেই", subEn: "No middlemen" },
-    { Icon: Truck, bn: "সারা বাংলাদেশে ডেলিভারি", en: "Delivery across Bangladesh", subBn: "ঘরে বসে অর্ডার করুন", subEn: "Order from home" },
-    { Icon: ShieldCheck, bn: "নিরাপদ পেমেন্ট", en: "Secure payment", subBn: "যাচাইকৃত পেমেন্ট মাধ্যম", subEn: "Verified payment methods" },
-  ];
-
   return (
     <footer className="mt-16 sm:mt-20">
       <div className="container-x pb-6 sm:pb-8">
@@ -127,7 +125,7 @@ export function SiteFooter({
           {/* ── 1 · brand + newsletter ─────────────────────────────── */}
           <div className="relative grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-start lg:gap-14">
             <div className="min-w-0">
-              <Logo variant="full" />
+              <Logo variant="full" width={132} priority={false} />
 
               <p className="mt-5 max-w-md text-[13.5px] leading-relaxed text-neu-muted">
                 {t(
@@ -142,12 +140,12 @@ export function SiteFooter({
 
               {/* two-up on phones: four stacked address rows made the footer
                   half a screen longer than it had to be */}
-              <ul className="mt-6 grid gap-2.5 text-[13px] text-neu-ink/80 sm:grid-cols-2 sm:gap-x-4">
+              <ul className="mt-5 grid gap-1.5 text-[12.5px] text-neu-ink/80 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-2">
                 <li className="col-span-2 flex items-start gap-3">
                   <ContactIcon>
                     <MapPin className="h-3.5 w-3.5" />
                   </ContactIcon>
-                  <span className="pt-2">{t(store.address_bn, store.address_en)}</span>
+                  <span className="pt-1.5">{t(store.address_bn, store.address_en)}</span>
                 </li>
                 <li>
                   <a href={`tel:${store.phone}`} className="flex items-center gap-3 transition hover:text-neu-accent-strong">
@@ -197,13 +195,13 @@ export function SiteFooter({
                   <Mail className="h-5 w-5" />
                 </span>
                 <div className="min-w-0">
-                  <h3 className="text-[19px] font-bold leading-tight sm:text-[22px]">
-                    {t("সাপ্তাহিক তাজা খবর পান", "Get fresh news weekly")}
+                  <h3 className="text-[18px] font-bold leading-tight tracking-tight sm:text-[20px]">
+                    {t("সাপ্তাহিক তাজা খবর", "Fresh news, weekly")}
                   </h3>
-                  <p className="mt-1.5 text-[13px] leading-relaxed text-neu-muted">
+                  <p className="mt-1.5 text-[12.5px] leading-relaxed text-neu-muted">
                     {t(
-                      "মৌসুমি সবজি, রেসিপি ও বিশেষ ছাড়ের খবর সবার আগে আপনার ইনবক্সে।",
-                      "Seasonal produce, recipes and exclusive discounts — straight to your inbox."
+                      "মৌসুমি সবজি, রেসিপি ও এক্সক্লুসিভ ছাড় — সবার আগে আপনার ইনবক্সে।",
+                      "Seasonal produce, recipes and exclusive discounts, first in your inbox."
                     )}
                   </p>
                 </div>
@@ -232,18 +230,13 @@ export function SiteFooter({
                   <span className="hidden sm:inline">{t("সাবস্ক্রাইব", "Subscribe")}</span>
                 </button>
               </form>
-              <ul className="mt-4 space-y-1.5 text-[12px] text-neu-muted">
-                {[
-                  { bn: "সপ্তাহে একটাই মেইল — কোনো স্প্যাম নেই", en: "One email a week — no spam" },
-                  { bn: "নতুন ক্যাটাগরি ও ছাড় আগে পাবেন", en: "New categories and discounts first" },
-                  { bn: "যেকোনো সময় আনসাবস্ক্রাইব করতে পারবেন", en: "Unsubscribe anytime" },
-                ].map((b) => (
-                  <li key={b.bn} className="flex items-start gap-2">
-                    <Check className="mt-[3px] h-3.5 w-3.5 shrink-0 text-neu-accent" aria-hidden />
-                    <span>{t(b.bn, b.en)}</span>
-                  </li>
-                ))}
-              </ul>
+              <p className="mt-3 flex items-start gap-1.5 text-[11.5px] leading-relaxed text-neu-faint">
+                <Check className="mt-[2px] h-3 w-3 shrink-0 text-neu-accent" aria-hidden />
+                {t(
+                  "সপ্তাহে একটাই মেইল, কোনো স্প্যাম নেই — যেকোনো সময় আনসাবস্ক্রাইব।",
+                  "One email a week, no spam — unsubscribe anytime."
+                )}
+              </p>
             </div>
 
             {/* farm family counter — the same number the home page brags about,
@@ -270,36 +263,15 @@ export function SiteFooter({
             </div>
           </div>
 
-          {/* ── 2 · link columns ───────────────────────────────────── */}
-          <div className="relative mt-10 grid grid-cols-2 gap-x-6 gap-y-9 border-t border-neu-line/50 pt-9 sm:mt-12 sm:pt-10 lg:grid-cols-4 lg:gap-x-10">
-            <FooterCol title={t("কেনাকাটা", "Shop")} links={footerLinks.shop} />
-            <FooterCol title={t("ক্যাটাগরি", "Categories")} links={categoryLinks} />
-            <FooterCol title={t("সহায়তা", "Support")} links={footerLinks.help} />
-            <FooterCol title={t("প্রতিষ্ঠান", "Company")} links={footerLinks.company} />
+          {/* ── 2 · link columns — accordion on phones, grid from md ──── */}
+          <div className="relative mt-9 border-t border-neu-line/50 pt-2 sm:mt-11 md:mt-12 md:grid md:grid-cols-2 md:gap-x-8 md:gap-y-8 md:pt-9 lg:grid-cols-4 lg:gap-x-10">
+            <FooterGroup id="shop" title={t("কেনাকাটা", "Shop")} links={footerLinks.shop} />
+            <FooterGroup id="categories" title={t("ক্যাটাগরি", "Categories")} links={categoryLinks} />
+            <FooterGroup id="support" title={t("সহায়তা", "Support")} links={footerLinks.help} />
+            <FooterGroup id="company" title={t("প্রতিষ্ঠান", "Company")} links={footerLinks.company} />
           </div>
 
-          {/* ── 3 · trust tiles (a list on phones, three tiles from md) ── */}
-          <ul className="relative mt-10 grid gap-2.5 border-t border-neu-line/50 pt-9 sm:mt-12 sm:pt-10 md:grid-cols-3 md:gap-4">
-            {trust.map(({ Icon, bn, en, subBn, subEn }) => (
-              <li key={bn} className="neu-raised-xs flex items-center gap-3 rounded-2xl p-3 sm:p-4">
-                <span
-                  className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-leaf-600/15 text-neu-accent-strong sm:rounded-2xl"
-                  aria-hidden
-                >
-                  <Icon className="h-[18px] w-[18px]" />
-                </span>
-                <div className="min-w-0">
-                  {/* wraps instead of truncating: "সারা বাংলাদেশে ডেলিভারি"
-                      does not fit one line in a third of an 768 px panel, and a
-                      cut-off promise is worse than a two-line one */}
-                  <p className="text-[13px] font-semibold leading-snug text-neu-ink [text-wrap:balance] sm:text-[13.5px]">{t(bn, en)}</p>
-                  <p className="mt-0.5 text-[11.5px] leading-snug text-neu-muted">{t(subBn, subEn)}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-
-          {/* ── 4 · payments + legal ───────────────────────────────── */}
+          {/* ── 3 · payments + legal ───────────────────────────────── */}
           <div className="relative mt-9 flex flex-col gap-5 border-t border-neu-line/50 pt-6 lg:mt-10 lg:flex-row lg:items-center lg:justify-between">
             {paymentMethods.length > 0 ? (
               <div className="flex flex-col items-center gap-2.5 lg:items-start">
@@ -343,7 +315,7 @@ export function SiteFooter({
 
 function ContactIcon({ children }: { children: ReactNode }) {
   return (
-    <span className="neu-raised-xs grid h-9 w-9 shrink-0 place-items-center rounded-xl text-neu-accent-strong">
+    <span className="neu-raised-xs grid h-7 w-7 shrink-0 place-items-center rounded-lg text-neu-accent-strong">
       {children}
     </span>
   );
@@ -353,27 +325,69 @@ function LegalLink({ href, children }: { href: string; children: ReactNode }) {
   return <Link href={href} className="transition hover:text-neu-accent-strong">{children}</Link>;
 }
 
-function FooterCol({ title, links }: { title: string; links: FooterLink[] }) {
+/**
+ * One footer link group.
+ *
+ * Phones get an accordion: four open columns of five links each made the footer
+ * taller than two product pages, and every link competed with the ones above it.
+ * Closed by default, the whole block is four rows high; a tap expands one group
+ * with a height/opacity transition (grid-rows trick — no JS measuring, no
+ * layout jump). From `md` the button is inert: every group is open and the
+ * chevron disappears.
+ */
+function FooterGroup({ id, title, links }: { id: string; title: string; links: FooterLink[] }) {
   const { t } = useLocale();
+  const [open, setOpen] = useState(false);
+  const panelId = `footer-${id}`;
+
   return (
-    <div>
-      <h4 className="text-[11px] font-bold uppercase tracking-[0.18em] text-neu-accent-strong">{title}</h4>
-      <span className="mt-2 block h-0.5 w-7 rounded-full bg-neu-accent/50" />
-      <ul className="mt-3.5">
-        {links.map((l) => (
-          <li key={l.href}>
-            <Link
-              href={l.href}
-              className="group inline-flex min-h-[34px] items-center gap-2.5 py-1 text-[13.5px] text-neu-muted transition hover:text-neu-accent-strong"
-            >
-              <span className="h-1 w-1 shrink-0 rounded-full bg-neu-line transition group-hover:scale-150 group-hover:bg-neu-accent" />
-              <span className="border-b border-transparent transition group-hover:border-neu-accent/40">
-                {t(l.labelBn, l.labelEn)}
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
+    <div className="border-b border-neu-line/40 md:border-0">
+      <h4 className="md:mb-3">
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={panelId}
+          onClick={() => setOpen((v) => !v)}
+          className="group flex w-full items-center justify-between gap-3 py-3.5 text-left md:pointer-events-none md:py-0"
+        >
+          <span className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-neu-accent-strong">
+            <span aria-hidden className="h-0.5 w-5 rounded-full bg-neu-accent/50" />
+            {title}
+          </span>
+          <ChevronDown
+            aria-hidden
+            className={`h-4 w-4 shrink-0 text-neu-faint transition-transform duration-300 md:hidden ${
+              open ? "rotate-180 text-neu-accent-strong" : ""
+            }`}
+          />
+        </button>
+      </h4>
+
+      <div
+        id={panelId}
+        className={`grid transition-[grid-template-rows,opacity] duration-300 ease-out md:!grid-rows-[1fr] md:opacity-100 ${
+          open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+        }`}
+      >
+        <ul className="overflow-hidden pb-2 md:pb-0">
+          {links.map((l) => (
+            <li key={l.href}>
+              <Link
+                href={l.href}
+                className="group flex min-h-[36px] items-center gap-2.5 py-1 pl-1 text-[13.5px] text-neu-muted transition-colors hover:text-neu-accent-strong focus-visible:text-neu-accent-strong"
+              >
+                <span
+                  aria-hidden
+                  className="h-1 w-1 shrink-0 rounded-full bg-neu-line transition group-hover:scale-150 group-hover:bg-neu-accent"
+                />
+                <span className="border-b border-transparent transition-colors group-hover:border-neu-accent/40">
+                  {t(l.labelBn, l.labelEn)}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }
