@@ -88,8 +88,16 @@ a client component (scan enforces), `SUPABASE_SECRET_KEY` server-only.
 
 ## Dependencies
 
-`npm audit` result in the PR body. Anything that cannot be fixed without a
-breaking major bump is listed there rather than silently upgraded.
+`npm audit --omit=dev` → 3 advisories, all requiring a breaking major bump.
+They are **not** silently upgraded; the app is on Next 15.5 / zod 3 by design.
+
+| Package | Advisory | Why not fixed now |
+|---|---|---|
+| `postcss` (bundled inside `next`) | GHSA-qx2v-qp2m-jg93, GHSA-6g55-p6wh-862q, GHSA-fxqj-rqcc-2cmp, GHSA-r28c-9q8g-f849 — XSS via unescaped `</style>`, arbitrary `.map` read via `sourceMappingURL` | Both are **build-time** paths: they need attacker-controlled CSS or a CSS file that is already in the bundle. Fixing means Next 16 (breaking). Track it as a planned upgrade, not a hotfix. |
+| `zod` `<4.6.6` | GHSA-mrhx-c7xc-m3w5 — memory exhaustion validating oversized constrained collections | Every schema in this repo is applied to a request body that has already passed `rateLimit()` and Next's body limit, and no schema uses an unbounded `.array()`/`.record()` on user input. Upgrading to zod 4 changes the parser API across ~40 schemas. |
+
+Neither is exploitable through a request an anonymous caller can make today;
+both should still be scheduled. Nothing here needs a code change to stay safe.
 
 ---
 
