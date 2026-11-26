@@ -11,6 +11,9 @@ Status — **FIXED** (code + migration in this branch) / **N/A** (verified sound
 
 ---
 
+> **কী চালাতে হবে, কী config লাগবে, rollback কীভাবে — সব এক জায়গায়:**
+> [`docs/security-rev16-deploy.md`](./security-rev16-deploy.md)
+
 ## 1. Wallet — `25_coupons_referrals_wallet.sql`
 
 | # | Sev | Finding | Evidence | Fix |
