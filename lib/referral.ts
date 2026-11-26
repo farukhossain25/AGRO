@@ -20,10 +20,13 @@ import type { WalletRow } from "./types-wallet";
 
 export type ReferralSettings = {
   enabled: boolean;
+  /** % of EVERY delivered order of an invited customer (not just the first). */
   commission_percent: number;
   wallet_max_percent: number;
   credit_on: "delivered" | "paid";
   min_order: number;
+  /** subtotal = product value · paid = the amount the customer actually paid */
+  commission_base: "subtotal" | "paid";
 };
 
 export const REFERRAL_DEFAULTS: ReferralSettings = {
@@ -32,6 +35,7 @@ export const REFERRAL_DEFAULTS: ReferralSettings = {
   wallet_max_percent: 30,
   credit_on: "delivered",
   min_order: 300,
+  commission_base: "subtotal",
 };
 
 /** Coerce whatever is stored in site_settings into a complete, sane object. */
@@ -47,6 +51,7 @@ export function normaliseReferralSettings(raw: unknown): ReferralSettings {
     wallet_max_percent: Math.min(100, num("wallet_max_percent", REFERRAL_DEFAULTS.wallet_max_percent)),
     credit_on: v.credit_on === "paid" ? "paid" : "delivered",
     min_order: num("min_order", REFERRAL_DEFAULTS.min_order),
+    commission_base: v.commission_base === "paid" ? "paid" : "subtotal",
   };
 }
 
@@ -174,7 +179,9 @@ export async function listMyCoupons(userId: string): Promise<MyCoupon[]> {
       return true;
     });
 
-    const restricted = open.filter((c) => c.audience && c.audience !== "all");
+    /* Only `assigned` coupons are a closed list. An `influencer` code is
+       shareable by design, so it belongs in everybody's list too. */
+    const restricted = open.filter((c) => c.audience === "assigned");
     const allowed = new Set<string>();
     if (restricted.length) {
       const { data: links } = await db()
@@ -189,7 +196,8 @@ export async function listMyCoupons(userId: string): Promise<MyCoupon[]> {
     }
 
     const usable = open.filter(
-      (c) => c.audience === "all" || allowed.has(c.id) || c.funder_user_id === userId
+      (c) =>
+        c.audience !== "assigned" || allowed.has(c.id) || c.funder_user_id === userId
     );
     if (!usable.length) return [];
 

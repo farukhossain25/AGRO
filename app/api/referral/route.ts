@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { currentUser, fail, handleError, ok } from "@/lib/api";
 import { getReferralSettings } from "@/lib/referral";
+import { REF_COOKIE } from "@/lib/referral-cookie";
 
 export const dynamic = "force-dynamic";
 
@@ -34,14 +35,30 @@ export async function GET() {
        referrer yet. A failure here must never break the page. */
     let referredBy = me?.referred_by ?? null;
     if (!referredBy) {
-      const parked = (await cookies()).get("agro_ref")?.value;
+      const parked = (await cookies()).get(REF_COOKIE)?.value;
       if (parked) {
-        const { data: claimed, error: claimError } = await db().rpc("apply_referral", {
+        const code = decodeURIComponent(parked);
+
+        /* Two kinds of code can arrive by link:
+             • a profile code  (ABCD2345)  → apply_referral()
+             • an influencer promo token   → referrer_for_token()
+           Both end up as profiles.referred_by, so every later order of this
+           customer credits the same person. */
+        const { data: viaToken } = await db().rpc("referrer_for_token", {
+          p_code: code,
           p_user: user.id,
-          p_code: decodeURIComponent(parked),
         });
-        if (!claimError) {
-          referredBy = (claimed as { inviter?: string } | null)?.inviter ?? null;
+
+        if (viaToken) {
+          referredBy = viaToken as string;
+        } else {
+          const { data: claimed, error: claimError } = await db().rpc("apply_referral", {
+            p_user: user.id,
+            p_code: code,
+          });
+          if (!claimError) {
+            referredBy = (claimed as { inviter?: string } | null)?.inviter ?? null;
+          }
         }
       }
     }
@@ -51,12 +68,33 @@ export async function GET() {
       .select("id", { count: "exact", head: true })
       .eq("referred_by", user.id);
 
+    /* An influencer also has a promo code of their own: anyone they give the
+       code (or its share link) to can use it and counts as their referral. */
+    const { data: promo } = await db()
+      .from("coupons")
+      .select("code, share_token, value, type, per_user_limit")
+      .eq("funder_user_id", user.id)
+      .eq("audience", "influencer")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
     return ok({
       code: me?.referral_code ?? null,
       referred_by: referredBy,
       wallet_balance: Number(me?.wallet_balance ?? 0),
       wallet_earned: Number(me?.wallet_earned ?? 0),
       invited: invited ?? 0,
+      promo: promo
+        ? {
+            code: promo.code,
+            share_token: promo.share_token,
+            value: Number(promo.value),
+            type: promo.type,
+            link: promo.share_token ? `/?ref=${promo.share_token}` : null,
+          }
+        : null,
       settings,
     });
   } catch (error) {
@@ -73,6 +111,29 @@ export async function POST(req: Request) {
 
     const parsed = schema.safeParse(await req.json().catch(() => null));
     if (!parsed.success) return fail("রেফারেল কোড সঠিক নয়");
+
+    /* An influencer passes around their promo token (`?ref=TOKEN`), not a
+       profile code. Resolve that first — it is the more common case for a
+       code pasted from a promo post. */
+    const { data: viaToken } = await db().rpc("referrer_for_token", {
+      p_code: parsed.data.code,
+      p_user: user.id,
+    });
+    if (viaToken) {
+      const { error: linkError } = await db()
+        .from("profiles")
+        .update({ referred_by: viaToken as string, referred_at: new Date().toISOString() })
+        .eq("id", user.id)
+        .is("referred_by", null);
+      if (linkError) throw linkError;
+
+      const { data: fresh } = await db()
+        .from("profiles")
+        .select("referred_by")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (fresh?.referred_by) return ok({ ok: true, inviter: fresh.referred_by, via: "influencer" });
+    }
 
     const { data, error } = await db().rpc("apply_referral", {
       p_user: user.id,

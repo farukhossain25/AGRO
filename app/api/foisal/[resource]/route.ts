@@ -286,6 +286,16 @@ function normalise(resource: string, input: Record<string, unknown>) {
       : "all";
     // `all` never keeps a funder; the other two always do.
     if (out.audience === "all") out.funder_user_id = null;
+    // An influencer code is shared by link. Token comes from the row id when
+    // there is one; a brand-new code gets its token on the first save below.
+    if (out.audience === "influencer" && !out.share_token) {
+      // Keep the token that is already in the row; mint one only when missing.
+      // Uppercase base-32-ish so it survives being read over the phone.
+      out.share_token = randomShareToken();
+    } else if (out.audience !== "influencer") {
+      // `all` / `assigned` codes have no public link.
+      out.share_token = null;
+    }
     // The contact list is handled separately (it maps to another table), so it
     // must never reach the UPDATE/INSERT on `coupons`.
     delete out.audience_contacts;
@@ -396,6 +406,18 @@ async function resolveFunder(value: unknown): Promise<string | null | "MISSING">
   const { ids, missing } = await resolveContacts([raw]);
   if (missing.length || !ids.length) return "MISSING";
   return ids[0];
+}
+
+
+/** 10 characters, no vowels-that-look-like-digits confusion … short enough to
+ *  type, long enough that guessing another influencer's link is pointless. */
+function randomShareToken(): string {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no I O 0 1
+  const bytes = new Uint8Array(10);
+  crypto.getRandomValues(bytes);
+  let out = "";
+  for (const b of bytes) out += alphabet[b % alphabet.length];
+  return out;
 }
 
 /* ---------------------------------------------------------------- coupons --
@@ -559,12 +581,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ resourc
 
       // "ইনফ্লুয়েন্সার" may arrive as a phone/email — resolve it to a profile
       // id, and refuse to save a coupon attributed to nobody.
-      if (row.audience !== "all") {
+      /* An influencer code MUST name its influencer — that is who earns the
+         commission. An `assigned` list may be used without one. */
+      if (row.audience === "influencer" || row.audience === "assigned") {
         const funder = await resolveFunder(row.funder_user_id);
         if (funder === "MISSING") {
           return fail("ইনফ্লুয়েন্সারের ফোন/ইমেইল খুঁজে পাওয়া যায়নি — আগে তাকে অ্যাকাউন্ট খুলতে হবে", 422);
         }
+        if (row.audience === "influencer" && !funder) {
+          return fail("এই কুপনটি কার — ইনফ্লুয়েন্সারের ফোন/ইমেইল দিন", 422);
+        }
         row.funder_user_id = funder;
+      } else {
+        row.funder_user_id = null;
       }
 
       const { data: created, error } = await dbDynamic()
@@ -574,7 +603,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ resourc
         .single();
       if (error) throw error;
 
-      if (created?.id && row.audience !== "all" && contacts.length) {
+      if (created?.id && row.audience === "assigned" && contacts.length) {
         const { ids, missing } = await resolveContacts(contacts);
         await syncCouponAudience(created.id, ids);
         await afterWrite(resource);
@@ -650,12 +679,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ resour
         ? ((parsed as { audience_contacts?: string[] }).audience_contacts as string[])
         : null;
 
-      if (patch.audience !== "all") {
+      if (patch.audience === "influencer" || patch.audience === "assigned") {
         const funder = await resolveFunder(patch.funder_user_id);
         if (funder === "MISSING") {
           return fail("ইনফ্লুয়েন্সারের ফোন/ইমেইল খুঁজে পাওয়া যায়নি — আগে তাকে অ্যাকাউন্ট খুলতে হবে", 422);
         }
+        if (patch.audience === "influencer" && !funder) {
+          return fail("এই কুপনটি কার — ইনফ্লুয়েন্সারের ফোন/ইমেইল দিন", 422);
+        }
         patch.funder_user_id = funder;
+      } else {
+        patch.funder_user_id = null;
       }
 
       const { data: updated, error } = await dbDynamic()
@@ -667,12 +701,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ resour
       if (error) throw error;
 
       let missing: string[] = [];
-      if (patch.audience === "all") {
-        await syncCouponAudience(id, []);
-      } else if (contacts) {
+      if (patch.audience === "assigned" && contacts) {
         const resolved = await resolveContacts(contacts);
         missing = resolved.missing;
         await syncCouponAudience(id, resolved.ids);
+      } else if (patch.audience !== "assigned") {
+        /* `all` and `influencer` are open codes — any list left from an earlier
+           `assigned` state must go, or it would silently narrow the audience. */
+        await syncCouponAudience(id, []);
       }
 
       await afterWrite(resource);

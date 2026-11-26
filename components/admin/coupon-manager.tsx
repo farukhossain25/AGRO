@@ -75,7 +75,7 @@ export function CouponManager({ initial }: { initial: Row[] }) {
     setForm(next);
     setContactsText("");
     // Editing a restricted coupon must show who it is already given to.
-    if (row.id && (next.audience === "assigned" || next.audience === "influencer")) {
+    if (row.id && next.audience === "assigned") {
       setLoadingContacts(true);
       try {
         const res = await fetch(`/api/foisal/coupon-audiences?id=${row.id}`);
@@ -95,10 +95,15 @@ export function CouponManager({ initial }: { initial: Row[] }) {
     setSaving(true);
     try {
       const payload: Row = { ...form };
-      payload.audience_contacts = contactsText
-        .split(/[\n,]/)
-        .map((c) => c.trim())
-        .filter(Boolean);
+      /* Only an `assigned` coupon keeps a list. An influencer code is open on
+         purpose — the influencer decides who gets it. */
+      payload.audience_contacts =
+        payload.audience === "assigned"
+          ? contactsText
+              .split(/[\n,]/)
+              .map((c) => c.trim())
+              .filter(Boolean)
+          : [];
       // An empty code is the only thing the API cannot fix for us.
       if (!String(payload.code ?? "").trim()) throw new Error("কুপন কোড দিন");
 
@@ -201,6 +206,11 @@ export function CouponManager({ initial }: { initial: Row[] }) {
                   </td>
                   <td className="px-3 py-2">
                     <span className="badge">{AUDIENCE_LABEL[String(r.audience ?? "all")] ?? "সবার জন্য"}</span>
+                    {r.audience === "influencer" && r.share_token ? (
+                      <p className="mt-0.5 font-mono text-[10px] text-sand-100/40">
+                        /?ref={String(r.share_token)}
+                      </p>
+                    ) : null}
                     {r.funder_note ? (
                       <p className="text-[10.5px] text-sand-100/40">{String(r.funder_note)}</p>
                     ) : null}
@@ -369,7 +379,7 @@ export function CouponManager({ initial }: { initial: Row[] }) {
                 <select value={String(form.audience ?? "all")} onChange={(e) => set("audience", e.target.value)} className="input">
                   <option value="all" className="bg-ink-800">সবার জন্য (পাবলিক কোড)</option>
                   <option value="assigned" className="bg-ink-800">শুধু নিচের তালিকার অ্যাকাউন্ট</option>
-                  <option value="influencer" className="bg-ink-800">ইনফ্লুয়েন্সার + তার কাছে দেওয়া অ্যাকাউন্ট</option>
+                  <option value="influencer" className="bg-ink-800">ইনফ্লুয়েন্সার (যাকেই খুশি দিতে পারবেন)</option>
                 </select>
               </label>
 

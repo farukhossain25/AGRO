@@ -246,6 +246,8 @@ export const referralSettingsSchema = z.object({
   wallet_max_percent: z.coerce.number().min(0).max(100).default(30),
   credit_on: z.enum(["delivered", "paid"]).default("delivered"),
   min_order: z.coerce.number().min(0).default(300),
+  /** subtotal = product value · paid = what the customer actually paid */
+  commission_base: z.enum(["subtotal", "paid"]).default("subtotal"),
 });
 
 export const blogSchema = z.object({

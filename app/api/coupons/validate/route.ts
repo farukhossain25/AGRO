@@ -45,8 +45,10 @@ export async function POST(req: Request) {
     /* Per-user rules. Anonymous visitors cannot hold a restricted code — the
        audience list is made of accounts — and cannot have a per-user count, so
        they only ever match `audience = 'all'`. */
+    /* Only `assigned` is a gate for anonymous visitors; an influencer code is
+       shareable, so a guest may use it as well. */
     const audience = (coupon as { audience?: string }).audience ?? "all";
-    if (audience !== "all" && !user?.id) {
+    if (audience === "assigned" && !user?.id) {
       return fail("এই কুপনটি শুধু নির্দিষ্ট কিছু অ্যাকাউন্টের জন্য — লগইন করুন", 403);
     }
 

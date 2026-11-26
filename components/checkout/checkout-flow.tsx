@@ -132,6 +132,9 @@ export function CheckoutFlow({
   const [walletBalance, setWalletBalance] = useState(0);
   const [walletPercent, setWalletPercent] = useState(30);
   const [walletInput, setWalletInput] = useState(0);
+  /** The customer chooses to spend wallet credit — it is never automatic. */
+  const [useWallet, setUseWallet] = useState(false);
+  const [walletKnown, setWalletKnown] = useState(false);
   /** coupons this account may still use — already filtered by per-user cap */
   const [myCoupons, setMyCoupons] = useState<
     Array<{ code: string; type: string; value: number; min_order: number; description_bn: string | null }>
@@ -159,20 +162,6 @@ export function CheckoutFlow({
   const delivery = cart.items.some((l) => l.kind === "combo") ? 0 : freeDelivery ? 0 : baseDelivery;
   const total = Math.max(0, cart.subtotal + delivery - discount);
 
-  /* The wallet may cover a slice of the order, never the whole thing: the
-     ceiling is the admin's `wallet_max_percent` (default 30%) and never more
-     than the actual balance. */
-  const walletMax = Math.max(0, Math.min(walletBalance, Math.round(((total * walletPercent) / 100) * 100) / 100));
-  const walletUsed = Math.max(0, Math.min(walletInput, walletMax));
-  /** What is still owed after the wallet — the number the customer really pays. */
-  const payable = Math.max(0, Math.round((total - walletUsed) * 100) / 100);
-
-  /* If the total drops (coupon, cart edit) below the amount already typed in,
-     the wallet part has to shrink with it. */
-  useEffect(() => {
-    if (walletInput > walletMax) setWalletInput(walletMax);
-  }, [walletMax, walletInput]);
-
   /* Wallet + a "your coupons" strip are only meaningful for a signed-in
      account, and a failure here must never block checkout. */
   useEffect(() => {
@@ -185,6 +174,7 @@ export function CheckoutFlow({
         if (!alive) return;
         setWalletBalance(Number(json.data?.balance ?? 0));
         setWalletPercent(Number(json.data?.max_percent ?? 30));
+        setWalletKnown(true);
       } catch {
         /* offline — checkout still works, the wallet just shows 0 */
       }
@@ -204,11 +194,47 @@ export function CheckoutFlow({
     };
   }, []);
 
+  /* The wallet may cover a slice of the order, never the whole thing: the
+     ceiling is the admin's `wallet_max_percent` (default 30%) and never more
+     than the actual balance. */
+  const walletMax = Math.max(
+    0,
+    Math.min(walletBalance, Math.round(((total * walletPercent) / 100) * 100) / 100)
+  );
+  const walletUsedRaw = useWallet ? Math.max(0, Math.min(walletInput || walletMax, walletMax)) : 0;
+  /** After the payment method's floor is honoured (see methodFloor below). */
+  let walletUsed = walletUsedRaw;
+
+  /* If the total drops (coupon, cart edit) below the amount already typed in,
+     the wallet part has to shrink with it. */
+  useEffect(() => {
+    if (walletInput > walletMax) setWalletInput(walletMax);
+  }, [walletMax, walletInput]);
+
+  /* At most `wallet_max_percent` of an order — the admin's number, shown to the
+     customer before they decide. */
+  const walletSlots = useMemo(() => {
+    const chips = [25, 50, 100]
+      .map((share) => ({ share, amount: Math.round(((walletMax * share) / 100) * 100) / 100 }))
+      .filter((c) => c.amount > 0);
+    return chips;
+  }, [walletMax]);
+
   const selectedMethod = methods.find((m) => m.code === payment) ?? methods[0];
-  /* The owner can cap a method (e.g. COD only up to ৳5,000). */
-  const belowMinimum = Boolean(selectedMethod && selectedMethod.min_amount > 0 && total < selectedMethod.min_amount);
+
+  /* An owner can floor/cap a method (bKash min ৳50, COD max ৳5,000). The floor
+     is about what actually goes through the method, so when the wallet would
+     leave less than the floor we shrink the wallet part — exactly what
+     place_order() does. */
+  const methodFloor = Number(selectedMethod?.min_amount ?? 0);
+  if (methodFloor > 0 && total - walletUsedRaw < methodFloor) {
+    walletUsed = Math.max(0, Math.min(walletUsedRaw, total - methodFloor));
+  }
+  const payable = Math.max(0, Math.round((total - walletUsed) * 100) / 100);
+
+  const belowMinimum = Boolean(selectedMethod && methodFloor > 0 && total < methodFloor);
   const aboveMaximum = Boolean(
-    selectedMethod && selectedMethod.max_amount != null && total > selectedMethod.max_amount
+    selectedMethod?.max_amount != null && payable > selectedMethod.max_amount
   );
 
   const quantity = cart.items.reduce((sum, l) => sum + l.quantity, 0);
@@ -659,6 +685,95 @@ export function CheckoutFlow({
               }
             />
 
+            {/* Virtual balance — deliberately ABOVE the payment methods: the
+                customer must see it (and the admin's % cap) before choosing how
+                to pay the rest. */}
+            {walletKnown ? (
+              <div className="border-b border-neu-line/60 bg-neu-sunken/40 px-5 py-4 sm:px-6">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5 text-[12px] font-semibold text-neu-ink">
+                    <Wallet className="h-3.5 w-3.5 text-neu-accent-strong" />
+                    {t("ভার্চুয়াল ব্যালেন্স", "Virtual balance")}
+                  </span>
+                  <span className="text-[12.5px] font-bold text-neu-accent-strong">
+                    {money(walletBalance, isBn)}
+                  </span>
+                </div>
+
+                {walletBalance > 0 ? (
+                  <>
+                    <p className="mt-1 text-[11px] leading-relaxed text-neu-muted">
+                      {t(
+                        `এই অর্ডারে সর্বোচ্চ ${money(walletMax, isBn)} ব্যবহার করা যাবে — মোটের ${walletPercent}%`,
+                        `You may use up to ${money(walletMax, isBn)} on this order — ${walletPercent}% of the total`
+                      )}
+                    </p>
+
+                    <label className="mt-2.5 flex cursor-pointer items-center gap-2.5 rounded-xl border border-neu-line/60 bg-neu-surface px-3 py-2.5">
+                      <input
+                        type="checkbox"
+                        checked={useWallet}
+                        onChange={(e) => {
+                          setUseWallet(e.target.checked);
+                          if (e.target.checked && !walletInput) setWalletInput(walletMax);
+                        }}
+                        className="h-4 w-4 rounded border-neu-line accent-[var(--neu-accent,#2f855a)]"
+                      />
+                      <span className="text-[12.5px] font-medium text-neu-ink">
+                        {t("ব্যালেন্স ব্যবহার করব", "Use my balance")}
+                      </span>
+                    </label>
+
+                    {useWallet ? (
+                      <>
+                        <div className="mt-2 flex gap-2">
+                          <input
+                            type="number"
+                            min={0}
+                            max={walletMax}
+                            step="any"
+                            value={walletUsed || ""}
+                            onChange={(e) => setWalletInput(Math.max(0, Number(e.target.value) || 0))}
+                            className="input !py-2.5 text-[13px]"
+                            placeholder={t("কত টাকা ব্যবহার করবেন", "Amount to use")}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setWalletInput(walletMax)}
+                            disabled={walletMax <= 0}
+                            className="btn-ghost shrink-0 !py-2.5 text-[12.5px] disabled:opacity-50"
+                          >
+                            {t("সর্বোচ্চ", "Max")}
+                          </button>
+                        </div>
+                        {walletSlots.length ? (
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {walletSlots.map((c) => (
+                              <button
+                                key={c.share}
+                                type="button"
+                                onClick={() => setWalletInput(c.amount)}
+                                className="rounded-full border border-neu-accent/25 bg-neu-accent/[0.06] px-2.5 py-1 text-[11px] font-semibold text-neu-accent-strong hover:bg-neu-accent/15"
+                              >
+                                {c.share === 100 ? t("সর্বোচ্চ", "Max") : `${c.share}%`} · {money(c.amount, isBn)}
+                              </button>
+                            ))}
+                          </div>
+                        ) : null}
+                      </>
+                    ) : null}
+                  </>
+                ) : (
+                  <p className="mt-1 text-[11px] leading-relaxed text-neu-muted">
+                    {t(
+                      "বন্ধুকে রেফার করলে বা অর্ডারে কমিশন পেলে এখানে জমা হবে। /account/wallet দেখুন।",
+                      "Earn credit by referring friends — it collects here. See /account/wallet."
+                    )}
+                  </p>
+                )}
+              </div>
+            ) : null}
+
             {step === 2 ? (
               <div className="space-y-3 p-5 sm:p-6">
                 {methods.map((m) => {
@@ -722,6 +837,15 @@ export function CheckoutFlow({
                     </button>
                   );
                 })}
+
+                {walletUsedRaw > walletUsed && walletUsedRaw > 0 ? (
+                  <p className="rounded-xl bg-neu-accent/[0.07] px-3.5 py-2.5 text-[11.5px] leading-relaxed text-neu-accent-strong">
+                    {t(
+                      `${selectedMethod?.name_bn ?? "এই মাধ্যম"} দিয়ে কমপক্ষে ${money(methodFloor, isBn)} পাঠাতে হয় — তাই ওয়ালেট থেকে ${money(walletUsed, isBn)} কাটা হবে, বাকিটা এই মাধ্যমে দেবেন।`,
+                      `${selectedMethod?.name_en ?? "This method"} needs at least ${money(methodFloor, isBn)}, so ${money(walletUsed, isBn)} will come from the wallet and the rest through the method.`
+                    )}
+                  </p>
+                ) : null}
 
                 {(belowMinimum || aboveMaximum) && selectedMethod ? (
                   <p className="rounded-xl bg-amber-500/10 px-3.5 py-2.5 text-[12px] font-medium text-[#8a6a12]">
@@ -937,47 +1061,6 @@ export function CheckoutFlow({
                 </div>
               ) : null}
             </div>
-
-            {/* wallet — only when the account actually has credit */}
-            {walletBalance > 0 ? (
-              <div className="border-t border-neu-line/60 px-5 py-4 sm:px-6">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-1.5 text-[12px] font-semibold text-neu-ink">
-                    <Wallet className="h-3.5 w-3.5 text-neu-accent-strong" />
-                    {t("ওয়ালেট ব্যালেন্স", "Wallet balance")}
-                  </span>
-                  <span className="text-[12.5px] font-bold text-neu-accent-strong">
-                    {money(walletBalance, isBn)}
-                  </span>
-                </div>
-                <p className="mt-1 text-[10.5px] text-neu-muted">
-                  {t(
-                    `এই অর্ডারে সর্বোচ্চ ${money(walletMax, isBn)} ব্যবহার করা যাবে (${walletPercent}%)`,
-                    `Up to ${money(walletMax, isBn)} on this order (${walletPercent}%)`
-                  )}
-                </p>
-                <div className="mt-2 flex gap-2">
-                  <input
-                    type="number"
-                    min={0}
-                    max={walletMax}
-                    step="any"
-                    value={walletUsed || ""}
-                    onChange={(e) => setWalletInput(Math.max(0, Number(e.target.value) || 0))}
-                    className="input !py-2.5 text-[13px]"
-                    placeholder={t("কত টাকা ব্যবহার করবেন", "Amount to use")}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setWalletInput(walletMax)}
-                    disabled={walletMax <= 0}
-                    className="btn-ghost shrink-0 !py-2.5 text-[12.5px] disabled:opacity-50"
-                  >
-                    {t("সর্বোচ্চ", "Max")}
-                  </button>
-                </div>
-              </div>
-            ) : null}
 
             {/* totals */}
             <dl className="space-y-2 border-t border-neu-line/60 px-5 py-4 text-[13px] sm:px-6">

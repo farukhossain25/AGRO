@@ -132,6 +132,12 @@ create table if not exists public.wallet_transactions (
 create index if not exists wallet_transactions_user
   on public.wallet_transactions (user_id, created_at desc);
 
+-- A commission is paid per ORDER, not per delivery click: retries, a status
+-- flip-flop or two admins pressing at once must never pay twice.
+create unique index if not exists wallet_transactions_referral_once
+  on public.wallet_transactions (order_id)
+  where kind = 'referral' and order_id is not null;
+
 -- ------------------------------------------------------------- 3. defaults --
 insert into public.site_settings (key, value)
 values (
@@ -141,10 +147,21 @@ values (
     'commission_percent', 5,
     'wallet_max_percent', 30,
     'credit_on', 'delivered',
-    'min_order', 300
+    'min_order', 300,
+    'commission_base', 'subtotal'
   )
 )
 on conflict (key) do nothing;
+
+-- ← already-installed database?  This file is re-runnable: the merge below
+--   adds the two switches introduced in revision 2 without touching values
+--   the owner has already changed.
+update public.site_settings
+   set value = value
+     || jsonb_build_object(
+          'commission_base', coalesce(value ->> 'commission_base', 'subtotal')
+        )
+ where key = 'referral';
 
 -- ------------------------------------------------- 4. code generation helper --
 -- 8 characters, no I/O/0/1 so it can be read over the phone.
@@ -256,10 +273,18 @@ begin
 end;
 $$;
 
--- --------------------------------- 6. referral credit on the first order ---
--- Runs when an order becomes 'delivered'. Credits the inviter once per
--- invitee, using the percentages in site_settings.referral. Never throws: a
--- missing setting or a zero commission must not block a delivery update.
+-- ------------------------------------- 6. referral commission per order ----
+-- WHAT CHANGED IN REVISION 2
+--   • The inviter now earns on EVERY delivered order of the person they
+--     invited — not just the first one.
+--   • The taka base can be the product value (default) or the actual amount
+--     the customer paid; both are one switch in the admin panel.
+--   • The percentage is whatever the admin set (5 %, 10 %, …) — 0 turns it off.
+--
+-- Never throws: a missing setting or a zero percentage must not block a
+-- delivery update. Paying twice for the same order is impossible — the unique
+-- index `wallet_transactions_referral_once` makes the second INSERT fail,
+-- which the trigger swallows as "already paid".
 create or replace function public.credit_referral(p_order uuid)
 returns void
 language plpgsql
@@ -271,10 +296,12 @@ declare
   v_cfg jsonb;
   v_pct numeric;
   v_min numeric;
+  v_base_mode text;
+  v_base numeric;
   v_inviter uuid;
-  v_already boolean;
   v_amount numeric;
   v_credit_on text;
+  v_rows integer := 0;
 begin
   select * into v_order from public.orders where id = p_order;
   if not found or v_order.user_id is null then
@@ -286,9 +313,9 @@ begin
   if coalesce((v_cfg ->> 'enabled')::boolean, false) is false then
     return;
   end if;
-  /* `credit_on` is one of delivered | paid. The trigger only fires on
-     delivery, so a 'paid' project also credits here when the status already
-     is paid — the "once per invitee" guard below makes a double call harmless. */
+
+  /* `credit_on` is delivered | paid. The trigger fires on both transitions,
+     and the guard below keeps it to one payment per order. */
   v_credit_on := coalesce(v_cfg ->> 'credit_on', 'delivered');
   if v_credit_on = 'paid' and v_order.payment_status <> 'paid' then
     return;
@@ -299,38 +326,69 @@ begin
 
   v_pct := coalesce((v_cfg ->> 'commission_percent')::numeric, 0);
   v_min := coalesce((v_cfg ->> 'min_order')::numeric, 0);
-  if v_pct <= 0 or v_order.subtotal < v_min then
+  if v_pct <= 0 then
     return;
   end if;
 
+  /* Who invited this customer? Every shared link — the profile share link and
+     every shared PRODUCT link — carries `?ref=CODE`. A normal code was stored
+     as `referred_by` at signup. An influencer token is mapped here instead, so
+     a customer who used the influencer's promo code still credits them even if
+     the link was opened later. */
   select referred_by into v_inviter from public.profiles where id = v_order.user_id;
   if v_inviter is null then
+    -- the customer may have paid with the influencer's promo code instead
+    v_inviter := public.referrer_for_token(v_order.coupon_code, v_order.user_id);
+  end if;
+  if v_inviter is null or v_inviter = v_order.user_id then
     return;
   end if;
 
-  -- once per invitee, ever
-  select exists (
-    select 1 from public.wallet_transactions
-     where user_id = v_inviter and kind = 'referral'
-       and note_bn like '%' || v_order.user_id::text || '%'
-  ) into v_already;
-  if v_already then
+  /* The base. `commission_base` = 'subtotal' (default, product value) or
+     'paid' (what the customer actually paid after discounts and wallet). */
+  v_base_mode := coalesce(v_cfg ->> 'commission_base', 'subtotal');
+  v_base := case
+              when v_base_mode = 'paid'
+                then greatest(0, coalesce(v_order.total, 0) - coalesce(v_order.wallet_used, 0))
+              else coalesce(v_order.subtotal, 0)
+            end;
+  if v_base < v_min then
     return;
   end if;
 
-  v_amount := round(v_order.subtotal * v_pct / 100.0, 2);
-  perform public.wallet_apply(
-    v_inviter, 'referral', v_amount, v_order.id, v_order.order_no,
-    'রেফারেল কমিশন — ' || v_order.user_id::text, null
-  );
+  v_amount := round(v_base * v_pct / 100.0, 2);
+  if v_amount <= 0 then
+    return;
+  end if;
+
+  -- Ledger first: its unique index is the "paid once per order" lock.
+  insert into public.wallet_transactions
+    (user_id, kind, amount, balance_after, order_id, order_no, note_bn)
+  select v_inviter, 'referral', v_amount,
+         coalesce((select wallet_balance from public.profiles where id = v_inviter), 0) + v_amount,
+         v_order.id, v_order.order_no,
+         'রেফারেল কমিশন (' || v_order.order_no || ')'
+  on conflict do nothing;
+
+  get diagnostics v_rows = row_count;
+  if v_rows = 0 then
+    return;  -- this order was already credited
+  end if;
+
+  -- …then move the balance and keep the profile totals honest.
+  update public.profiles
+     set wallet_balance = coalesce(wallet_balance, 0) + v_amount,
+         wallet_earned  = coalesce(wallet_earned, 0) + v_amount,
+         updated_at     = now()
+   where id = v_inviter;
 
   insert into public.notifications (user_id, audience, kind, title_bn, body_bn, link, meta)
   values (
     v_inviter, 'user', 'premium',
-    'রেফারেল বোনাস যোগ হয়েছে',
-    '৳' || v_amount::text || ' আপনার ভার্চুয়াল ব্যালেন্সে যোগ হয়েছে।',
+    'রেফারেল কমিশন যোগ হয়েছে',
+    '৳' || v_amount::text || ' আপনার ভার্চুয়াল ব্যালেন্সে যোগ হয়েছে (' || v_order.order_no || ')।',
     '/account/wallet',
-    jsonb_build_object('amount', v_amount)
+    jsonb_build_object('amount', v_amount, 'order_no', v_order.order_no)
   );
 exception
   when others then
@@ -348,8 +406,8 @@ set search_path = public, pg_temp
 as $$
 begin
   -- Credit when the order reaches the configured moment. credit_referral()
-  -- re-reads the setting and owns the "once per invitee" guard, so firing on
-  -- both transitions (delivered and paid) is safe and keeps both options real.
+  -- re-reads the setting, and the unique index on the ledger keeps it to one
+  -- payment per order, so firing on both transitions is safe.
   if (new.status = 'delivered' and coalesce(old.status, '') <> 'delivered')
      or (new.payment_status = 'paid' and coalesce(old.payment_status, '') <> 'paid') then
     perform public.credit_referral(new.id);
@@ -387,9 +445,13 @@ begin
     return false;
   end if;
 
-  -- audience: `all` is open; `assigned`/`influencer` need a listed account,
-  -- and the influencer who owns the code always keeps access to it.
-  if coalesce(v.audience, 'all') <> 'all' then
+  /* audience:
+       all        → anybody
+       influencer → anybody too — the influencer hands the code out freely,
+                    and the admin does not have to know the recipients
+       assigned   → only the listed accounts, plus the funder himself
+     (the `all` branch is the cheapest, so it is checked first) */
+  if coalesce(v.audience, 'all') = 'assigned' then
     if p_user is null then return false; end if;
     if not exists (
       select 1 from public.coupon_audiences where coupon_id = v.id and user_id = p_user
@@ -434,7 +496,8 @@ begin
     return 'COUPON_INVALID';
   end if;
 
-  if coalesce(v.audience, 'all') <> 'all' then
+  -- influencer codes are open (see coupon_allows_user); only `assigned` is a list
+  if coalesce(v.audience, 'all') = 'assigned' then
     if p_user is null then return 'COUPON_NOT_FOR_USER'; end if;
     if not exists (
       select 1 from public.coupon_audiences where coupon_id = v.id and user_id = p_user
@@ -517,6 +580,7 @@ declare
   v_wallet_pct numeric;
   v_wallet_use numeric := 0;
   v_wallet_balance numeric := 0;
+  v_method_floor numeric := 0;
 begin
   -- -------------------------------------------------------------- customer --
   if nullif(trim(coalesce(v_customer ->> 'customer_name', '')), '') is null
@@ -637,6 +701,21 @@ begin
   end if;
 
   v_total := greatest(0, v_subtotal + v_delivery - v_discount);
+
+  /* An "online" method (bKash/Nagad/…) usually has a floor — e.g. ৳50. If the
+     wallet already covers most of this order, what is left for the method
+     falls under that floor; the customer must then pay the floor itself
+     through the method and take less from the wallet. Cash-on-delivery has
+     min_amount = 0 and is unaffected. */
+  if coalesce(p_wallet, 0) > 0 and p_user is not null then
+    select coalesce(min_amount, 0) into v_method_floor
+      from public.payment_methods where code = v_method_code;
+    v_method_floor := coalesce(v_method_floor, 0);
+
+    if v_method_floor > 0 and (v_total - least(coalesce(p_wallet, 0), v_total)) < v_method_floor then
+      p_wallet := least(coalesce(p_wallet, 0), greatest(0, v_total - v_method_floor));
+    end if;
+  end if;
 
   -- ---------------------------------------------------------------- wallet ---
   if coalesce(p_wallet, 0) > 0 and p_user is not null then
@@ -807,8 +886,60 @@ grant execute on function public.place_order(uuid, jsonb, jsonb, text, text, num
 grant execute on function public.coupon_allows_user(uuid, uuid)       to anon, authenticated, service_role;
 grant execute on function public.coupon_refusal(uuid, uuid)           to anon, authenticated, service_role;
 grant execute on function public.apply_referral(uuid, text)           to authenticated, service_role;
+grant execute on function public.referrer_for_token(text, uuid)       to anon, authenticated, service_role;
 
--- ------------------------------------------------------------- 10. RLS ------
+-- ------------------------------------------------- 10. influencer extras ----
+-- An influencer promo code is meant to be passed around: the admin does not
+-- have to know in advance who will receive it. So an `influencer` code always
+-- carries a PUBLIC TOKEN — `?ref=TOKEN` — that the influencer may share with
+-- anybody. That token never names the influencer, and it is not a profile
+-- referral code: it is looked up on the coupon itself.
+alter table public.coupons
+  add column if not exists share_token text;
+
+create unique index if not exists coupons_share_token_key
+  on public.coupons (upper(share_token))
+  where share_token is not null;
+
+-- Fill a token for every influencer code that has none. Deterministic from the
+-- uuid so re-running never churns the codes, and revocable by editing the row.
+update public.coupons
+   set share_token = upper(substr(replace(id::text, '-', ''), 1, 10))
+ where audience = 'influencer'
+   and coalesce(share_token, '') = '';
+
+-- "Someone arrived with ?ref=XYZ": turn that token into the account the sale
+-- should be credited to. Returns null for an unknown/disabled code, and for a
+-- customer who redeemed the influencer's own promo code (no self-credit).
+create or replace function public.referrer_for_token(p_code text, p_user uuid)
+returns uuid
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_funder uuid;
+begin
+  if nullif(trim(coalesce(p_code, '')), '') is null then
+    return null;
+  end if;
+
+  select funder_user_id into v_funder
+    from public.coupons
+   where upper(share_token) = upper(trim(p_code))
+     and audience = 'influencer'
+     and is_active
+   limit 1;
+
+  if v_funder is null or v_funder = p_user then
+    return null;
+  end if;
+
+  return v_funder;
+end;
+$$;
+
+-- ------------------------------------------------------------- 11. RLS ------
 alter table public.coupon_redemptions  enable row level security;
 alter table public.coupon_audiences    enable row level security;
 alter table public.wallet_transactions enable row level security;
@@ -835,6 +966,9 @@ create policy wallet_transactions_own on public.wallet_transactions
 --     as referral_settings;
 --   select proname from pg_proc
 --    where proname in ('wallet_apply','credit_referral','coupon_allows_user',
---                      'apply_referral','gen_referral_code','assign_referral_code')
---    order by proname;   -- 6 rows
+--                      'coupon_refusal','apply_referral','gen_referral_code',
+--                      'assign_referral_code','referrer_for_token')
+--    order by proname;   -- 8 rows
+--   select count(*) as influencer_share_tokens from public.coupons
+--    where audience = 'influencer' and share_token is not null;
 -- ============================================================================

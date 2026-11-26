@@ -10,7 +10,6 @@ import {
   MapPin,
   Minus,
   Plus,
-  Share2,
   ShieldCheck,
   ShoppingBag,
   Truck,
@@ -23,6 +22,7 @@ import { useToast } from "@/lib/toast";
 import { discountPercent, formatDateBn, money } from "@/lib/format";
 import { Badge, StarRating } from "@/components/ui";
 import { WishlistButton } from "@/components/shop/recently-viewed";
+import { ShareLink } from "@/components/share-link";
 import type { Product } from "@/lib/types";
 
 export function ProductDetail({
@@ -72,20 +72,6 @@ export function ProductDetail({
     window.location.href = "/checkout";
   }
 
-  async function share() {
-    const url = window.location.href;
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: product.name_bn, url });
-        return;
-      } catch {
-        /* user cancelled */
-      }
-    }
-    await navigator.clipboard.writeText(url);
-    toast.info(t("লিংক কপি হয়েছে", "Link copied"));
-  }
-
   return (
     <div className="grid gap-6 lg:grid-cols-[1.05fr_1fr] lg:gap-10">
       {/* gallery */}
@@ -111,13 +97,15 @@ export function ProductDetail({
             ) : null}
           </div>
 
-          <button
-            onClick={share}
+          {/* Shares `<page>?ref=<my code>` — a friend who opens it and signs up
+              becomes this customer's referral, and every one of their delivered
+              orders pays commission. */}
+          <ShareLink
+            path={`/products/${product.slug}`}
+            title={product.name_bn}
+            variant="icon"
             className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-ink-950/70 text-white/80 backdrop-blur transition hover:bg-ink-950 hover:text-white"
-            aria-label={t("শেয়ার করুন", "Share")}
-          >
-            <Share2 className="h-4 w-4" />
-          </button>
+          />
         </div>
 
         {images.length > 1 ? (

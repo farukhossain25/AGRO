@@ -55,9 +55,35 @@ export default async function AccountWalletPage() {
     /* a DB blip must not blank the balance the customer opened the page for */
   }
 
+  /* An influencer sees their promo code here too — that is the thing they
+     actually paste into posts. */
+  let promo: { code: string; share_token: string | null; value: number; type: string } | null = null;
+  try {
+    const { data } = await db()
+      .from("coupons")
+      .select("code, share_token, value, type")
+      .eq("funder_user_id", user.id)
+      .eq("audience", "influencer")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (data) {
+      promo = {
+        code: data.code,
+        share_token: data.share_token ?? null,
+        value: Number(data.value),
+        type: data.type,
+      };
+    }
+  } catch {
+    /* no promo — the page is still complete without it */
+  }
+
   return (
     <WalletPanel
       code={code}
+      promo={promo}
       balance={summary.balance}
       earned={summary.earned}
       spent={summary.spent}
