@@ -22,6 +22,7 @@ import {
   FreshPicks,
   LiveFarms,
   Packages,
+  ProductRing,
   Reviews,
   StoryBlock,
   Trust,
@@ -75,6 +76,7 @@ export default async function HomePage() {
     freshPicks,
     combos,
     packages,
+    ringPool,
     posts,
     farmers,
     reviews,
@@ -87,6 +89,10 @@ export default async function HomePage() {
     getProducts({ sort: "newest", limit: 4 }),
     getCombos(),
     getPackages(),
+    /* The ring is ordered newest-first and culled client-side to `limit`, so a
+       single query serves every slice size the owner may pick. In-stock only:
+       a sold-out product at the front of the wheel is a dead end. */
+    getProducts({ sort: "newest", inStockOnly: true, limit: 48 }),
     getBlogPosts(3),
     getFarmers(),
     getApprovedReviews(undefined, 6),
@@ -144,6 +150,24 @@ export default async function HomePage() {
     combos: () => <Combos combos={combos} />,
     live_farms: () => <LiveFarms />,
     premium_plans: () => <Packages packages={packages} />,
+
+    product_ring: () => {
+      const config = sectionConfig(byKey.get("product_ring"), {
+        heading_bn: "চাকা ঘুরিয়ে আজকের বাজার দেখুন",
+        limit: 12,
+      });
+      const limit = Math.max(6, Math.min(24, Number(config.limit) || 12));
+      const shown = ringPool.slice(0, limit);
+      /* Fewer than two products is not a wheel — the block renders nothing
+         rather than a single card spinning on its own. */
+      return shown.length >= 2 ? (
+        <ProductRing
+          products={shown}
+          categories={categories}
+          headingBn={String(config.heading_bn)}
+        />
+      ) : null;
+    },
     why_choose_us: () => <WhyChoose />,
 
     reviews: () => {
