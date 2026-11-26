@@ -222,6 +222,89 @@ for (const file of source.filter((f) => /^(app|components|lib)\//.test(f) && /\.
   }
 }
 
+/* 14 ── reverted rev-16 controls --------------------------------------------- */
+/* Each of these reverted a real, exploitable finding. They are cheap to
+   reintroduce by accident (a refactor, a merge from an old branch) and silent
+   when they come back, so they get a permanent guard. */
+
+/* 14a. A private bucket must never be handed a permanent public URL.
+    complaint-photos leaked exactly this way: getPublicUrl() on a bucket that
+    was later made private still returns a working link for any object that was
+    already public. Upload and read paths must sign instead. */
+{
+  const upload = "app/api/upload/route.ts";
+  if (existsSync(upload)) {
+    const body = readFileSync(upload, "utf8");
+    if (!/PRIVATE_BUCKETS/.test(body)) {
+      add("error", upload, "private-bucket handling is gone — complaint photos would get public URLs again");
+    }
+    if (!/createSignedUrl/.test(body)) {
+      add("error", upload, "no signed URL path — a private bucket would return an unusable URL");
+    }
+  }
+  for (const file of source.filter((f) => f.endsWith(".ts") || f.endsWith(".tsx"))) {
+    if (file.includes("upload/route.ts")) continue; // the one place it is correct
+    const body = readFileSync(file, "utf8");
+    if (/getPublicUrl\([^)]*\)/.test(body) && /complaint/i.test(body)) {
+      add("error", file, "getPublicUrl() next to a complaint photo — that bucket is private, sign it instead");
+    }
+  }
+}
+
+/* 14b. The viewer cap must be reserved, never counted then inserted.
+    viewerCapReached() was a COUNT in its own round-trip; N parallel requests
+    all passed it. Counting may exist for display, but any route that MINTS a
+    session by inserting into stream_tokens reintroduces the race. */
+{
+  const routes = source.filter((f) => f.startsWith("app/api") && f.endsWith("route.ts"));
+  for (const file of routes) {
+    const body = readFileSync(file, "utf8");
+    if (/\.from\(["']stream_tokens["']\)\s*\.insert\(/.test(body)) {
+      add("error", file, "inserts into stream_tokens directly — use stream_reserve_slot() so the cap is atomic");
+    }
+  }
+  const watch = "lib/watch-rights.ts";
+  if (existsSync(watch) && !/stream_reserve_slot/.test(readFileSync(watch, "utf8"))) {
+    add("error", watch, "viewer-slot reservation RPC is gone — the concurrent cap is a race again");
+  }
+}
+
+/* 14c. TrxID validation must fail closed.
+    trxMatches() used to `catch { return true }`, so one bad pattern in the
+    admin panel disabled validation for every customer while the UI still read
+    as if it were enforced. */
+{
+  const submit = "app/api/payments/submit/route.ts";
+  if (existsSync(submit)) {
+    const body = readFileSync(submit, "utf8");
+    const catchReturnsTrue = /catch\s*(?:\([^)]*\))?\s*\{[^}]*return\s+true/.test(
+      body.split("function trxMatches")[1]?.split("function")[0] ?? ""
+    );
+    if (catchReturnsTrue) {
+      add("error", submit, "trxMatches() fails OPEN — a broken pattern would disable TrxID validation");
+    }
+    if (!/payment_claim/.test(body)) {
+      add("error", submit, "no payment_claim() — one TrxID could be reported against several orders");
+    }
+  }
+}
+
+/* 14d. Wallet mutations must stay server-only.
+    wallet_apply() was PUBLIC-executable with a caller-supplied user id and
+    kind, i.e. anyone could credit any balance. */
+{
+  const sql = "supabase/sql/29_security_hardening.sql";
+  if (existsSync(sql)) {
+    const body = readFileSync(sql, "utf8");
+    if (!/revoke all on function public\.wallet_apply[\s\S]{0,200}from public, anon, authenticated/.test(body)) {
+      add("error", sql, "wallet_apply() is not revoked from public/anon/authenticated");
+    }
+    if (!/from public, anon, authenticated/.test(body)) {
+      add("error", sql, "a revoke omits `public` — the implicit PUBLIC grant would survive");
+    }
+  }
+}
+
 /* report --------------------------------------------------------------------- */
 const errors = findings.filter((f) => f.level === "error");
 const warns = findings.filter((f) => f.level === "warn");

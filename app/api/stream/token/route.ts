@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { fail, handleError, ok, rateLimit, currentUser } from "@/lib/api";
 import { signStreamToken, STREAM_TOKEN_TTL } from "@/lib/stream-auth";
-import { checkWatchRights, viewerCapReached } from "@/lib/watch-rights";
+import { checkWatchRights } from "@/lib/watch-rights";
 import { directHlsUrl, hlsPath, webrtcPath } from "@/lib/streams";
 
 export const dynamic = "force-dynamic";
@@ -24,9 +24,16 @@ const schema = z.object({
  *  2. load the camera — `is_premium = false` means the farm opened it to the
  *     public, so guests watch without a subscription or a trial (mode: public)
  *  3. otherwise resolve premium state (active sub → trial → locked) server-side
- *  4. enforce the per-camera concurrent viewer cap
- *  5. create a stream_sessions row (revocable) and sign a 5-minute JWT
- *  6. return { url, protocol, expiresIn } — never the RTSP source
+ *  4. register the device (paid plans only) — one locked transaction
+ *  5. reserve a viewer slot — one locked transaction that purges expired
+ *     sessions, counts live ones and inserts the new stream_tokens row
+ *  6. sign a 5-minute JWT bound to that row's jti
+ *  7. return { url, protocol, expiresIn } — never the RTSP source
+ *
+ * Steps 4 and 5 live in lib/watch-rights.ts because /api/cam/token needs the
+ * identical rules. Nothing in this route inserts into stream_tokens itself —
+ * a second row would count twice against the cap and the token would point at
+ * a session that is not the reserved one.
  */
 export async function POST(req: Request) {
   try {
@@ -62,30 +69,15 @@ export async function POST(req: Request) {
     const gate = await checkWatchRights(req, camera, user);
     if (gate.denied) return gate.denied;
 
-    if (await viewerCapReached(camera)) {
-      return fail("এই ক্যামেরায় এখন দর্শকের সংখ্যা সর্বোচ্চ — কিছুক্ষণ পর আবার চেষ্টা করুন", 429);
-    }
-
-    // ---- mint a revocable session + short token ----
-    const expiresAt = new Date(Date.now() + STREAM_TOKEN_TTL * 1000).toISOString();
-
-    const { data: session, error: sessionError } = await client
-      .from("stream_tokens")
-      .insert({
-        camera_id: camera.id,
-        user_id: user?.id ?? null,
-        fingerprint: gate.fingerprint,
-        expires_at: expiresAt,
-      })
-      .select("jti")
-      .single();
-
-    if (sessionError) throw sessionError;
-
+    /* The viewer slot — and therefore the revocable session row this token is
+       bound to — was already created atomically inside checkWatchRights().
+       Do NOT insert another stream_tokens row here: a second row would count
+       twice against the cap and, worse, a token signed with a jti that has no
+       row is rejected by /api/stream/auth, so the player would 401 in a loop. */
     const token = await signStreamToken({
       sub: user?.id ?? `${gate.mode === "public" ? "public" : "trial"}:${gate.fingerprint.slice(0, 12)}`,
       cam: camera.id,
-      jti: session.jti,
+      jti: gate.slot.jti,
       mode: gate.mode,
       fp: gate.fingerprint.slice(0, 16),
     });

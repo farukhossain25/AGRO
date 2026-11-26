@@ -36,6 +36,10 @@ const EXTRA_FILES = [
   "26_footer_payments.sql",
   "27_live_chat.sql",
   "28_security_hardening.sql",
+  /* 29 hardens wallet/payment/CCTV *and* is required for a fresh project:
+     without it place_order() stays callable by anon. So it sits in the chain
+     that 13_verify_setup.sql checks, not in the optional extras. */
+  "29_security_hardening.sql",
 ];
 
 async function run(file, round) {
@@ -68,8 +72,11 @@ if (leftovers.rows[0].n !== 0) {
 }
 console.log("OK   [1] 00 reset leaves the public schema empty (and is re-runnable)");
 
-// Full chain again after the reset, to prove 00 → 13 works from scratch.
+// Full chain again after the reset, to prove a brand-new project built only
+// from the files in this repo reaches the same hardened state (00 → 29).
 for (const file of ORDERED_FILES) await run(file, 3);
+for (const file of EXTRA_FILES) await run(file, 3);
+await run("12_make_admin.sql", 3);
 
 const verifySql = fs.readFileSync(`${SQL_DIR}/13_verify_setup.sql`, "utf8");
 const verify = await db.query(verifySql);

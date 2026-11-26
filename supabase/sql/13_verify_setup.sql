@@ -191,6 +191,44 @@ from public.payment_methods
 
 union all
 
+-- 9b) rev 16: wallet/payment/stream hardening actually applied --------------
+select 'SECURITY', 'wallet_apply closed to clients',
+  case when to_regprocedure('public.wallet_apply(uuid,text,numeric,uuid,text,text,uuid)') is null
+         then 'FAIL'
+       when has_function_privilege('authenticated',
+              'public.wallet_apply(uuid,text,numeric,uuid,text,text,uuid)','execute')
+         then 'FAIL' else 'PASS' end,
+  '29_security_hardening.sql §1'
+
+union all select 'SECURITY', 'place_order closed to clients',
+  case when to_regprocedure('public.place_order(uuid,jsonb,jsonb,text,text,numeric)') is null
+         then 'FAIL'
+       when has_function_privilege('anon',
+              'public.place_order(uuid,jsonb,jsonb,text,text,numeric)','execute')
+         then 'FAIL' else 'PASS' end,
+  '29_security_hardening.sql §3'
+
+union all select 'SECURITY', 'apply_referral closed to clients',
+  case when to_regprocedure('public.apply_referral(uuid,text)') is null
+         then 'FAIL'
+       when has_function_privilege('authenticated','public.apply_referral(uuid,text)','execute')
+         then 'FAIL' else 'PASS' end,
+  '29_security_hardening.sql §4'
+
+union all select 'SECURITY', 'payment_refs unique index',
+  case when exists (select 1 from pg_indexes
+                     where schemaname='public' and tablename='payment_refs'
+                       and indexname='payment_refs_unique')
+       then 'PASS' else 'FAIL' end,
+  '29_security_hardening.sql §5'
+
+union all select 'SECURITY', 'complaint-photos is private',
+  case when coalesce((select public from storage.buckets where id='complaint-photos'), true)
+       then 'FAIL' else 'PASS' end,
+  '29_security_hardening.sql §7'
+
+union all
+
 -- 10) seed row counts (optional, so INFO/WARN only) ------------------------
 select 'SEED', 'categories',       case when count(*) >= 9 then 'INFO' else 'WARN' end, count(*)::text || ' rows' from public.categories
 union all select 'SEED', 'products',        case when count(*) >= 30 then 'INFO' else 'WARN' end, count(*)::text || ' rows' from public.products
@@ -213,5 +251,5 @@ order by
     when 'TABLES' then 1 when 'POLICIES' then 2 when 'FUNCTIONS' then 3
     when 'VIEWS' then 4 when 'TRIGGERS' then 5 when 'STORAGE' then 6
     when 'ENUMS' then 7 when 'ADMIN' then 8 when 'PAYMENTS' then 9
-    else 10 end,
+    when 'SECURITY' then 9 else 10 end,
   item;

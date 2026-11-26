@@ -1,8 +1,8 @@
 import type { NextResponse } from "next/server";
 import { db } from "./db";
 import { fail } from "./api";
-import { deviceFingerprint } from "./stream-auth";
-import { getPremiumSettings, resolvePremiumState } from "./premium";
+import { deviceFingerprint, STREAM_TOKEN_TTL } from "./stream-auth";
+import { resolvePremiumState } from "./premium";
 import type { SessionUser } from "./session";
 
 /* ==========================================================================
@@ -32,6 +32,13 @@ export type WatchCheck =
       fingerprint: string;
       /** True when a real subscription is behind the right to watch. */
       subscribed: boolean;
+      /**
+       * The viewer slot that was reserved atomically inside the database.
+       * Routes MUST sign their token with this jti — it is the row the cap is
+       * counted from, so a token minted with any other jti is an un-capped
+       * session and /api/stream/auth will not honour it.
+       */
+      slot: { jti: string; expiresAt: string };
     };
 
 type CameraGate = {
@@ -92,38 +99,47 @@ export async function checkWatchRights(
 
   /* ---- device limit for real subscriptions -------------------------------
      A trial is anonymous-ish and has its own one-per-device rule; a paid plan
-     has `device_limit` slots. Registering the device here is also what makes
-     the limit enforceable — the old cloud route recorded nothing, so every
-     phone looked like "a new device" forever. */
+     has `device_limit` slots.
+
+     This used to be a SELECT then an UPSERT: two phones opening the app at the
+     same moment both read "known = 1" and both inserted, so a 2-device plan
+     admitted 3, 4, whatever. premium_device_register() does the count and the
+     insert in ONE transaction under an advisory lock on the user, so exactly
+     `device_limit` devices get in no matter how simultaneous the requests are.
+
+     Fails CLOSED: if the RPC errors we refuse rather than quietly letting an
+     extra phone watch. A paying customer seeing "try again" for a second is a
+     far smaller cost than an unbounded device list. */
   if (subscribed && user && state?.subscription) {
-    const { data: devices } = await client
-      .from("premium_devices")
-      .select("id, fingerprint")
-      .eq("user_id", user.id);
+    /* `as never` because two of these arguments are nullable in SQL while the
+       generated Args type is not (the introspection drops default nullability).
+       Same convention as app/api/foisal/chats/route.ts. */
+    const { data, error } = await client.rpc("premium_device_register" as never, {
+      p_user: user.id,
+      p_sub: state.subscription.id,
+      p_fp: fingerprint,
+      p_limit: state.deviceLimit,
+      p_label: req.headers.get("user-agent")?.slice(0, 120) ?? null,
+      p_ua: req.headers.get("user-agent")?.slice(0, 240) ?? null,
+    } as never);
 
-    const known = devices ?? [];
-    const seen = known.find((d) => d.fingerprint === fingerprint);
-
-    if (!seen && known.length >= state.deviceLimit) {
-      return {
-        denied: fail(
-          `আপনার প্ল্যানে সর্বোচ্চ ${state.deviceLimit}টি ডিভাইস চলবে। পুরোনো ডিভাইস সরাতে অ্যাকাউন্ট সেটিংসে যান।`,
-          403
-        ),
-      };
+    if (error) {
+      console.error("[watch-rights] device registration failed:", error.message);
+      return { denied: fail("ডিভাইস যাচাই করা যাচ্ছে না — একটু পরে আবার চেষ্টা করুন", 503) };
     }
 
-    await client.from("premium_devices").upsert(
-      {
-        user_id: user.id,
-        subscription_id: state.subscription.id,
-        fingerprint,
-        label: req.headers.get("user-agent")?.slice(0, 120) ?? null,
-        user_agent: req.headers.get("user-agent")?.slice(0, 240) ?? null,
-        last_seen: new Date().toISOString(),
-      },
-      { onConflict: "user_id,fingerprint" }
-    );
+    const result = data as { ok: boolean; reason?: string } | null;
+    if (!result?.ok) {
+      if (result?.reason === "limit") {
+        return {
+          denied: fail(
+            `আপনার প্ল্যানে সর্বোচ্চ ${state.deviceLimit}টি ডিভাইস চলবে। পুরোনো ডিভাইস সরাতে অ্যাকাউন্ট সেটিংসে যান।`,
+            403
+          ),
+        };
+      }
+      return { denied: fail("ডিভাইস যাচাই করা যাচ্ছে না — একটু পরে আবার চেষ্টা করুন", 503) };
+    }
   }
 
   const mode: "public" | "trial" | "premium" = isPublic
@@ -132,23 +148,57 @@ export async function checkWatchRights(
       ? "trial"
       : "premium";
 
-  return { denied: null, user, mode, fingerprint, subscribed };
-}
+  /* ---- viewer slot, reserved atomically --------------------------------
+     The routes used to call viewerCapReached() (a COUNT) and then INSERT in a
+     separate round-trip. N parallel requests all saw the same count and all
+     inserted, so `max_viewers` was decorative: one camera, one link, 100 tabs.
 
-/* --------------------------------------------------------------------------
-   Concurrent viewer cap — the cost guard.
-   Every minted token is a row; the count of unexpired rows is "how many people
-   are watching right now". Shared so both routes enforce the same limit.
-   -------------------------------------------------------------------------- */
-export async function viewerCapReached(camera: CameraGate): Promise<boolean> {
-  const settings = await getPremiumSettings();
-  const cap = camera.max_viewers || settings.max_viewers_per_camera;
+     stream_reserve_slot() purges expired rows, counts and inserts inside a
+     single transaction holding an advisory lock per camera. Either we get a
+     jti back or we are over the cap — there is no window in between.
 
-  const { count } = await db()
-    .from("stream_tokens")
-    .select("jti", { count: "exact", head: true })
-    .eq("camera_id", camera.id)
-    .gt("expires_at", new Date().toISOString());
+     Fails CLOSED for the same reason as the device check: an over-cap stream
+     costs the owner real money (vendor media quota), an occasional "busy, try
+     again" costs the viewer a few seconds. */
+  /* p_user is null for a public camera or an anonymous trial — nullable in SQL,
+     non-nullable in the generated type, hence the same `as never` convention. */
+  const { data: slot, error: slotError } = await client.rpc("stream_reserve_slot" as never, {
+    p_camera: camera.id,
+    p_user: user?.id ?? null,
+    p_fingerprint: fingerprint,
+    p_ttl_seconds: STREAM_TOKEN_TTL,
+  } as never);
 
-  return (count ?? 0) >= cap;
+  if (slotError) {
+    console.error("[watch-rights] viewer slot reservation failed:", slotError.message);
+    return { denied: fail("স্ট্রিম চালু করা যাচ্ছে না — একটু পরে আবার চেষ্টা করুন", 503) };
+  }
+
+  const reserved = slot as
+    | { ok: true; jti: string; expires_at: string }
+    | { ok: false; reason: string; cap?: number; live?: number }
+    | null;
+
+  if (!reserved?.ok) {
+    if (reserved?.reason === "cap") {
+      return {
+        denied: fail("এই ক্যামেরায় এখন দর্শকের সংখ্যা সর্বোচ্চ — কিছুক্ষণ পর আবার চেষ্টা করুন", 429),
+      };
+    }
+    /* `camera` means the camera vanished between the route's own SELECT and
+       this call — that is a 404 for the caller, not a server error. */
+    if (reserved?.reason === "camera") {
+      return { denied: fail("ক্যামেরা পাওয়া যায়নি", 404) };
+    }
+    return { denied: fail("স্ট্রিম চালু করা যাচ্ছে না — একটু পরে আবার চেষ্টা করুন", 503) };
+  }
+
+  return {
+    denied: null,
+    user,
+    mode,
+    fingerprint,
+    subscribed,
+    slot: { jti: reserved.jti, expiresAt: reserved.expires_at },
+  };
 }

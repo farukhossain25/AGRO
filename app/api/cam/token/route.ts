@@ -1,9 +1,8 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { randomUUID } from "node:crypto";
 import { currentUser, fail, ok } from "@/lib/api";
 import { signStreamToken, STREAM_TOKEN_TTL } from "@/lib/stream-auth";
-import { checkWatchRights, viewerCapReached } from "@/lib/watch-rights";
+import { checkWatchRights } from "@/lib/watch-rights";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -81,35 +80,18 @@ export async function POST(req: Request) {
   const gate = await checkWatchRights(req, camera, user);
   if (gate.denied) return gate.denied;
 
-  /* Viewer cap. This used to be the ONLY way to watch a camera with no cap:
-     every concurrent viewer bills the vendor's media quota (Imou: 2 GB/month
-     free, then $0.25/GB) — exactly how a "5000 users" launch becomes a bill. */
-  if (await viewerCapReached(camera)) {
-    return fail("এই ক্যামেরায় এখন দর্শকের সংখ্যা সর্বোচ্চ — কিছুক্ষণ পর আবার চেষ্টা করুন", 429);
-  }
+  /* Viewer cap. Every concurrent viewer bills the vendor's media quota (Imou:
+     2 GB/month free, then $0.25/GB), so this is the cost guard, not a nicety.
 
-  const token_jti = randomUUID();
+     It used to be a COUNT followed by a best-effort INSERT — the count could
+     be passed by any number of simultaneous requests, and a failed insert was
+     swallowed, so the session existed but nothing counted it. The reservation
+     now happens inside checkWatchRights() as one locked transaction, and it
+     fails closed: no slot, no token.
 
-  /* Record the mint so the next viewer is counted — same table and shape as
-     /api/stream/token. Best-effort: counting is a cost guard, never a reason
-     to refuse a paying viewer's stream. */
-  try {
-    const { error: sessionError } = await db()
-      .from("stream_tokens")
-      .insert({
-        jti: token_jti,
-        camera_id: camera.id,
-        user_id: user?.id ?? null,
-        fingerprint: gate.fingerprint,
-        expires_at: new Date(Date.now() + STREAM_TOKEN_TTL * 1000).toISOString(),
-      })
-      .select("jti")
-      .single();
-
-    if (sessionError) console.warn("[cam/token] viewer count not recorded:", sessionError.message);
-  } catch {
-    /* never fail a stream because the counter is down */
-  }
+     The jti must be the reserved one. A token signed with a fresh uuid would
+     have no stream_tokens row and /api/cam/auth rejects it. */
+  const token_jti = gate.slot.jti;
 
   // A real signed, expiring token — the same signer the RTSP player uses, so a
   // hand-written /api/cam/live/<other camera> URL cannot be assembled by hand.

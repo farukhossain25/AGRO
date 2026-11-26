@@ -38,7 +38,25 @@ const createSchema = z.object({
     .trim()
     .min(5, "সমস্যাটি অন্তত ৫ অক্ষরে লিখুন")
     .max(2000, "বর্ণনা ২০০০ অক্ষরের মধ্যে রাখুন"),
-  photos: z.array(z.string().url()).max(3, "সর্বোচ্চ ৩টি ছবি").optional(),
+  /* Storage PATHS inside the complaint-photos bucket — `<uuid>/<file>.jpg`.
+     This used to require a full URL, which is exactly how a permanent public
+     link ended up stored on a private complaint. The UUID prefix is enforced
+     below against the caller's own id, so one customer cannot attach (or
+     later sign) another customer's upload.
+     Legacy absolute URLs are still accepted so an older app build keeps
+     working; they are stored as-is and rendered as-is. */
+  photos: z
+    .array(
+      z
+        .string()
+        .max(500, "ছবির ঠিকানা খুব বড়")
+        .refine(
+          (value) => /^https?:\/\//i.test(value) || /^[0-9a-f-]{36}\/[\w.-]+$/i.test(value),
+          "ছবির ঠিকানা সঠিক নয়"
+        )
+    )
+    .max(3, "সর্বোচ্চ ৩টি ছবি")
+    .optional(),
   resolution: z.enum(["refund", "replacement", "inform"]).default("inform"),
 });
 
@@ -115,7 +133,16 @@ export async function POST(req: Request) {
         user_id: user.id,
         problem_type: data.problemType,
         description: sanitizeText(data.description, 2000),
-        photos: (data.photos ?? []).slice(0, 3),
+        photos: (data.photos ?? [])
+          .slice(0, 3)
+          /* Only paths inside the caller's own folder. A path belongs to
+             whoever can prove it — the upload route already namespaces every
+             object under `<user.id>/`, so this is the matching read-side rule
+             and it costs one string compare. */
+          .filter(
+            (photo) =>
+              /^https?:\/\//i.test(photo) || photo.toLowerCase().startsWith(`${user.id.toLowerCase()}/`)
+          ),
         preferred_resolution: data.resolution,
         status: "open",
       }) as TablesInsert<"complaints">)

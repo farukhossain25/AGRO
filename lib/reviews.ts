@@ -1,4 +1,5 @@
 import { db, isDbConfigured } from "./db";
+import { signComplaintPhotos } from "./storage-sign";
 import type {
   Complaint,
   ComplaintMessage,
@@ -256,7 +257,22 @@ export async function getComplaintsForUser(userId: string): Promise<
       .order("created_at", { ascending: false });
 
     if (error) return [];
-    return (data ?? []) as never;
+
+    /* complaint-photos is private, so the stored value is a path. Swap each
+       one for a short-lived signed URL right before it reaches the page —
+       this is the only place the customer's list can get URLs from, so a row
+       that somehow escaped authorisation still cannot be rendered. */
+    const rows = (data ?? []) as unknown as Complaint[];
+    await Promise.all(
+      rows.map(async (row) => {
+        if (row.photos?.length) {
+          row.photos = (await signComplaintPhotos(row.photos)).filter(
+            (url: string | null): url is string => Boolean(url)
+          );
+        }
+      })
+    );
+    return rows as never;
   } catch {
     return [];
   }
@@ -277,8 +293,15 @@ export async function getComplaint(
       .eq("is_internal", false)
       .order("created_at");
 
+    const complaint = data as Complaint;
+    if (complaint.photos?.length) {
+      complaint.photos = (await signComplaintPhotos(complaint.photos)).filter(
+        (url: string | null): url is string => Boolean(url)
+      );
+    }
+
     return {
-      complaint: data as Complaint,
+      complaint,
       messages: (messages ?? []) as ComplaintMessage[],
     };
   } catch {

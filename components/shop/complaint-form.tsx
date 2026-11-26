@@ -41,6 +41,8 @@ export function ComplaintForm({
   const [problem, setProblem] = useState<string>("");
   const [description, setDescription] = useState("");
   const [resolution, setResolution] = useState<string>("inform");
+  /* Storage PATHS, not URLs. complaint-photos is a private bucket: the server
+     signs a URL for display, and only the path is worth storing. */
   const [photos, setPhotos] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -57,12 +59,22 @@ export function ComplaintForm({
     try {
       const body = new FormData();
       body.append("file", file);
-      body.append("bucket", "review-photos");
+      /* The complaint bucket, not review-photos. Until migration 29 these
+         photos went into the public review bucket, so a damaged-item photo
+         was visible to anyone holding the link forever. */
+      body.append("bucket", "complaint-photos");
 
       const res = await fetch("/api/upload", { method: "POST", body });
-      const json = (await res.json()) as { url?: string; message?: string };
-      if (!res.ok || !json.url) throw new Error(json.message ?? "আপলোড ব্যর্থ");
-      setPhotos((prev) => [...prev, json.url as string].slice(0, 3));
+      const json = (await res.json()) as {
+        data?: { url?: string | null; path?: string };
+        url?: string | null;
+        path?: string;
+        message?: string;
+      };
+      /* The route answers through ok(), i.e. { ok, data: {...} }. */
+      const payload = json.data ?? json;
+      if (!res.ok || !payload?.path) throw new Error(json.message ?? "আপলোড ব্যর্থ");
+      setPhotos((prev) => [...prev, payload.path as string].slice(0, 3));
     } catch (err) {
       setError((err as Error).message);
     } finally {

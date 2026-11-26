@@ -37,6 +37,34 @@ const BUCKETS = new Set(["review-photos", "complaint-photos"]);
 /** Buckets only an APPROVED seller may write to (their own store / products). */
 const SELLER_BUCKETS = new Set(["product-images", "logos", "farm-images"]);
 
+/**
+ * Buckets whose objects are NOT publicly readable (29_security_hardening.sql §7).
+ *
+ * These carry personal material — a damaged item, sometimes a receipt, an
+ * address on a box. They used to be public buckets, so every upload handed the
+ * customer a permanent, unauthenticated URL: forwarding it or having it leak
+ * through a referrer was an irreversible disclosure, because nothing about a
+ * public object can be revoked short of deleting it.
+ *
+ * For these buckets the route returns the storage PATH (which is what belongs
+ * in the database) plus a short-lived signed URL so the uploader can show a
+ * preview. Every later view goes through a fresh signature — see
+ * app/api/complaints/route.ts.
+ */
+const PRIVATE_BUCKETS = new Set(["complaint-photos"]);
+
+/** 5 minutes: long enough to render a thumbnail, too short to pass around. */
+const SIGNED_URL_TTL_SECONDS = 60 * 5;
+
+/**
+ * May this user write product/logo/farm images?
+ *
+ * `sellers.status` is the only gate that exists on this table — there is no
+ * separate is_active column (checked against 03_catalog_tables.sql), and the
+ * panel's "suspend" action moves status away from 'approved'. Adding a column
+ * check here would have been inventing a field. Fails closed on a DB error, so
+ * a lookup problem refuses the upload rather than permitting it.
+ */
 async function isApprovedSeller(userId: string): Promise<boolean> {
   try {
     const { data } = await db()
@@ -147,14 +175,35 @@ export async function POST(req: Request) {
     });
 
     if (error) {
-      return fail(
-        `আপলোড ব্যর্থ: ${error.message}. Supabase-এ "${bucket}" নামের পাবলিক বাকেট তৈরি করুন।`,
-        502
+      return fail(`আপলোড ব্যর্থ: ${error.message}`, 502);
+    }
+
+    /* The `path` field is the stable identifier and the only thing callers may
+       store. `url` is a convenience for the screen that just did the upload. */
+    if (PRIVATE_BUCKETS.has(bucket)) {
+      const { data: signed, error: signError } = await storage.createSignedUrl(
+        name,
+        SIGNED_URL_TTL_SECONDS
       );
+
+      if (signError || !signed?.signedUrl) {
+        /* The bytes are already stored, so do not pretend nothing happened —
+           return the path and no preview URL. The caller can still save the
+           path and every later read will sign on demand. */
+        console.warn("[upload] signed URL failed:", signError?.message);
+        return ok({ url: null, path: name, signed: false });
+      }
+
+      return ok({
+        url: signed.signedUrl,
+        path: name,
+        signed: true,
+        expiresIn: SIGNED_URL_TTL_SECONDS,
+      });
     }
 
     const { data } = storage.getPublicUrl(name);
-    return ok({ url: data.publicUrl, path: name });
+    return ok({ url: data.publicUrl, path: name, signed: false });
   } catch (error) {
     return handleError(error);
   }

@@ -118,6 +118,7 @@ const CHAIN_FILES = [
   "26_footer_payments.sql",
   "27_live_chat.sql",
   "28_security_hardening.sql",
+  "29_security_hardening.sql",
 ];
 
 export { CHAIN_FILES };

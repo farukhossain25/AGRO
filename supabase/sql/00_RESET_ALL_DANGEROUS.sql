@@ -71,7 +71,9 @@ declare
     'wallet_transactions','coupon_redemptions','coupon_audiences',
     'seller_applications',
     -- migration 27: live chat. Without these two the reset leaves them behind.
-    'support_messages','support_chats'
+    'support_messages','support_chats',
+    -- migration 29: reported TrxIDs. Same reason.
+    'payment_refs'
   ];
 begin
   foreach t in array tables loop
