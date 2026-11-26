@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Loader2, Save, ShieldCheck } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, ArrowUpRight, Loader2, Save, ShieldCheck } from "lucide-react";
 import { useToast } from "@/lib/toast";
 
 /* ==========================================================================
@@ -36,6 +37,8 @@ type Group = {
   key: string;
   title: string;
   desc: string;
+  /** optional "the same thing has a bigger screen of its own" jump */
+  link?: { href: string; label: string };
   fields: Field[];
 };
 
@@ -133,6 +136,10 @@ const GROUPS: Group[] = [
     key: "referral",
     title: "রেফারেল ও ওয়ালেট",
     desc: "কেউ আপনার লিংক দিয়ে (প্রোডাক্টের লিংকও) অ্যাকাউন্ট খুললে তার প্রতিটি অর্ডার থেকে কত % কমিশন, আর ওয়ালেটের টাকায় একটি অর্ডারের সর্বোচ্চ কত % দেওয়া যাবে — সব এখান থেকে।",
+    /* Same six values, but on a page that shows what they mean in taka and
+       how much credit is already outstanding. Linked both ways so neither
+       screen can be "the one I couldn't find". */
+    link: { href: "/foisal/wallet-settings", label: "টাকার হিসাবসহ বড় পাতা" },
     fields: [
       {
         path: "referral.enabled",
@@ -297,6 +304,15 @@ export function SettingsManager({ initial }: { initial: Values }) {
                 <h2 className="text-[13.5px] font-bold">{group.title}</h2>
                 <p className="mt-0.5 text-[11.5px] leading-relaxed text-sand-100/45">{group.desc}</p>
               </div>
+              <div className="flex shrink-0 items-center gap-2">
+              {group.link ? (
+                <Link
+                  href={group.link.href}
+                  className="inline-flex items-center gap-1 rounded-lg border border-leaf-500/30 bg-leaf-500/10 px-2.5 py-1.5 text-[11px] font-semibold text-leaf-200 transition-colors hover:bg-leaf-500/20"
+                >
+                  {group.link.label} <ArrowUpRight className="h-3 w-3" />
+                </Link>
+              ) : null}
               <button
                 type="button"
                 onClick={() => saveGroup(group)}
@@ -310,6 +326,7 @@ export function SettingsManager({ initial }: { initial: Values }) {
                 )}
                 {count ? `সেভ (${count})` : "সেভ"}
               </button>
+              </div>
             </header>
 
             <div className="grid gap-3 px-4 py-4 sm:grid-cols-2">
