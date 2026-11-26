@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifyStreamToken } from "@/lib/stream-auth";
+/* The path/token parsers live in scripts/lib/stream-paths.mjs so their contract
+   is testable without booting Next — see scripts/test-stream-auth.mjs. They are
+   small, pure, and security-relevant: both Caddyfile shapes pass through them. */
+import { requestedKey, requestedToken } from "@/scripts/lib/stream-paths.mjs";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -26,14 +30,21 @@ export const revalidate = 0;
    So a leaked playlist URL cannot be pasted into another browser, and pointing
    it at another camera's key fails the third check.
 
-   SEGMENTS AND LL-HLS PARTS
+   SEGMENTS AND LL-HLS PARTS — ALSO GATED
    --------------------------------------------------------------------------
-   Caddy must only call this for *.m3u8. Segments (and low-latency parts) are
-   fetched by hls.js without a query string, often many per second; authorising
-   each one would put a DB round-trip in the hot path of every viewer and would
-   break playback the moment the very first segment request raced the playlist.
-   Their names are only learnable from a playlist that passed this check, and
-   MediaMTX deletes them ~60 s after the last authorised viewer leaves.
+   The edge forwards EVERY path that can return video bytes: playlists,
+   .ts segments, init segments, LL-HLS parts, keys and WebRTC signalling.
+   There is no bypass.
+
+   The old design left segments ungated on the argument that their names were
+   only learnable from an authorised playlist. That is obscurity, and it fails
+   as soon as a playlist is saved or shared: the segment URLs inside stay valid
+   against MediaMTX for as long as the path is live, long after this token
+   expires. The result was a shareable, unauthenticated video feed.
+
+   Cost control is deliberate rather than accidental: this handler does exactly
+   two primary-key reads (the session row and the camera row) and nothing else,
+   so a segment gate is one indexed lookup. See Caddyfile for the arithmetic.
 
    AUTH IS THE TOKEN, NOT A COOKIE
    --------------------------------------------------------------------------
@@ -44,19 +55,9 @@ export const revalidate = 0;
    FAIL-CLOSED: any error → 401/503, never a pass.
    ========================================================================== */
 
-/** The sub-path the edge is about to serve, e.g. /hls/dvr-cam-01/index.m3u8. */
-function requestedKey(path: string | null): string | null {
-  if (!path) return null;
-  // /hls/<key>/index.m3u8   |   /hls/<key>/ll-hls/...   |   /<key>/index.m3u8
-  const segments = path.split("/").filter(Boolean);
-  const hls = segments.indexOf("hls");
-  const key = hls >= 0 ? segments[hls + 1] : segments[0];
-  return key ? decodeURIComponent(key) : null;
-}
-
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const token = url.searchParams.get("t");
+  const token = requestedToken(url);
   const key = requestedKey(url.searchParams.get("path"));
 
   const payload = await verifyStreamToken(token);

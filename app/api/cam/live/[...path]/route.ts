@@ -35,12 +35,30 @@ export async function GET(req: Request, ctx: { params: Promise<{ path?: string[]
     return fail("লাইভ লিংক সঠিক নয় বা মেয়াদ শেষ — পেজ রিফ্রেশ করুন", 401);
   }
 
-  // The signed token is this route's entitlement gate: it was minted by
-  // /api/cam/token, which refuses anyone without an active subscription or a
-  // live trial, and it names exactly one camera. Re-running the premium query
-  // here would cost a DB round-trip on every segment for no extra safety — and
-  // a lapsed subscription still stops within one 5-minute TTL, because the
-  // player re-mints and the mint refuses.
+  /* The signed token is this route's entitlement gate: it was minted by
+     /api/cam/token, which refuses anyone without an active subscription or a
+     live trial, and it names exactly one camera. Re-running the premium query
+     here would cost a DB round-trip on every segment for no extra safety — and
+     a lapsed subscription still stops within one 5-minute TTL, because the
+     player re-mints and the mint refuses.
+
+     REVOCATION, though, is a different question. /api/cam/token reserves a
+     `stream_tokens` row (jti) through checkWatchRights() — the same row the
+     proxy path checks on every request. Without checking it here, "log them
+     out of every device" or "the viewer cap dropped them" had no effect on
+     cloud cameras for up to 5 minutes, while the same action cut a MediaMTX
+     viewer off immediately. One indexed primary-key read closes that gap and
+     keeps both paths honest. */
+  const { data: session } = await db()
+    .from("stream_tokens")
+    .select("jti, camera_id, expires_at")
+    .eq("jti", payload.jti)
+    .maybeSingle();
+
+  if (!session || new Date(session.expires_at) < new Date() || session.camera_id !== cameraId) {
+    return fail("লাইভ সেশন শেষ — পেজ রিফ্রেশ করুন", 401);
+  }
+
   const { data: camera, error } = await db()
     .from("cameras")
     .select("id, cloud_provider, cloud_serial, cloud_channel, stream_url, is_active, status")

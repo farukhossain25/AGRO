@@ -89,6 +89,16 @@ async function handle(req: Request, segments: string[]) {
   };
   if (STREAM_ORIGIN_SECRET) headers["x-proxy-secret"] = STREAM_ORIGIN_SECRET;
 
+  /* Forward the viewer's token to the edge as its own header.
+     ----------------------------------------------------------
+     The edge used to accept this hop on the shared secret alone, which meant
+     a saved playlist could be replayed as bare segment URLs. It now verifies
+     the token here too (Caddyfile.proxy, `forward_auth`), and it can only do
+     that if the token arrives — the upstream URL this route builds is
+     `<base>/<tail>`, with the token deliberately stripped. A header carries it
+     without changing what MediaMTX sees. */
+  if (token) headers["x-stream-token"] = token;
+
   const contentType = req.headers.get("content-type");
   if (contentType) headers["content-type"] = contentType;
 

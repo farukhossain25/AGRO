@@ -3299,6 +3299,18 @@ export type Database = {
       Args: {  }
       Returns: Json
     }
+      order_cancel: {
+      Args: { p_order: string; p_reason: string; p_actor: string }
+      Returns: Json
+    }
+      order_delete: {
+      Args: { p_order: string; p_actor: string }
+      Returns: Json
+    }
+      order_release_order: {
+      Args: { p_order: string; p_actor: string }
+      Returns: Json
+    }
       payment_claim: {
       Args: { p_ref: string; p_kind: string; p_target: string; p_user: string }
       Returns: Json

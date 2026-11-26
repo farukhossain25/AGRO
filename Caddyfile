@@ -1,32 +1,40 @@
 # ============================================================================
-# Stream edge in DIRECT-VIDEO mode — the recommended setup
+# Stream edge in DIRECT-VIDEO mode
 # ----------------------------------------------------------------------------
 # The browser plays  https://<STREAM_PUBLIC_HOST>/live-<EDGE_SECRET>/hls/<key>/index.m3u8?t=<token>
 # so video bytes go VPS → viewer and never touch Vercel's bandwidth meter.
 #
-# Three locks protect it, in this order:
-#   1. the /live-<EDGE_SECRET>/ prefix — a random 16+ character string that
-#      nobody can guess. Without it every path 404s.
-#   2. ?t=<signed token> — 5 minutes, revocable, minted only for a subscriber
-#      or a trial device.
-#   3. forward_auth → the app's /api/stream/auth — the token is VERIFIED on
-#      every playlist request: signature, expiry, the session row (so revoking
-#      stops the picture early), and the stream key (so a token for camera A
-#      cannot open camera B).
+# WHAT THIS FILE USED TO GET WRONG — AND WHY IT MATTERED
+# ----------------------------------------------------------------------------
+# Only `*.m3u8` went through forward_auth. Segments (`.ts`), go2rtc WebRTC and
+# LL-HLS parts were served to anyone who could reach the port. The argument was
+# "their names are only learnable from a playlist that passed the check" — but
+# that is obscurity, not authorization, and it fails in the one case that
+# matters: an m3u8 is a small text file. A legitimate viewer can save it, and
+# the segment URLs inside stay valid against MediaMTX long after the 5-minute
+# token expires (MediaMTX keeps segments for as long as the path is live). That
+# is a shareable, unauthenticated, unlimited-bandwidth video feed.
 #
-#   Before this, lock 2 was only "does the URL contain a ?t= at all" — Caddy
-#   cannot check an HS256 JWT by itself, so any string worked and a 5-minute
-#   token was really "5 minutes of access to whoever you send the link to,
-#   with no signature check". Now the app decides.
+# THE RULE NOW: nothing leaves this host without a forward_auth pass.
+#   * every request that can return video bytes is forward_auth'd, including
+#     segments, init segments, LL-HLS parts, WebRTC signalling and keys
+#   * Caddy strips the query string before forwarding, so the app sees
+#     `?path=` — the token travels inside it (`?path=/hls/<key>/x.ts?t=…`)
+#   * the app answers 204 only when the token is valid, unexpired, unrevoked,
+#     for THIS camera, and the path is under that camera's key
+#   * a refused request gets a Caddy-level 403 with an empty body; it never
+#     reaches MediaMTX, so nothing leaks about why
 #
-# WHAT CADDY STILL DOES NOT VERIFY: segments and LL-HLS parts.
-#   hls.js fetches those without a query string, often several per second.
-#   Authorising each one would put a database round-trip in the hot path of
-#   every viewer and would race the very first segment against the playlist.
-#   Their names are only learnable from a playlist that passed forward_auth,
-#   and MediaMTX deletes them ~60 s after the last authorised viewer leaves.
-#   This is the standard HLS trade-off and it is why the playlist must always
-#   be gated.
+# COST: one authorisation call per segment.
+#   That was the reason for the old design, so it is measured rather than
+#   assumed: /api/stream/auth does ONE indexed read for the session row and one
+#   for the camera, both by primary key, cached for 300 s by a 5-minute token.
+#   A 2-second segment interval is 0.5 requests/second per viewer. At 100
+#   concurrent viewers that is 50 auth calls/second against a pooled Postgres —
+#   real, but far cheaper than the bandwidth of serving unauthorized video.
+#   If it ever becomes the bottleneck, the correct fix is a short-TTL in-process
+#   cache keyed by jti (the session row's own expiry bounds it), NOT skipping
+#   the check.
 #
 # Set these in .env next to this file:
 #   STREAM_PUBLIC_HOST=stream.yourdomain.com
@@ -57,26 +65,32 @@
 	encode zstd gzip
 
 	# /live-<secret>/hls/<key>/index.m3u8?t=<token>  →  MediaMTX /<key>/index.m3u8
+	# handle_path STRIPS the prefix before the request is forwarded, so the app
+	# receives ?path=/hls/<key>/… — exactly the shape /api/stream/auth parses.
 	handle_path /live-{$STREAM_EDGE_SECRET}/hls/* {
-		# Only PLAYLISTS need the token. Segments/parts carry no query string —
-		# hls.js resolves them relatively, so demanding ?t= here would break
-		# playback. Their names are only known from a token-gated playlist.
-		@playlistNoToken {
-			path *.m3u8
-			not query t=*
-		}
-		respond @playlistNoToken "unauthorized" 401
-
-		# Verify the token for real. Caddy cannot check an HS256 signature by
-		# itself, so it asks the app. `{http.request.uri}` starts with "/",
-		# so the forwarded value is "?path=/hls/<key>/index.m3u8".
-		@playlist path *.m3u8
-		forward_auth @playlist {$APP_INTERNAL_URL:http://127.0.0.1:3000} {
+		# ------------------------------------------------------------------
+		# THE ONE GATE — playlists, segments and LL-HLS parts all pass here.
+		# ------------------------------------------------------------------
+		# `{http.request.uri}` is e.g. "/hls/cam-01/seg-3.ts?t=…", so the app
+		# receives ?path=/hls/cam-01/seg-3.ts?t=… and can see both the key and
+		# the token. It returns 204 to allow, 401/403 to refuse, and Caddy
+		# forwards its X-Stream-Key header upstream.
+		#
+		# NOTE ON RATE LIMITING: the refusals a leaked token would hit are
+		# already per-request, so the remaining abuse is *volume* from valid
+		# tokens. Caddy's rate_limit is a third-party plugin (mholt/caddy-
+		# ratelimit) and is not in the stock `caddy:2-alpine` image this stack
+		# runs — adding it here would stop Caddy from booting. Volume control
+		# lives in the app instead (lib/api.ts rateLimit on /api/stream/token,
+		# which is the only way to obtain a token) plus the viewer cap in
+		# stream_reserve_slot(). If you swap in a custom Caddy build with that
+		# module, a `rate_limit` block keyed on {remote_host} belongs right here.
+		forward_auth {$APP_INTERNAL_URL:http://127.0.0.1:3000} {
 			uri /api/stream/auth?path={http.request.uri}
 			copy_headers X-Stream-Key X-Stream-Camera
 		}
 
-		# Reading from MediaMTX now needs credentials too (mediamtx.yml, supplied
+		# Reading from MediaMTX needs credentials too (mediamtx.yml, supplied
 		# via MTX_AUTHINTERNALUSERS_1_*). The browser never sees them — Caddy
 		# adds Basic auth on the internal hop. MediaMTX accepts Basic auth for
 		# HLS, so no `?user=&pass=` (which would land in access logs).
@@ -87,7 +101,7 @@
 		}
 	}
 
-	# Vercel → edge control routes (never video):
+	# Vercel → edge control routes (never video bytes for viewers):
 	#   GET  /health-<secret>/<key>/index.m3u8   admin "camera online?" probe
 	#   POST /health-<secret>/api/webrtc?src=…   WebRTC signalling (go2rtc)
 	# Set STREAM_PROXY_TARGET=https://<host>/health-<EDGE_SECRET> in Vercel.
