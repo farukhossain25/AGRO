@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { REF_COOKIE, REF_COOKIE_MAX_AGE } from "@/lib/referral-cookie";
+import { COUPON_COOKIE, REF_COOKIE, REF_COOKIE_MAX_AGE } from "@/lib/referral-cookie";
 
 /* ==========================================================================
    ReferralCatcher
@@ -30,6 +30,11 @@ export function ReferralCatcher() {
     // 30 days, whole site, lax — the code is not a secret, but the visitor
     // should not have to click the link twice.
     document.cookie = `${REF_COOKIE}=${encodeURIComponent(clean)}; path=/; max-age=${REF_COOKIE_MAX_AGE}; samesite=lax`;
+
+    /* The same token is ALSO parked as the coupon to pre-fill. A referral link
+       belongs to a person (no coupon), an influencer link carries a discount
+       coupon as well — /api/coupons/mine tells the checkout which is which. */
+    document.cookie = `${COUPON_COOKIE}=${encodeURIComponent(clean)}; path=/; max-age=${REF_COOKIE_MAX_AGE}; samesite=lax`;
 
     // Drop `ref` from the address bar so a refresh or a shared screenshot does
     // not keep re-announcing it. route:replace keeps the history clean.

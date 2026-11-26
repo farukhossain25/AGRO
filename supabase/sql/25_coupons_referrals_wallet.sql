@@ -52,6 +52,23 @@ comment on column public.coupons.funder_user_id is
 comment on column public.coupons.is_referral is
   'True for the auto-created codes (a brand-wide share code is not needed).';
 
+-- An influencer promo code is handed out by link, so each one carries a PUBLIC
+-- TOKEN (`?ref=TOKEN`). It is NOT a profile referral code: it is looked up on
+-- the coupon itself, which keeps the influencer's own referral code private.
+alter table public.coupons
+  add column if not exists share_token text;
+
+create unique index if not exists coupons_share_token_key
+  on public.coupons (upper(share_token))
+  where share_token is not null;
+
+-- Backfill every influencer code that has none. Deterministic from the uuid so
+-- re-running never churns a link the influencer has already shared.
+update public.coupons
+   set share_token = upper(substr(replace(id::text, '-', ''), 1, 10))
+ where audience = 'influencer'
+   and coalesce(share_token, '') = '';
+
 -- Only these values are meaningful; the check is added separately so the file
 -- stays re-runnable on databases that already have the column.
 do $$
@@ -518,6 +535,127 @@ end;
 $$;
 
 -- ============================================================================
+-- 7b. influencer link resolvers
+-- ============================================================================
+-- `?ref=TOKEN` can be TWO different things, and they are deliberately separate:
+--
+--   • a CUSTOMER/INFLUENCER referral code (profiles.referral_code) — it pays
+--     commission, and it is what makes the new account "belong" to the sharer.
+--   • an INFLUENCER COUPON (coupons.share_token) — a discount code, like any
+--     other coupon, used at checkout.
+--
+-- ?ref=TOKEN can be either one: `resolve_ref()` answers both questions at once
+-- so a single link can give the customer a discount AND the influencer a
+-- referral. Nothing about it is public — the influencer's own referral code is
+-- never exposed in a coupon link.
+
+-- The customer/influencer account a referral token points at.
+create or replace function public.referrer_for_token(p_code text, p_user uuid)
+returns uuid
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_funder uuid;
+begin
+  if nullif(trim(coalesce(p_code, '')), '') is null then
+    return null;
+  end if;
+
+  -- 1. an influencer coupon's public token → its owner
+  select funder_user_id into v_funder
+    from public.coupons
+   where upper(share_token) = upper(trim(p_code))
+     and audience = 'influencer'
+     and is_active
+   limit 1;
+
+  -- 2. a normal profile referral code
+  if v_funder is null then
+    select id into v_funder
+      from public.profiles
+     where upper(referral_code) = upper(trim(p_code))
+     limit 1;
+  end if;
+
+  if v_funder is null or v_funder = p_user then
+    return null;
+  end if;
+
+  return v_funder;
+end;
+$$;
+
+-- Everything one `?ref=` link does, in a single round-trip.
+--
+-- Returns:
+--   referrer   uuid | null  — who earns commission on this customer
+--   coupon     text | null  — the discount code to pre-fill at checkout
+--   coupon_id  uuid | null
+--   valid      boolean      — the token existed (a typo returns false)
+create or replace function public.resolve_ref(p_code text, p_user uuid default null)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_code text := nullif(trim(coalesce(p_code, '')), '');
+  v_referrer uuid;
+  v_coupon public.coupons%rowtype;
+  v_me uuid := p_user;
+begin
+  if v_code is null then
+    return jsonb_build_object('valid', false);
+  end if;
+
+  -- an influencer coupon behind this token (a token is only minted for one) …
+  select * into v_coupon
+    from public.coupons
+   where upper(share_token) = upper(v_code)
+     and is_active
+   limit 1;
+
+  -- … or the influencer's coupon CODE typed in by hand (SUMMER10). Both give
+  -- the discount and both make the customer that influencer's referral.
+  if v_coupon.id is null then
+    select * into v_coupon
+      from public.coupons
+     where upper(code) = upper(v_code)
+       and audience = 'influencer'
+       and is_active
+     limit 1;
+  end if;
+
+  v_referrer := public.referrer_for_token(v_code, v_me);
+
+  if v_referrer is null and v_coupon.id is not null then
+    v_referrer := v_coupon.funder_user_id;
+    if v_referrer = v_me then
+      v_referrer := null;   -- no self-referral
+    end if;
+  end if;
+
+  if v_coupon.id is not null then
+    return jsonb_build_object(
+      'valid', true,
+      'referrer', v_referrer,
+      'coupon', v_coupon.code,
+      'coupon_id', v_coupon.id
+    );
+  end if;
+
+  return jsonb_build_object(
+    'valid', v_referrer is not null,
+    'referrer', v_referrer,
+    'coupon', null,
+    'coupon_id', null
+  );
+end;
+$$;
+
+-- ============================================================================
 -- 8. place_order — extended with per-user coupons and wallet payment
 -- ============================================================================
 -- Same signature as before plus p_wallet. The wallet can cover at most
@@ -661,6 +799,25 @@ begin
     end if;
 
     v_have_coupon := true;
+
+    /* THE LINK BETWEEN THE TWO: an influencer's coupon and an influencer's
+       referral are two different things, but a customer who pays with the
+       influencer's code IS a customer the influencer brought. So the first
+       time the code is used by a signed-in account that has no referrer yet,
+       that account is attached to the influencer — and every later order pays
+       them commission (see credit_referral). A customer who came through
+       someone else's referral link keeps that referrer; nothing is overwritten. */
+    if p_user is not null
+       and v_coupon.audience = 'influencer'
+       and coalesce(v_coupon.funder_user_id, p_user) <> p_user then
+      update public.profiles
+         set referred_by = v_coupon.funder_user_id,
+             referred_at = now(),
+             updated_at  = now()
+       where id = p_user
+         and referred_by is null;
+    end if;
+
     if v_coupon.type = 'percent' then
       v_discount := round(v_subtotal * v_coupon.value / 100.0, 2);
       if v_coupon.max_discount is not null then
@@ -887,57 +1044,7 @@ grant execute on function public.coupon_allows_user(uuid, uuid)       to anon, a
 grant execute on function public.coupon_refusal(uuid, uuid)           to anon, authenticated, service_role;
 grant execute on function public.apply_referral(uuid, text)           to authenticated, service_role;
 grant execute on function public.referrer_for_token(text, uuid)       to anon, authenticated, service_role;
-
--- ------------------------------------------------- 10. influencer extras ----
--- An influencer promo code is meant to be passed around: the admin does not
--- have to know in advance who will receive it. So an `influencer` code always
--- carries a PUBLIC TOKEN — `?ref=TOKEN` — that the influencer may share with
--- anybody. That token never names the influencer, and it is not a profile
--- referral code: it is looked up on the coupon itself.
-alter table public.coupons
-  add column if not exists share_token text;
-
-create unique index if not exists coupons_share_token_key
-  on public.coupons (upper(share_token))
-  where share_token is not null;
-
--- Fill a token for every influencer code that has none. Deterministic from the
--- uuid so re-running never churns the codes, and revocable by editing the row.
-update public.coupons
-   set share_token = upper(substr(replace(id::text, '-', ''), 1, 10))
- where audience = 'influencer'
-   and coalesce(share_token, '') = '';
-
--- "Someone arrived with ?ref=XYZ": turn that token into the account the sale
--- should be credited to. Returns null for an unknown/disabled code, and for a
--- customer who redeemed the influencer's own promo code (no self-credit).
-create or replace function public.referrer_for_token(p_code text, p_user uuid)
-returns uuid
-language plpgsql
-security definer
-set search_path = public, pg_temp
-as $$
-declare
-  v_funder uuid;
-begin
-  if nullif(trim(coalesce(p_code, '')), '') is null then
-    return null;
-  end if;
-
-  select funder_user_id into v_funder
-    from public.coupons
-   where upper(share_token) = upper(trim(p_code))
-     and audience = 'influencer'
-     and is_active
-   limit 1;
-
-  if v_funder is null or v_funder = p_user then
-    return null;
-  end if;
-
-  return v_funder;
-end;
-$$;
+grant execute on function public.resolve_ref(text, uuid)              to anon, authenticated, service_role;
 
 -- ------------------------------------------------------------- 11. RLS ------
 alter table public.coupon_redemptions  enable row level security;

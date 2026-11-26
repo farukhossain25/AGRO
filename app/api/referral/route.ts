@@ -44,13 +44,24 @@ export async function GET() {
              • an influencer promo token   → referrer_for_token()
            Both end up as profiles.referred_by, so every later order of this
            customer credits the same person. */
-        const { data: viaToken } = await db().rpc("referrer_for_token", {
+        /* One round-trip answers both questions: who gets the commission, and
+           is there a discount coupon behind this token? */
+        const { data: resolved } = await db().rpc("resolve_ref", {
           p_code: code,
           p_user: user.id,
         });
+        const info = (resolved ?? {}) as {
+          referrer?: string | null;
+          coupon?: string | null;
+        };
 
-        if (viaToken) {
-          referredBy = viaToken as string;
+        if (info.referrer) {
+          referredBy = info.referrer;
+          await db()
+            .from("profiles")
+            .update({ referred_by: info.referrer, referred_at: new Date().toISOString() })
+            .eq("id", user.id)
+            .is("referred_by", null);
         } else {
           const { data: claimed, error: claimError } = await db().rpc("apply_referral", {
             p_user: user.id,
@@ -112,17 +123,26 @@ export async function POST(req: Request) {
     const parsed = schema.safeParse(await req.json().catch(() => null));
     if (!parsed.success) return fail("রেফারেল কোড সঠিক নয়");
 
-    /* An influencer passes around their promo token (`?ref=TOKEN`), not a
-       profile code. Resolve that first — it is the more common case for a
-       code pasted from a promo post. */
-    const { data: viaToken } = await db().rpc("referrer_for_token", {
+    /* A pasted code can be three things:
+         • an influencer COUPON code (e.g. SUMMER10) → give the discount back,
+           and also count the customer as that influencer's referral
+         • an influencer share TOKEN               → same, plus referral
+         • a normal person's referral code         → referral only
+       resolve_ref() answers all of it in one call. */
+    const { data: resolved } = await db().rpc("resolve_ref", {
       p_code: parsed.data.code,
       p_user: user.id,
     });
-    if (viaToken) {
+    const info = (resolved ?? {}) as {
+      valid?: boolean;
+      referrer?: string | null;
+      coupon?: string | null;
+    };
+
+    if (info.referrer) {
       const { error: linkError } = await db()
         .from("profiles")
-        .update({ referred_by: viaToken as string, referred_at: new Date().toISOString() })
+        .update({ referred_by: info.referrer, referred_at: new Date().toISOString() })
         .eq("id", user.id)
         .is("referred_by", null);
       if (linkError) throw linkError;
@@ -132,7 +152,21 @@ export async function POST(req: Request) {
         .select("referred_by")
         .eq("id", user.id)
         .maybeSingle();
-      if (fresh?.referred_by) return ok({ ok: true, inviter: fresh.referred_by, via: "influencer" });
+
+      if (fresh?.referred_by) {
+        return ok({
+          ok: true,
+          inviter: fresh.referred_by,
+          coupon: info.coupon ?? null,
+          via: info.coupon ? "influencer" : "token",
+        });
+      }
+    }
+
+    // An influencer COUPON code typed in by hand: not a referral code, but it
+    // is a perfectly good discount — hand it back to the checkout.
+    if (info.coupon) {
+      return ok({ ok: true, coupon: info.coupon, via: "coupon" });
     }
 
     const { data, error } = await db().rpc("apply_referral", {
