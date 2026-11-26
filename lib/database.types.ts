@@ -1594,6 +1594,33 @@ export type Database = {
       }
       Relationships: []
     }
+      payment_refs: {
+      Row: {
+        id: string
+        ref: string
+        kind: string
+        target_id: string
+        user_id: string | null
+        created_at: string
+      }
+      Insert: {
+        id?: string
+        ref: string
+        kind: string
+        target_id: string
+        user_id?: string | null
+        created_at?: string
+      }
+      Update: {
+        id?: string
+        ref?: string
+        kind?: string
+        target_id?: string
+        user_id?: string | null
+        created_at?: string
+      }
+      Relationships: []
+    }
       plans: {
       Row: {
         id: string
@@ -3186,6 +3213,10 @@ export type Database = {
       Args: {  }
       Returns: boolean
     }
+      is_service_request: {
+      Args: {  }
+      Returns: boolean
+    }
       is_staff: {
       Args: {  }
       Returns: boolean
@@ -3214,8 +3245,20 @@ export type Database = {
       Args: {  }
       Returns: Json
     }
+      payment_claim: {
+      Args: { p_ref: string; p_kind: string; p_target: string; p_user: string }
+      Returns: Json
+    }
+      payment_ref_key: {
+      Args: { p_ref: string }
+      Returns: string
+    }
       place_order: {
       Args: { p_user: string; p_customer: Json; p_items: Json; p_payment_method: string; p_coupon: string; p_wallet: number }
+      Returns: Json
+    }
+      premium_device_register: {
+      Args: { p_user: string; p_sub: string; p_fp: string; p_limit: number; p_label: string; p_ua: string }
       Returns: Json
     }
       recalc_product_rating: {
@@ -3236,6 +3279,14 @@ export type Database = {
     }
       set_updated_at: {
       Args: {  }
+      Returns: Json
+    }
+      stream_prune_tokens: {
+      Args: {  }
+      Returns: number
+    }
+      stream_reserve_slot: {
+      Args: { p_camera: string; p_user: string; p_fingerprint: string; p_ttl_seconds: number }
       Returns: Json
     }
       support_touch_chat: {
