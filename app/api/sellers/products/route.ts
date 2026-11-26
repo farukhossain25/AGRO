@@ -38,6 +38,28 @@ async function requireSeller() {
   return { user, seller };
 }
 
+/**
+ * Same as requireSeller(), but the shop must also be open for business.
+ *
+ * POST already refused a non-approved seller. PATCH and DELETE did not — they
+ * only checked "is there a seller row for this user". So a seller who had been
+ * suspended (status = 'suspended'), or whose application was rejected, could
+ * still rewrite the price, photo and stock of every product already in the
+ * catalogue, and could delete them. Suspension was cosmetic.
+ *
+ * Reads (GET) stay on requireSeller(): a suspended seller should still be able
+ * to see their own catalogue and understand what happened.
+ */
+async function requireApprovedSeller() {
+  const { user, seller } = await requireSeller();
+  if (seller.status !== "approved") {
+    const err = new Error("SELLER_NOT_APPROVED") as Error & { status?: number };
+    err.status = 403;
+    throw err;
+  }
+  return { user, seller };
+}
+
 export async function GET() {
   try {
     const { seller } = await requireSeller();
@@ -121,6 +143,9 @@ export async function POST(req: Request) {
   } catch (error) {
     const code = (error as { status?: number }).status;
     if (code === 401) return fail("লগইন করুন", 401);
+    if ((error as { message?: string }).message === "SELLER_NOT_APPROVED") {
+      return fail("আপনার সেলার অ্যাকাউন্ট এখনো অনুমোদিত নয় — পণ্য বদলানো যাবে না", 403);
+    }
     if (code === 403) return fail("সেলার অ্যাকাউন্ট প্রয়োজন", 403);
     return handleError(error);
   }
@@ -128,7 +153,7 @@ export async function POST(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
-    const { seller } = await requireSeller();
+    const { seller } = await requireApprovedSeller();
     const body = await req.json();
     const data = sellerProductSchema.partial().parse(body);
     const id = String(body.id ?? "");
@@ -186,6 +211,9 @@ export async function PATCH(req: Request) {
   } catch (error) {
     const code = (error as { status?: number }).status;
     if (code === 401) return fail("লগইন করুন", 401);
+    if ((error as { message?: string }).message === "SELLER_NOT_APPROVED") {
+      return fail("আপনার সেলার অ্যাকাউন্ট এখনো অনুমোদিত নয় — পণ্য বদলানো যাবে না", 403);
+    }
     if (code === 403) return fail("সেলার অ্যাকাউন্ট প্রয়োজন", 403);
     return handleError(error);
   }
@@ -193,7 +221,7 @@ export async function PATCH(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
-    const { seller } = await requireSeller();
+    const { seller } = await requireApprovedSeller();
     const { id } = await req.json();
     if (!id) return fail("আইডি দিন", 422);
 
@@ -204,6 +232,9 @@ export async function DELETE(req: Request) {
   } catch (error) {
     const code = (error as { status?: number }).status;
     if (code === 401) return fail("লগইন করুন", 401);
+    if ((error as { message?: string }).message === "SELLER_NOT_APPROVED") {
+      return fail("আপনার সেলার অ্যাকাউন্ট এখনো অনুমোদিত নয় — পণ্য বদলানো যাবে না", 403);
+    }
     if (code === 403) return fail("সেলার অ্যাকাউন্ট প্রয়োজন", 403);
     return handleError(error);
   }
