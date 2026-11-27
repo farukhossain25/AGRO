@@ -167,71 +167,69 @@ export async function POST(req: Request) {
 
     const ref = body.sender_number ? `${trx} | ${body.sender_number}` : trx;
 
-    /* ---- claim the TrxID --------------------------------------------------
-       One TrxID, one order — across orders AND premium subscriptions. The
-       claim is a single INSERT against a unique index, so two customers
-       submitting the same reference at the same instant cannot both win; the
-       loser gets `duplicate` and a clear message.
+    /* ---- claim + write, ONE transaction -----------------------------------
+       These were two calls: `payment_claim()` made a row in payment_refs, then
+       a separate UPDATE wrote `payment_ref` on the order. A failure between
+       them left the TrxID claimed and burned while attached to nothing — the
+       customer retries and is told "this TrxID was already used", by themselves.
+       A cancel or an admin approval landing in that window did the same.
 
-       This must happen BEFORE payment_ref is written: writing first and
-       claiming after would leave a reference on the order that the ledger
-       rejects, and the admin would then approve a payment the system already
-       knows is reused. */
-    const { data: claim, error: claimError } = await db().rpc("payment_claim" as never, {
-      p_ref: ref,
+       `payment_submit()` does both inside one transaction: the target row is
+       locked FOR UPDATE, the state is re-checked, the claim is inserted, the
+       reference is written — and if any step fails the claim rolls back with
+       it. There is no longer an intermediate state to be stranded in.
+
+       It still never marks anything paid. The TrxID is a claim, not proof; the
+       admin confirms from the panel. */
+    const { data: claim, error: claimError } = await db().rpc("payment_submit" as never, {
       p_kind: target.table === "orders" ? "order" : "subscription",
       p_target: target.id,
+      p_ref: ref,
       p_user: target.user_id,
     } as never);
-    if (claimError) throw claimError;
 
-    const claimResult = claim as { ok: boolean; reason?: string } | null;
-    if (!claimResult?.ok) {
-      if (claimResult?.reason === "duplicate") {
-        return fail(
-          "এই TrxID আগেই অন্য একটি অর্ডারে ব্যবহার করা হয়েছে — সঠিক TrxID দিন", 409
-        );
+    if (claimError) {
+      /* PAYMENT_STALE means another request moved the order while we were in
+         it. That is the same answer as "already paid" from the customer's point
+         of view, and it leaves nothing half-written behind. */
+      if (/PAYMENT_STALE/.test(claimError.message ?? "")) {
+        return fail("এই পেমেন্ট ইতিমধ্যে পরিশোধিত হয়েছে — নতুন করে জমা দেওয়ার দরকার নেই", 409);
       }
-      return fail("পেমেন্ট রেকর্ড করা যাচ্ছে না — একটু পরে আবার চেষ্টা করুন", 503);
+      if (/PAYMENT_REF_EMPTY/.test(claimError.message ?? "")) {
+        return fail("TrxID দিন", 422);
+      }
+      throw claimError;
     }
 
-    /* ---- conditional write ------------------------------------------------
-       The status was checked a few lines up, but another request (or the
-       admin) can move it in between. Re-asserting "still unpaid" in the same
-       UPDATE closes that window: if the order was paid while we were claiming
-       the TrxID, this matches zero rows and we say so instead of overwriting
-       a confirmed payment with a fresh reported one. */
-    /* The "still unpaid" column is NOT the same on the two tables:
-         orders              → payment_status  ('pending' | 'paid' | …)
-         user_subscriptions  → status          ('pending' | 'active' | …)
-       `orders.status` is the DELIVERY status and must not be used here — an
-       order sitting at 'packing' would have been treated as unpaid forever. */
-    const isOrder = target.table === "orders";
+    const result = claim as { result?: string; ref?: string } | null;
 
-    const query = db()
-      .from(target.table)
-      .update({ payment_ref: ref, updated_at: new Date().toISOString() })
-      .eq("id", target.id);
-
-    const { data: written, error: updateError } = await (isOrder
-      ? query
-          .in("payment_status", ["pending", "failed"] as const)
-          .select("id, order_no, payment_status, payment_ref")
-      : query
-          .in("status", ["pending"] as const)
-          .select("id, sub_no, status, payment_ref")
-    ).maybeSingle();
-
-    if (updateError) throw updateError;
-
-    if (!written) {
-      return fail("এই পেমেন্ট ইতিমধ্যে পরিশোধিত হয়েছে — নতুন করে জমা দেওয়ার দরকার নেই", 409);
+    switch (result?.result) {
+      case "claimed":
+        return ok({
+          ref: result.ref ?? ref,
+          message: "TrxID জমা দেওয়া হয়েছে — অ্যাডমিন যাচাই করবেন",
+        });
+      case "already":
+        /* Same order, same TrxID — the customer double-tapped or came back to
+           the page. Nothing changed and nothing is wrong. */
+        return ok({
+          ref,
+          already: true,
+          message: "এই TrxID আগেই জমা দেওয়া হয়েছে — অ্যাডমিন যাচাই করবেন",
+        });
+      case "duplicate":
+        return fail("এই TrxID আগেই অন্য একটি অর্ডারে ব্যবহার করা হয়েছে — সঠিক TrxID দিন", 409);
+      case "paid":
+        return fail("এই পেমেন্ট ইতিমধ্যে পরিশোধিত", 409);
+      case "cancelled":
+        return fail("এই অর্ডারটি বাতিল হয়ে গেছে — পেমেন্ট জমা দেওয়ার দরকার নেই", 409);
+      case "forbidden":
+        return fail("এই অর্ডারে পেমেন্ট জমা দেওয়ার অনুমতি আপনার নেই", 403);
+      case "not_found":
+        return fail("অর্ডারটি পাওয়া যায়নি", 404);
+      default:
+        return fail("পেমেন্ট রেকর্ড করা যাচ্ছে না — একটু পরে আবার চেষ্টা করুন", 503);
     }
-
-    return ok({
-      ref: written,
-      message: "TrxID জমা দেওয়া হয়েছে — অ্যাডমিন যাচাই করবেন",
-    });
   } catch (error) {
     return handleError(error);
   }

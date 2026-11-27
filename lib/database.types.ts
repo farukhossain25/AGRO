@@ -3319,6 +3319,10 @@ export type Database = {
       Args: { p_ref: string }
       Returns: string
     }
+      payment_submit: {
+      Args: { p_kind: string; p_target: string; p_ref: string; p_user: string }
+      Returns: Json
+    }
       place_order: {
       Args: { p_user: string; p_customer: Json; p_items: Json; p_payment_method: string; p_coupon: string; p_wallet: number }
       Returns: Json

@@ -15,6 +15,17 @@
 
 ---
 
+## ১ক. দ্বিতীয় রাউন্ড — পেমেন্ট ও ট্র্যাকিং (৩১)
+
+| # | সমস্যা | আগে | এখন |
+|---|---|---|---|
+| ৪ | পেমেন্ট claim | TrxID claim আর অর্ডারে `payment_ref` লেখা — দুটো আলাদা রিকোয়েস্ট। মাঝখানে ফেল করলে TrxID "ব্যবহৃত" হয়ে পড়ে থাকত, অথচ কোনো অর্ডারে নেই। গ্রাহক আবার চেষ্টা করলে বলা হতো "এই TrxID আগেই ব্যবহার হয়েছে" — নিজেরই দেওয়া TrxID-তে। | `payment_submit()` — এক ট্রানজেকশনে claim + write। কোনো ধাপ ফেল করলে claim-ও rollback। |
+| ৫ | অর্ডার ট্র্যাকিং | `select("*")` — গ্রাহকের ইমেইল, পুরো ফোন, profile UUID, TrxID, ওয়ালেট, সম্পূর্ণ ঠিকানা, অ্যাডমিন নোট সব ফেরত যেত। | নির্দিষ্ট কলাম, ফোন মাস্ক করা, ঠিকানা বাদ। |
+| ৬ | স্ক্যানার | `onlyInComment` নামের undeclared ভেরিয়েবল — `/svg/` ম্যাচ হলে আর চলতই না, তাই কোনোদিন ধরা পড়েনি। | কমেন্ট ছাড়িয়ে JSX ব্যবহার আলাদা করে, লাইন নম্বরসহ। |
+| ৭ | CCTV টোকেন | প্রক্সি মোড `X-Stream-Token` পাঠাত, কিন্তু অ্যাপ শুধু URL পড়ত়ত → প্রতিটা প্রক্সি সেগমেন্ট 401। | হেডারও পড়ে; খালি হেডার "নেই" হিসেবে ধরা হয়। |
+| ৮ | ক্যামেরা key | `key && db.key && key !== db.key` — যেকোনো একটা খালি/null হলে চেকটা **বাদ পড়ত**। | fail-closed: key না মিললে বা কনফিগার না থাকলে সব বন্ধ। |
+| ৯ | viewer slot | `stream_key` যাচাই হতো slot নেওয়ার **পরে**; 503 ফিরিয়ে slot ছাড়া হতো না → ক্যাপ ফুরিয়ে যেত। | slot নেওয়ার আগে যাচাই, আর পরের যেকোনো ব্যর্থতায় release। |
+
 ## ২. চালানোর আগে — ব্যাকআপ (আবশ্যক)
 
 ```sql
@@ -40,16 +51,21 @@ select count(*) as wallet_rows from public._backup_wallet_tx_2026;
 ## ৩. মাইগ্রেশন চালানোর ক্রম
 
 ```
-29_security_hardening.sql        (আগেই চালানো থাকলে বাদ)
-30_critical_fixes.sql            ← এই কাজের নতুন ফাইল
-31_team_permission_console.sql   (আগে 30 নামে ছিল — নতুন নাম)
-13_verify_setup.sql              (যাচাই)
+29_security_hardening.sql            (আগেই চালানো থাকলে বাদ)
+30_critical_fixes.sql                ← অর্ডার বাতিল/রিফান্ড (আগের কাজ)
+31_security_reliability_fixes.sql    ← পেমেন্ট atomicity (নতুন)
+32_team_permission_console.sql       (আগে 30 নামে ছিল — দ্বিতীয়বার নাম বদল)
+13_verify_setup.sql                  (যাচাই)
 ```
 
-> ### ⚠️ নাম বদলেছে — ৩০ নিয়ে দুটো ফাইল
+> ### ⚠️ নাম দুবার বদলেছে — টেবিল/ফাংশন একই
 > আগের `30_team_permission_console.sql` যদি **ইতিমধ্যে চালিয়ে ফেলেছেন**, কিছু
-> করতে হবে না — কোড নতুন নামে খুঁজলেও টেবিল একই। শুধু এই ডকুমেন্টের নামগুলো
-> মিলিয়ে নিন। না চালালে এই ক্রমেই চালান।
+> করতে হবে না — ফাইলটার নাম এখন `32_team_permission_console.sql`, কিন্তু
+> ভিতরের টেবিল (`permission_catalog`, `role_permissions`) একই। প্যানেলে কিছু
+> ভাঙবে না।
+>
+> `31_security_reliability_fixes.sql` চালাতে ভুলবেন না — এটা ছাড়া পেমেন্ট জমা
+> দেওয়ার সময় TrxID থেকে যাওয়ার সমস্যাটা থাকবে (৩ নম্বর অংশ দেখুন)।
 
 `30_critical_fixes.sql` শেষে এই তিনটা ফাংশন তৈরি/আপডেট হয়:
 
@@ -208,7 +224,8 @@ insert into public.orders select * from public._backup_orders_2026;
 
 **SQL**
 - `supabase/sql/30_critical_fixes.sql` — নতুন (তিনটা ফাংশন)
-- `supabase/sql/31_team_permission_console.sql` — নাম বদলেছে (আগে ৩০)
+- `supabase/sql/32_team_permission_console.sql` — নাম বদলেছে (আগে ৩০, তারপর ৩১)
+- `supabase/sql/31_security_reliability_fixes.sql` — নতুন: `payment_submit()`
 
 **অ্যাপ**
 - `lib/orders.ts` — `applyOrderCancellation` সরানো; `cancelOrder()`,

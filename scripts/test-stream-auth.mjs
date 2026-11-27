@@ -141,6 +141,31 @@ const base = { sub: "user-1", jti: "jti-1", mode: "premium" };
 
   const neither = new URL(`http://x/api/stream/auth?path=${encodeURIComponent("/hls/c/seg.ts")}`);
   check("no token anywhere yields null", requestedToken(neither) === null);
+
+  /* ---- the X-Stream-Token transport ------------------------------------
+     Proxy mode strips the token from the upstream URL and sends it as a
+     header (app/api/stream/[...path]). The auth route must read it, or every
+     proxy-mode segment is refused. */
+  const h = (value) => new Headers(value === undefined ? undefined : { "x-stream-token": value });
+
+  const headerUrl = new URL(`http://x/api/stream/auth?path=${encodeURIComponent("/hls/c/seg.ts")}`);
+  check("the token is read from X-Stream-Token", requestedToken(headerUrl, h("HDR.TOKEN.X")) === "HDR.TOKEN.X");
+
+  check("an empty X-Stream-Token is treated as absent", requestedToken(headerUrl, h("")) === null);
+  check("a whitespace X-Stream-Token is treated as absent", requestedToken(headerUrl, h("   ")) === null);
+  check("a missing X-Stream-Token is treated as absent", requestedToken(headerUrl, h(undefined)) === null);
+  check("no headers object at all is tolerated", requestedToken(headerUrl) === null);
+
+  /* A query-string token must win, because the URL says which resource is
+     being asked for and a header cannot. Either way the value is verified. */
+  const both = new URL(`http://x/api/stream/auth?path=%2Fhls%2Fc%2Fseg.ts&t=URLTOKEN`);
+  check("a URL token takes precedence over a header", requestedToken(both, h("HDR")) === "URLTOKEN");
+
+  /* And a header cannot be used to smuggle a DIFFERENT token than the one the
+     URL names — the parser returns exactly one value, and it is the one that
+     gets verified. */
+  const nestedUrl = new URL(`http://x/api/stream/auth?path=${encodeURIComponent("/hls/c/seg.ts?t=NESTED")}`);
+  check("the nested path token beats the header", requestedToken(nestedUrl, h("HDR")) === "NESTED");
 }
 
 /* ---- 8. no credentials in what the browser sees ------------------------ */

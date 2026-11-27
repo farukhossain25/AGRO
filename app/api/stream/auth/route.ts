@@ -55,9 +55,26 @@ export const revalidate = 0;
    FAIL-CLOSED: any error → 401/503, never a pass.
    ========================================================================== */
 
+/**
+ * The stream key the camera row actually publishes.
+ *
+ * A camera without one is not a camera the edge can serve, so the caller must
+ * refuse — not skip the comparison. An empty string and null are the same
+ * answer here: unconfigured.
+ */
+function configuredKey(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length ? trimmed : null;
+}
+
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const token = requestedToken(url);
+
+  /* Both transports: the URL (?t= or inside ?path=) and the Vercel proxy's
+     X-Stream-Token header. See scripts/lib/stream-paths.mjs — the header is a
+     way to carry a token, never a reason to trust one. */
+  const token = requestedToken(url, req.headers);
   const key = requestedKey(url.searchParams.get("path"));
 
   const payload = await verifyStreamToken(token);
@@ -97,7 +114,29 @@ export async function GET(req: Request) {
     if (!camera.is_active || camera.status === "offline" || camera.status === "maintenance") {
       return NextResponse.json({ ok: false, reason: "offline" }, { status: 403 });
     }
-    if (key && camera.stream_key && key !== camera.stream_key) {
+
+    /* ---- camera isolation, FAIL CLOSED ------------------------------------
+       This used to be `if (key && camera.stream_key && key !== camera.stream_key)`.
+       Three ways to walk past it, all closed now:
+
+         • `key` null (no `path=` at all)    → the whole check was skipped
+         • `camera.stream_key` null/""       → the check was skipped, so a camera
+                                               with no configured key authorised
+                                               ANY path
+         • empty `key` ("")                  → falsy, so also skipped
+
+       All three are "we cannot prove this request belongs to this camera", and
+       the only safe answer to that is no. A camera with no stream key cannot be
+       served by the edge at all (MediaMTX has no path to read), so refusing is
+       also the operationally correct answer — the denial is config, not traffic.
+    */
+    const published = configuredKey(camera.stream_key);
+    if (!published) {
+      return NextResponse.json({ ok: false, reason: "config" }, { status: 503 });
+    }
+
+    const requested = configuredKey(key);
+    if (!requested || requested !== published) {
       return NextResponse.json({ ok: false, reason: "key" }, { status: 403 });
     }
 
@@ -106,7 +145,7 @@ export async function GET(req: Request) {
       headers: {
         "cache-control": "no-store",
         // Caddy's copy_headers forwards these to MediaMTX.
-        "X-Stream-Key": camera.stream_key ?? "",
+        "X-Stream-Key": published,
         "X-Stream-Camera": camera.id,
       },
     });

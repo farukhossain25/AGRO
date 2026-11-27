@@ -16,7 +16,14 @@ export function TrackForm({ initialOrder }: { initialOrder: string }) {
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [order, setOrder] = useState<(Order & { order_items: OrderItem[] }) | null>(null);
+  /* The tracking API deliberately returns a narrow shape: no street address,
+     no ids, no payment reference. See app/api/orders/track/route.ts. Typing it
+     here is what stops a future edit from reading a field that is not sent and
+     silently rendering "undefined". */
+  type TrackedItem = Pick<OrderItem, "name_bn" | "quantity" | "price">;
+  const [order, setOrder] = useState<
+    (Omit<Order, "address" | "order_items"> & { order_items: TrackedItem[] }) | null
+  >(null);
 
   async function lookup(o: string, p: string) {
     setLoading(true);
@@ -151,7 +158,10 @@ export function TrackForm({ initialOrder }: { initialOrder: string }) {
               <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-leaf-400" />
               {order.customer_name} · {order.phone}
               <br />
-              {order.address}, {order.upazila}, {order.district}, {order.division}
+              {/* Street address is intentionally not returned by the API — the
+                  order number + phone already prove ownership, and this page is
+                  reachable without a session. Area is enough to confirm. */}
+              {order.upazila}, {order.district}, {order.division}
             </p>
           </div>
 
@@ -160,7 +170,7 @@ export function TrackForm({ initialOrder }: { initialOrder: string }) {
               <p className="mb-1.5 text-[11.5px] font-semibold text-sand-100/50">পণ্য</p>
               <ul className="space-y-1">
                 {order.order_items.map((it) => (
-                  <li key={it.id} className="flex justify-between text-[12px] text-sand-100/70">
+                  <li key={`${it.name_bn}-${it.quantity}`} className="flex justify-between text-[12px] text-sand-100/70">
                     <span>{it.name_bn} × {it.quantity}</span>
                     <span>{money(Number(it.price) * it.quantity, true)}</span>
                   </li>
