@@ -351,6 +351,45 @@ VPS, পাবলিক IP, ফোন-বক্স কিছুই লাগে 
 
 ---
 
+## ৩ক. 🚀 সবচেয়ে সহজ পথ — একটাই ফোন, ভিপিএস-এ দুইটা কমান্ড
+
+উপরের §৩.১ একই কাজ করে, কিন্তু এখানে কম কমান্ড আর কম ফাঁদ।
+
+**ফোনে (Termux):**
+```bash
+pkg install ffmpeg -y
+termux-wake-lock
+ffmpeg -rtsp_transport tcp \
+  -i "rtsp://admin:<DVR-PASS>@192.168.10.125:554/cam/realmonitor?channel=1&subtype=1" \
+  -c copy -f mpegts \
+  "rtmp://<VPS-IP>:1935/dvr-cam-01"
+```
+
+> **পাসওয়ার্ড কেন নেই এখানে?** RTMP-তে লেখা যায় না, তাই MediaMTX-এর
+> `internal` auth-এ `dvr-cam-01` পাথটা গোপন রাখাই নিরাপত্তা। এজন্যই
+> path বসিয়ে লম্বা রাখা হয়েছে — কেউ URL আন্দাজ করতে পারবে না।
+> আরও শক্ত চাইলে SRT ব্যবহার করুন (§৩.১) — সেটায় passphrase আছে।
+
+**VPS-এ:**
+```bash
+git clone https://github.com/farukhossain25/AGRO && cd AGRO
+cp .env.example .env && nano .env      # MEDIAMTX_PUBLISH_PASS + MEDIAMTX_READ_PASS দিন
+docker compose -f docker-compose.stream-vps.yml up -d mediamtx
+```
+
+> `docker compose` **শুধু mediamtx** — `--profile public` দিলে Caddy 80/443
+> দখল করবে আর `STREAM_PUBLIC_HOST` চাইবে। প্রথমে ভিডিওটা দেখা, পরে এজ।
+
+**দেখা যাচ্ছে কি না — একই VPS-এ:**
+```bash
+curl -u reader:<MEDIAMTX_READ_PASS> -o /tmp/x.m3u8 \
+  http://127.0.0.1:8888/dvr-cam-01/index.m3u8 && echo "✅ স্ট্রিম আসছে"
+```
+
+`✅` এলে বাকিটা শুধু সাইটের সেটিংস (§৫), নতুন কিছু ইনস্টল করতে হবে না।
+
+---
+
 ## ৪. খরচ — বাস্তব হিসাব
 
 | খরচ | পরিমাণ |
