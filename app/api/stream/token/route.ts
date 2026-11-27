@@ -35,6 +35,26 @@ const schema = z.object({
  * a second row would count twice against the cap and the token would point at
  * a session that is not the reserved one.
  */
+/**
+ * Give a reserved viewer slot back.
+ *
+ * Idempotent by construction: it deletes the row by jti, and deleting a row
+ * that is already gone is a successful no-op. Never throws — a failure here is
+ * logged and swallowed, because the caller is already returning an error and
+ * must not turn it into a 500.
+ *
+ * If this call fails the slot simply expires on its own TTL (5 minutes), which
+ * is the same bound every viewer slot already has.
+ */
+async function releaseSlot(jti: string): Promise<void> {
+  try {
+    const { error } = await db().from("stream_tokens").delete().eq("jti", jti);
+    if (error) console.error("[stream/token] could not release viewer slot:", error.message);
+  } catch (problem) {
+    console.error("[stream/token] could not release viewer slot:", (problem as Error).message);
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const key = req.headers.get("x-forwarded-for") ?? "local";
@@ -61,6 +81,22 @@ export async function POST(req: Request) {
     if (camera.status === "maintenance") return fail("ক্যামেরাটি রক্ষণাবেক্ষণে আছে", 409);
     if (camera.status === "offline") return fail("ক্যামেরাটি এখন অফলাইন", 409);
 
+    /* ---- configuration check BEFORE any slot is reserved -------------------
+       checkWatchRights() below reserves a viewer slot — a row in
+       stream_tokens that counts against max_viewers until it expires. The
+       stream-key check used to run AFTER that, so every attempt against a
+       camera with no stream key took a slot, returned 503, and never gave it
+       back. Five such attempts against a camera capped at five viewers locked
+       out every real viewer for the full TTL — and a customer refreshing a
+       broken camera reaches five in seconds.
+
+       Nothing below can succeed without a stream key, so there is no reason to
+       reserve first. This is the "validate before reserving" half.
+    */
+    if (!camera.stream_key || !camera.stream_key.trim()) {
+      return fail("এই ক্যামেরার স্ট্রিম কনফিগার করা হয়নি", 503);
+    }
+
     const user = await currentUser();
 
     /* Entitlement, basic-tier restriction and device limit — all in one place,
@@ -69,29 +105,38 @@ export async function POST(req: Request) {
     const gate = await checkWatchRights(req, camera, user);
     if (gate.denied) return gate.denied;
 
-    /* The viewer slot — and therefore the revocable session row this token is
-       bound to — was already created atomically inside checkWatchRights().
-       Do NOT insert another stream_tokens row here: a second row would count
-       twice against the cap and, worse, a token signed with a jti that has no
-       row is rejected by /api/stream/auth, so the player would 401 in a loop. */
-    const token = await signStreamToken({
-      sub: user?.id ?? `${gate.mode === "public" ? "public" : "trial"}:${gate.fingerprint.slice(0, 12)}`,
-      cam: camera.id,
-      jti: gate.slot.jti,
-      mode: gate.mode,
-      fp: gate.fingerprint.slice(0, 16),
-    });
+    /* ---- from here on a slot EXISTS; every exit must give it back ---------
+       The slot was reserved atomically inside checkWatchRights(). Everything
+       after this point either returns a usable token (slot keeps counting, as
+       it should) or releases the slot and returns an error. This is the
+       "release on every subsequent failure" half. */
+    const streamKey = camera.stream_key;
 
-    if (!camera.stream_key) {
-      return fail("এই ক্যামেরার স্ট্রিম কনফিগার করা হয়নি", 503);
+    let token: string;
+    try {
+      /* The slot — and therefore the revocable session row this token is bound
+         to — was already created inside checkWatchRights(). Do NOT insert
+         another stream_tokens row here: a second row would count twice against
+         the cap and, worse, a token signed with a jti that has no row is
+         rejected by /api/stream/auth, so the player would 401 in a loop. */
+      token = await signStreamToken({
+        sub: user?.id ?? `${gate.mode === "public" ? "public" : "trial"}:${gate.fingerprint.slice(0, 12)}`,
+        cam: camera.id,
+        jti: gate.slot.jti,
+        mode: gate.mode,
+        fp: gate.fingerprint.slice(0, 16),
+      });
+    } catch (signError) {
+      console.error("[stream/token] signing failed, releasing slot:", (signError as Error).message);
+      await releaseSlot(gate.slot.jti);
+      return fail("স্ট্রিম চালু করা যাচ্ছে না — একটু পরে আবার চেষ্টা করুন", 503);
     }
 
     /* Direct-video mode: HLS bytes go to the stream edge, not through Vercel.
        WebRTC keeps proxying (it is a live signalling exchange, not bulk media).
        If STREAM_PUBLIC_BASE is unset this is "" and nothing changes. */
-    const direct = camera.protocol === "webrtc" ? "" : directHlsUrl(camera.stream_key, token);
-    const path =
-      camera.protocol === "webrtc" ? webrtcPath(camera.stream_key) : hlsPath(camera.stream_key);
+    const direct = camera.protocol === "webrtc" ? "" : directHlsUrl(streamKey, token);
+    const path = camera.protocol === "webrtc" ? webrtcPath(streamKey) : hlsPath(streamKey);
 
     return ok({
       url: direct || `${path}?t=${token}`,

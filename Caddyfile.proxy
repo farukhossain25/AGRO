@@ -69,12 +69,19 @@
 	# decides access on its own.
 	handle {
 		forward_auth {$APP_INTERNAL_URL:http://127.0.0.1:3000} {
-			# browser: the token is in ?t= (the proxy rewrites segment URIs to
-			# carry it). proxy hop: the token is in X-Stream-Token. The app
-			# accepts either and treats both as untrusted input.
+			# Who the token is: ?t= for a browser, X-Stream-Token for the
+			# Vercel proxy hop (it strips the token from the upstream URL).
+			# The app reads both and trusts neither without verification.
 			uri /api/stream/auth?path={http.request.uri}
 			copy_headers X-Stream-Key X-Stream-Camera
 		}
+
+		# The token header has to survive the forward_auth hop. Caddy copies
+		# only what `copy_headers` names when it returns a response to the
+		# client, but the *request* it sends to the auth endpoint carries the
+		# original headers — including X-Stream-Token. Nothing to add here;
+		# this note exists because it is the kind of detail that looks
+		# missing and invites a "fix" that breaks it.
 
 		reverse_proxy 127.0.0.1:8888 {
 			header_up -X-Stream-Key

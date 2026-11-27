@@ -120,7 +120,8 @@ const CHAIN_FILES = [
   "28_security_hardening.sql",
   "29_security_hardening.sql",
   "30_critical_fixes.sql",
-  "31_team_permission_console.sql",
+  "31_security_reliability_fixes.sql",
+  "32_team_permission_console.sql",
 ];
 
 export { CHAIN_FILES };

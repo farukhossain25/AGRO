@@ -41,7 +41,8 @@ const EXTRA_FILES = [
      that 13_verify_setup.sql checks, not in the optional extras. */
   "29_security_hardening.sql",
   "30_critical_fixes.sql",
-  "31_team_permission_console.sql",
+  "31_security_reliability_fixes.sql",
+  "32_team_permission_console.sql",
 ];
 
 async function run(file, round) {
