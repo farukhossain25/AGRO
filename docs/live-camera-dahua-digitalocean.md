@@ -247,6 +247,50 @@ overage বিল আসে। বাস্তবে কেউ ২৪/৭ দে
 
 ---
 
+## ২ক. ⚡ আগে এই ৫ মিনিটের পরীক্ষা — কোন পথে যাবেন সেটা এটাই ঠিক করে
+
+VPS কেনার **আগে** এটা করে নিন। উত্তরভেদে খরচ আর কাজ সম্পূর্ণ আলাদা।
+
+### ক. পাবলিক IP আছে কি না (ফোন থেকেই)
+
+1. ফোন **মোবাইল ডাটা**-য় (WiFi বন্ধ) ব্রাউজারে যান: <https://whatismyipaddress.com>
+   → যে IP দেখাবে সেটা লিখে নিন
+2. এবার **ঘরের WiFi**-তে যান, একই সাইটে আবার দেখুন
+3. রাউটারের অ্যাডমিন পেজে ঢুকুন (সাধারণত `192.168.1.1`) → **WAN / Internet Status**
+   → সেখানে যে IP, সেটাও লিখে নিন
+
+| যা দেখলেন | মানে | কোন পথ |
+|---|---|---|
+| WAN IP = `10.x` / `100.64–127.x` / `172.16–31.x` / `192.168.x` | **CGNAT** — বাইরে থেকে ঢোকার পথ নেই | §৩.১ (ফোন রিলে) |
+| WAN IP = যা whatismyip দেখাচ্ছে (যেমন `103.x.x.x`) | **পাবলিক IP আছে** | নিচের "খ" |
+
+> `100.64.0.0/10` মানে প্রায় সব ক্ষেত্রে CGNAT। বাংলাদেশে অনেক ISP এটাই দেয়।
+
+### খ. পাবলিক IP থাকলে — VPS-কে DVR পর্যন্ত পৌঁছাতে দিন
+
+```bash
+# VPS-এ (DVR-এর পাসওয়ার্ড বদলে নিন)
+ffmpeg -rtsp_transport tcp -i \
+  "rtsp://admin:<DVR-PASS>@<PUBLIC-IP>:554/cam/realmonitor?channel=1&subtype=1" \
+  -t 10 -c copy /tmp/test.ts && echo "✅ VPS থেকে DVR দেখা যাচ্ছে"
+```
+
+- **`✅` এল** → রাউটারে `554 → DVR-IP:554` ফরওয়ার্ড আছে, আর VPS সরাসরি টানতে পারবে।
+  `mediamtx.yml`-এ পথ খ-এর লাইনটা ব্যবহার করুন।
+- **`Connection timed out` / `refused`** → ফরওয়ার্ড নেই বা ISP পথ বন্ধ করেছে।
+  রাউটারে 554 ফরওয়ার্ড দিন, তারপর আবার। তবু না হলে §৩.১।
+
+> ⚠️ **আপনার DVR-এর IP `192.168.10.125` — এটা ঘরের LAN ঠিকানা।**
+> VPS-এর কাছে এই ঠিকানার কোনো মানে নেই (`192.168.x` প্রত্যেক বাড়িতেই থাকে)।
+> VPS-এ লিখতে হবে **পাবলিক IP**, আর রাউটারই ভেতরে ঢুকিয়ে দেবে।
+
+### গ. "খ" কাজ না করলে — §৩.১ (ফোন রিলে)
+
+DVR-এর RTSP আছেই, তাই ফোন একটা রিলে হিসেবেই যথেষ্ট। SRJ/RTMP pusher লাগবে না।
+বিস্তারিত §৩.১-এ।
+
+---
+
 ## ৩. ❌ RTMP নেই — তাহলে তিনটাই বাকি
 
 ### ৩.১ 🥇 ফোন/Pi restreamer (CGNAT-এও চলে, খরচ ~৳০)
@@ -259,19 +303,25 @@ DVR ──RTSP (ঘরের ল্যান)──► পুরোনো ফো
 বিদ্যুৎ/ইন্টারনেট গেলে ছবি যাবে। ১০ W × ২৪/৭ ≈ **৳৬৫/মাস** বিদ্যুৎ।
 
 **সেটআপ (ফোন থেকে করা যায়):**
-1. পুরোনো Android ফোনে **Termux** (F-Droid থেকে) ইনস্টল
-2. VPS-এ SRT পোর্ট খুলুন — `docker-compose.stream-vps.yml`-এ `8890:8890/udp`
-   কমেন্ট খুলে দিন, আর DO Firewall-এ **UDP 8890**
-3. `mediamtx.yml`-এ আরেকটা পুশ-পাথ: `dvr-cam-01` (SRT-ও একই path-এ পাবলিশ হয়)
-4. ফোনে:
+1. পুরোনো Android ফোনে **Termux** (F-Droid থেকে) ইনস্টল — Play Store-এর ভার্সনটা পুরোনো
+2. VPS-এ SRT পোর্ট খুলুন — `docker-compose.stream-vps.yml`-এ `# - "8890:8890/udp"`
+   কমেন্ট খুলে দিন, আর DigitalOcean Firewall-এ **UDP 8890**
+3. `mediamtx.yml`-এ পথটা আগেই আছে: `dvr-cam-01` (`source: publisher`)।
+   SRT আর RTMP একই path-এ পাবলিশ হয়, তাই নতুন কিছু লিখতে হবে না।
+4. ফোনে (আপনার DVR-এর **LAN** IP আর পাসওয়ার্ড বসান):
 ```bash
 pkg install ffmpeg -y
+termux-wake-lock
 ffmpeg -rtsp_transport tcp \
-  -i "rtsp://admin:<DVR-পাসওয়ার্ড>@192.168.1.108:554/cam/realmonitor?channel=1&subtype=1" \
+  -i "rtsp://admin:<DVR-PASS>@192.168.10.125:554/cam/realmonitor?channel=1&subtype=1" \
   -c copy -f mpegts \
-  "srt://<VPS-IP>:8890?streamid=publish:dvr-cam-01&passphrase=<publishPass>"
+  "srt://<VPS-IP>:8890?streamid=publish:dvr-cam-01&passphrase=<MEDIAMTX_PUBLISH_PASS>"
 ```
-5. Termux-এ `termux-wake-lock` চালু রাখুন, ফোনে চার্জার লাগিয়ে রাখুন
+> `passphrase` = `.env`-এর `MEDIAMTX_PUBLISH_PASS`। কোট (`<…>`) বাদ দিয়ে শুধু শব্দটা বসান।
+> `subtype=1` সাবস্ট্রিম — ৫১২ kbps, ব্যান্ডউইথ বাঁচে। `subtype=0` পুরো রেজোলিউশন।
+5. ফোনে চার্জার লাগিয়ে রাখুন, WiFi কখনো বন্ধ করবেন না
+6. ২৪/৭ চালু রাখতে Termux-এ `sv`/`nohup` দিয়ে স্ক্রিপ্ট রাখুন, ব্যাটারি অপটিমাইজেশন থেকে
+   Termux-কে ছাড় দিন (Settings → Apps → Termux → Battery → Unrestricted)
 
 > এতে ট্রান্সকোডিং নেই (`-c copy`) — পুরোনো ফোনেও CPU লাগে না।
 > DVR-এর সাবস্ট্রিম **H.264** হতে হবে (H.265 হলে ব্রাউজারে চলবে না)।
