@@ -40,8 +40,17 @@
    today gets out of it without knowing what a service worker is.
    ========================================================================== */
 
-/** Bump on any deploy that changes the shell (HTML structure, routes, assets). */
-const SHELL = "ba-v4";
+/**
+ * The cache prefix, unique per deployment.
+ *
+ * It used to be a hand-written constant ("ba-v4") with an instruction to bump
+ * it on every deploy — which is exactly the kind of step that gets skipped,
+ * and one skipped bump is enough to keep serving the previous build. It is now
+ * substituted at request time by app/sw.js/route.ts from the deployment's build
+ * id, so it changes by itself. `activate` deletes every cache that does not
+ * start with this prefix, which is how old builds are actually evicted.
+ */
+const SHELL = "ba-__BUILD_ID__";
 
 const STATIC_CACHE = `${SHELL}-static`;
 const IMAGE_CACHE = `${SHELL}-images`;
@@ -124,18 +133,15 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       (async () => {
         try {
-          const fresh = await fetch(request);
-          /* Only a 200, non-redirected document is worth keeping. A cached
-             redirect (to /login, say) would otherwise trap the visitor there
-             even after signing in. */
-          if (fresh.ok && fresh.type === "basic" && fresh.redirected === false) {
-            const cache = await caches.open(STATIC_CACHE);
-            cache.put(request, fresh.clone());
-          }
-          return fresh;
+          /* No cache write, even though the document is fetched: an HTML
+             document is the ONE thing that pins a build — it names the chunk
+             hashes. Caching it buys nothing (the network is tried first anyway)
+             and costs a stale-document/stale-chunk mismatch whenever the write
+             survives a deploy. Offline navigation still works, from the static
+             offline page below, which never references a hashed chunk. */
+          return await fetch(request);
         } catch {
-          const cached = await caches.match(request);
-          return cached || (await caches.match(OFFLINE_URL)) || Response.error();
+          return (await caches.match(OFFLINE_URL)) || Response.error();
         }
       })()
     );
@@ -149,40 +155,31 @@ self.addEventListener("fetch", (event) => {
      refreshed; if it does not, the browser's own HTTP cache is the fallback,
      not this cache. */
   if (url.pathname.startsWith("/_next/static/")) {
-    event.respondWith(
-      (async () => {
-        try {
-          const fresh = await fetch(request);
-          if (fresh.ok) {
-            const cache = await caches.open(STATIC_CACHE);
-            cache.put(request, fresh.clone());
-          }
-          return fresh;
-        } catch (error) {
-          const cached = await caches.match(request);
-          if (cached) return cached;
-          throw error;
-        }
-      })()
-    );
+    /* GET OUT OF THE WAY ENTIRELY.
+       These URLs are content-hashed and immutable — the HTTP cache in front of
+       them already stores them for a year (`next.config.ts` sends
+       `max-age=31536000, immutable`), so this worker was adding a second cache
+       over a cache that was already correct. Every stale-chunk incident this
+       file has had came from that second cache outliving a deploy, and the
+       first version even answered a miss with `undefined`.
+
+       Not calling respondWith at all is the strongest version of the fix: the
+       request is the browser's, the immutable header applies, and there is no
+       worker-held copy that can disagree with the current HTML. */
     return;
   }
 
-  // ---- fonts / css outside /_next/static: same rule ----
+  // ---- fonts / css outside /_next/static -------------------------------
+  /* Serve from the cache when present, then the network — and never WRITE.
+     A cached stylesheet is cosmetic; a cached stylesheet that outlives its
+     build is not, because it is the same class of leftover that put a stale
+     chunk next to fresh HTML. Reading is enough offline; writing is the risk. */
   if (/\.(css|woff2?)$/.test(url.pathname)) {
     event.respondWith(
       (async () => {
         const cached = await caches.match(request);
-        try {
-          const fresh = await fetch(request);
-          if (fresh.ok) {
-            const cache = await caches.open(STATIC_CACHE);
-            cache.put(request, fresh.clone());
-          }
-          return fresh;
-        } catch {
-          return cached || Response.error();
-        }
+        if (cached) return cached;
+        return await fetch(request);
       })()
     );
     return;

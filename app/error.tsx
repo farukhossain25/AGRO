@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { isChunkLoadError, recoverFromStaleChunks } from "@/lib/chunk-recovery";
+import { clearBuildCacheAndReload, isChunkLoadError, recoverFromStaleChunks } from "@/lib/chunk-recovery";
 
 /* Root error boundary (500). Shows a safe Bangla sentence; the real reason is
    logged for the owner and never rendered to a customer.
@@ -23,8 +23,16 @@ export default function RootError({ error, reset }: { error: Error & { digest?: 
     if (attempted.current) return;
     attempted.current = true;
     if (!isChunkLoadError(error)) return;
-    setRecovering(true);
-    void recoverFromStaleChunks();
+
+    /* Only claim to be refreshing when a reload is really happening — see the
+       long note in lib/chunk-recovery.ts. When the once-per-build attempt is
+       already spent this returns false, and the visitor gets the normal screen
+       with its working buttons instead of a spinner that never ends. */
+    void recoverFromStaleChunks().then((started) => {
+      if (started) setRecovering(true);
+    });
+    const guard = window.setTimeout(() => setRecovering(false), 4000);
+    return () => window.clearTimeout(guard);
   }, [error]);
 
   if (recovering) {
@@ -56,6 +64,15 @@ export default function RootError({ error, reset }: { error: Error & { digest?: 
           হোমে ফিরুন
         </Link>
       </div>
+      {/* One automatic cleanup per build; this is the visitor's own, always
+          available, in case that attempt was already spent in this tab. */}
+      <button
+        type="button"
+        onClick={() => void clearBuildCacheAndReload()}
+        className="mt-3 text-[12px] font-semibold text-leaf-300 underline-offset-4 hover:underline"
+      >
+        তবু না হলে — পুরনো ক্যাশ মুছে আবার লোড করুন
+      </button>
       {error.digest ? (
         <p className="mt-6 font-mono text-[10.5px] text-sand-100/25">রেফারেন্স: {error.digest}</p>
       ) : null}

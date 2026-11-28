@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { isChunkLoadError, recoverFromStaleChunks } from "@/lib/chunk-recovery";
+import { clearBuildCacheAndReload, isChunkLoadError, recoverFromStaleChunks } from "@/lib/chunk-recovery";
 
 /**
  * Storefront error boundary.
@@ -24,8 +24,23 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
     if (attempted.current) return;
     attempted.current = true;
     if (!isChunkLoadError(error)) return;
-    setRecovering(true);
-    void recoverFromStaleChunks();
+
+    /* Show the "refreshing" state only once a reload is genuinely under way.
+       The previous version set it unconditionally and then called a recovery
+       that returns early — by design — when this build had already used its
+       one automatic attempt. The result was a screen promising a refresh that
+       would never arrive, with no button to press: the reported "কিছুই কাজ
+       করছে না" on every page. */
+    void recoverFromStaleChunks().then((started) => {
+      if (started) setRecovering(true);
+    });
+
+    /* Belt and braces: the reload should happen within a second, but a blocked
+       `location.replace` (a WebView, a locked-down browser) must not leave a
+       spinner on screen forever. Four seconds later the normal error screen
+       with its buttons is shown even if `recovering` was set. */
+    const guard = window.setTimeout(() => setRecovering(false), 4000);
+    return () => window.clearTimeout(guard);
   }, [error]);
 
   if (recovering) {
@@ -51,6 +66,17 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
         <button onClick={reset} className="btn-primary">আবার চেষ্টা করুন</button>
         <Link href="/" className="btn-ghost">হোমে ফিরুন</Link>
       </div>
+      {/* The automatic stale-build cleanup gets ONE try per build. If it was
+          already spent (an earlier page in this tab), the visitor used to have
+          no way to force it — so the fix for a stale worker was unreachable
+          from the screen that exists to recover from it. */}
+      <button
+        type="button"
+        onClick={() => void clearBuildCacheAndReload()}
+        className="mt-3 text-[12px] font-semibold text-leaf-300 underline-offset-4 hover:underline"
+      >
+        তবু না হলে — পুরনো ক্যাশ মুছে আবার লোড করুন
+      </button>
       {error.digest ? (
         <p className="mt-6 font-mono text-[10.5px] text-sand-100/25">রেফারেন্স: {error.digest}</p>
       ) : null}
