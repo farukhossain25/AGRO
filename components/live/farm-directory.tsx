@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { LayoutGrid, Map as MapIcon, Mountain, Video } from "lucide-react";
 import type { Farm } from "@/lib/types";
+import { liveBadgeParts } from "@/lib/live-counts";
 
 /* Leaflet and MapLibre both need `window`, so they are client-only chunks. */
 const FarmMap = dynamic(() => import("@/components/maps/farm-map"), {
@@ -56,7 +57,14 @@ export function FarmDirectory({ farms }: { farms: Farm[] }) {
           ))}
         </div>
         <p className="hidden text-[11.5px] text-sand-100/40 sm:block">
-          {farms.reduce((n, f) => n + (f.online_cameras ?? 0), 0)}টি ক্যামেরা অনলাইন
+          {(() => {
+            const cams = farms.reduce((n, f) => n + (f.online_cameras ?? 0), 0);
+            const tv = farms.reduce((n, f) => n + (f.tv_online ?? 0), 0);
+            const parts: string[] = [];
+            if (cams) parts.push(`${bn(cams)}টি ক্যামেরা অনলাইন`);
+            if (tv) parts.push(`${bn(tv)}টি টিভি চ্যানেল চলছে`);
+            return parts.length ? parts.join(" · ") : "এখন কোনো ভিডিও অনলাইন নেই";
+          })()}
         </p>
       </div>
 
@@ -78,7 +86,11 @@ export function FarmDirectory({ farms }: { farms: Farm[] }) {
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-scrim/95 via-scrim/25 to-transparent" />
                   <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-black/65 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur">
-                    <Video className="h-2.5 w-2.5" /> {bn(farm.online_cameras ?? 0)} লাইভ
+                    <Video className="h-2.5 w-2.5" />
+                    {(() => {
+                      const parts = liveBadgeParts(farm, bn);
+                      return parts.length ? parts.join(" · ") : "অফলাইন";
+                    })()}
                   </span>
                   <div className="absolute inset-x-3 bottom-3">
                     <div className="flex items-center gap-2">
@@ -162,7 +174,14 @@ export function FarmDirectory({ farms }: { farms: Farm[] }) {
               >
                 <p className="text-[13px] font-semibold text-neu-ink">{farm.name_bn}</p>
                 <p className="mt-0.5 text-[11px] text-sand-100/50">
-                  {farm.district} · {bn(farm.online_cameras ?? 0)} লাইভ ক্যামেরা
+                  {farm.district} · {(() => {
+                    const cams = farm.online_cameras ?? 0;
+                    const tv = farm.tv_online ?? 0;
+                    const parts: string[] = [];
+                    if (cams) parts.push(`${bn(cams)} লাইভ ক্যামেরা`);
+                    if (tv) parts.push(`${bn(tv)} টিভি চ্যানেল`);
+                    return parts.length ? parts.join(", ") : "এখন লাইভ নেই";
+                  })()}
                 </p>
                 <Link
                   href={`/live/farms/${farm.slug}`}

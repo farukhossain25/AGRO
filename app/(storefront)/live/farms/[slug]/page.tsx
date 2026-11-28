@@ -132,8 +132,18 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ slu
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 <span className="eyebrow">{farmTypeLabelBn[farm.type]}</span>
                 <span className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2.5 py-1 text-[11px] font-semibold text-[#ffb4a8]">
-                  <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
-                  {toBn(farm.online_cameras ?? 0)} লাইভ ক্যামেরা
+                  <span className={`h-1.5 w-1.5 rounded-full ${(farm.online_cameras ?? 0) + (farm.tv_online ?? 0) > 0 ? "bg-red-500" : "bg-white/40"}`} />
+                  {/* Cameras and channels are different things and the header
+                      said "ক্যামেরা" for both — a farm whose only video is a
+                      channel read "০ লাইভ ক্যামেরা" next to a playing stream. */}
+                  {(() => {
+                    const cams = farm.online_cameras ?? 0;
+                    const tv = farm.tv_online ?? 0;
+                    const parts: string[] = [];
+                    if (cams) parts.push(`${toBn(cams)} লাইভ ক্যামেরা`);
+                    if (tv) parts.push(`${toBn(tv)} টিভি চ্যানেল`);
+                    return parts.length ? parts.join(" · ") : "এখন লাইভ নেই";
+                  })()}
                 </span>
                 {farm.established_year && (
                   <span className="rounded-full bg-white/8 px-2.5 py-1 text-[11px] text-white/80">

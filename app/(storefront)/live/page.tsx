@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, MapPin, Radio, ShieldCheck, Sprout, Video } from "lucide-react";
-import { listFarms, farmTypeLabelBn, farmTypeIcon } from "@/lib/farms";
+import { listFarms, farmTypeLabelBn, farmTypeIcon, isAnythingLive } from "@/lib/farms";
 import { listPlans } from "@/lib/premium";
 import { SectionHeader } from "@/components/ui";
 import { site } from "@/lib/site";
@@ -30,6 +30,9 @@ export default async function LiveHubPage() {
   /* Channels are counted apart from cameras — see `setCameraCounts` in
      lib/farms.ts for why adding them together was a lie in the stats bar. */
   const channels = farms.reduce((n, f) => n + ((f.tv_count as number | undefined) ?? 0), 0);
+  /* Sorting has to see channels as live too (a farm whose only video is a free
+     channel is worth a visit), and `isAnythingLive` is the one definition. */
+  const liveNow = farms.filter(isAnythingLive).length;
   const featured = plans.find((p) => p.is_popular) ?? plans[0];
 
   const byType = farms.reduce<Record<string, number>>((acc, f) => {
@@ -57,6 +60,19 @@ export default async function LiveHubPage() {
             প্রতিটি খামারে বসানো ক্যামেরা দিয়ে আপনি সরাসরি দেখতে পারবেন সবজি তোলা, গাভীর দোহন, ডিম বাছাই ও
             প্যাকিং। কোনো সম্পাদনা নেই — যা হচ্ছে, তাই দেখছেন।
           </p>
+          {/* Says what is playing right now, including free TV channels — a
+              visitor deciding whether to bother should not have to open a farm
+              to find out that its only video is a channel, which the old
+              camera-only count reported as "nothing live". */}
+          {liveNow > 0 && (
+            <p className="mt-3 inline-flex items-center gap-2 rounded-full border border-red-500/25 bg-red-500/10 px-3 py-1 text-[12px] font-semibold text-[#ffb4a8]">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-red-500" />
+              </span>
+              এখনই লাইভ: {toBn(liveNow)}টি খামার
+            </p>
+          )}
 
           <div className="mt-7 flex flex-wrap items-center gap-3">
             <Link href="/live/trial" className="btn-primary">
@@ -160,8 +176,15 @@ export default async function LiveHubPage() {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-scrim via-scrim/35 to-transparent" />
                 <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-black/65 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur">
-                  <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
-                  {toBn(farm.online_cameras ?? 0)} লাইভ
+                  <span className={`h-1.5 w-1.5 rounded-full ${isAnythingLive(farm) ? "bg-red-500" : "bg-white/35"}`} />
+                  {(() => {
+                    const cams = farm.online_cameras ?? 0;
+                    const tv = (farm as { tv_online?: number }).tv_online ?? 0;
+                    const parts: string[] = [];
+                    if (cams) parts.push(`${toBn(cams)} লাইভ`);
+                    if (tv) parts.push(`${toBn(tv)} টিভি`);
+                    return parts.length ? parts.join(" · ") : "অফলাইন";
+                  })()}
                 </span>
                 <span className="absolute right-3 top-3 rounded-full bg-white/12 px-2 py-0.5 text-[10px] font-medium text-white/85 backdrop-blur">
                   {farmTypeIcon[farm.type]} {farmTypeLabelBn[farm.type]}
@@ -183,7 +206,14 @@ export default async function LiveHubPage() {
                     {farm.certifications?.[0] ?? "যাচাইকৃত খামার"}
                   </span>
                   <span className="text-[11.5px] font-semibold text-mint">
-                    {toBn(farm.camera_count ?? 0)} ক্যামেরা
+                    {(() => {
+                      const cams = farm.camera_count ?? 0;
+                      const tv = (farm as { tv_count?: number }).tv_count ?? 0;
+                      const parts: string[] = [];
+                      if (cams) parts.push(`${toBn(cams)} ক্যামেরা`);
+                      if (tv) parts.push(`${toBn(tv)} টিভি`);
+                      return parts.length ? parts.join(" · ") : "ভিডিও নেই";
+                    })()}
                   </span>
                 </div>
               </div>

@@ -69,11 +69,27 @@ export async function POST(req: Request) {
     const { cameraId } = schema.parse(await req.json());
 
     const client = db();
-    const { data: camera, error } = await client
+    /* `cloud_provider` rides along for one reason: to answer a mis-routed call
+       with the truth. This route plays a MediaMTX stream_key and nothing else,
+       so a vendor camera or a TV channel reaching it used to fall through to
+       "স্ট্রিম কনফিগার করা হয়নি" — a message that blames the admin for a row
+       that is configured perfectly, just not here. The product page had this
+       exact bug (see components/live/product-live-block.tsx). Asking for the
+       column is safe on a pre-migration-24 database only because the whole
+       select is retried without it below. */
+    let { data: camera, error } = await client
       .from("cameras")
-      .select("id, farm_id, name_bn, protocol, stream_key, status, is_active, is_premium, max_viewers")
+      .select("id, farm_id, name_bn, protocol, stream_key, status, is_active, is_premium, max_viewers, cloud_provider")
       .eq("id", cameraId)
       .maybeSingle();
+
+    if (error && (error.code === "42703" || /cloud_provider/.test(String(error.message ?? "")))) {
+      ({ data: camera, error } = await client
+        .from("cameras")
+        .select("id, farm_id, name_bn, protocol, stream_key, status, is_active, is_premium, max_viewers")
+        .eq("id", cameraId)
+        .maybeSingle());
+    }
 
     if (error) throw error;
     if (!camera) return fail("ক্যামেরা পাওয়া যায়নি", 404);
@@ -94,6 +110,20 @@ export async function POST(req: Request) {
        reserve first. This is the "validate before reserving" half.
     */
     if (!camera.stream_key || !camera.stream_key.trim()) {
+      /* Point the caller at the route that CAN play this row, instead of
+         claiming the row has no stream. The player that hit this is told which
+         one to use, and the owner reading the same message learns that the
+         source needs no stream key at all. */
+      const provider = (camera as { cloud_provider?: string | null }).cloud_provider ?? "none";
+      if (provider === "tv") {
+        return fail("এটি একটি লাইভ টিভি চ্যানেল — ক্লাউড প্লেয়ার দিয়ে চলবে, স্ট্রিম কী লাগবে না", 409);
+      }
+      if (provider !== "none") {
+        return fail(
+          `এই ক্যামেরার সোর্স ${provider.toUpperCase()} — ক্লাউড প্লেয়ার দিয়ে চলবে, স্ট্রিম কী লাগবে না`,
+          409
+        );
+      }
       return fail("এই ক্যামেরার স্ট্রিম কনফিগার করা হয়নি", 503);
     }
 

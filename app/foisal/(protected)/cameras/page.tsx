@@ -1,16 +1,9 @@
 import { db, isDbConfigured } from "@/lib/db";
 import { SimpleManager } from "@/components/admin/simple-manager";
 import { ChannelLinkTester } from "@/components/admin/channel-link-tester";
+import { PROVIDER_LABEL_BN, audienceLabelBn } from "@/lib/camera-source";
 
 /** Same words as the form's select, so a row never disagrees with its editor. */
-const PROVIDER_LABEL_BN: Record<string, string> = {
-  tv: "লাইভ টিভি চ্যানেল",
-  hls: "ক্লাউড HLS (ক্যামেরা)",
-  imou: "Imou Life",
-  ezviz: "EZVIZ",
-  none: "MediaMTX / RTSP",
-};
-
 export const dynamic = "force-dynamic";
 
 export default async function AdminCamerasPage() {
@@ -40,6 +33,10 @@ export default async function AdminCamerasPage() {
              words as the form's select, so a row never disagrees with its
              editor. `SimpleManager` renders what it is given. */
           cloud_provider_label: PROVIDER_LABEL_BN[String(c.cloud_provider ?? "none")] ?? String(c.cloud_provider),
+          audience_label: audienceLabelBn(
+            c.cloud_provider as string | null | undefined,
+            c.is_premium as boolean | null | undefined
+          ),
         }));
         online = rows.filter((r) => r.status === "online").length;
       }
@@ -110,12 +107,14 @@ export default async function AdminCamerasPage() {
           { key: "status", label: "স্টেটাস" },
           { key: "max_viewers", label: "দর্শক", format: "number" },
           { key: "is_active", label: "সক্রিয়", format: "badge", trueLabel: "হ্যাঁ", falseLabel: "না" },
+          /* The stored flag and the truth disagree for a channel: `tv` is free
+             whatever `is_premium` says (lib/watch-rights.ts enforces it). A
+             row reading "প্রিমিয়াম" next to a channel everyone can watch is
+             how an owner comes to believe the free section is broken, so the
+             label is derived from the provider first. */
           {
-            key: "is_premium",
+            key: "audience_label",
             label: "কে দেখবে",
-            format: "badge",
-            trueLabel: "প্রিমিয়াম",
-            falseLabel: "সবার জন্য খোলা",
           },
         ]}
         fields={[
@@ -201,7 +200,7 @@ export default async function AdminCamerasPage() {
             name: "is_premium",
             label: "প্রিমিয়াম (টিক তুললে সবার জন্য খোলা)",
             type: "checkbox",
-            hint: "টিক থাকলে দেখতে সাবস্ক্রিপশন বা ট্রায়াল লাগবে। টিক তুলে দিলে যে কেউ, এমনকি লগইন ছাড়াও লাইভ দেখতে পারবে — পাবলিক খামার সেকশনের জন্য এটাই।",
+            hint: "টিক থাকলে দেখতে সাবস্ক্রিপশন বা ট্রায়াল লাগবে। টিক তুলে দিলে যে কেউ, এমনকি লগইন ছাড়াও লাইভ দেখতে পারবে — পাবলিক খামার সেকশনের জন্য এটাই। লাইভ টিভি চ্যানেলের ক্ষেত্রে এই টিক কোনো ভূমিকা রাখে না — চ্যানেল সবসময় সবার জন্য ফ্রি।",
           },
         ]}
       />

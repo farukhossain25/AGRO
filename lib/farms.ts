@@ -1,5 +1,10 @@
 import { db, dbUsable, isDbConfigured, markDbUnreachable } from "./db";
 import type { Camera, Farm, FarmType } from "./types";
+/* The definition of "live" lives in a dependency-free module so client
+   components can use the same one; re-exported here because everything on the
+   server already imports lib/farms. */
+import { isAnythingLive, liveVideoCount } from "./live-counts";
+export { isAnythingLive, liveVideoCount };
 
 /* ==========================================================================
    Farms + cameras — the only data entry point for farm pages
@@ -141,9 +146,15 @@ function stripFarm(row: Record<string, unknown>): Farm {
  */
 function liveFirst(farms: Farm[]): Farm[] {
   return [...farms].sort((a, b) => {
-    const aLive = (a.online_cameras ?? 0) > 0 ? 0 : 1;
-    const bLive = (b.online_cameras ?? 0) > 0 ? 0 : 1;
+    /* A farm playing one free TV channel is live for the visitor even with no
+       camera installed, so it belongs above a silent farm. `isAnythingLive`
+       owns that definition — see its comment for the drift this replaced. */
+    const aLive = isAnythingLive(a) ? 0 : 1;
+    const bLive = isAnythingLive(b) ? 0 : 1;
     if (aLive !== bLive) return aLive - bLive;
+    /* Within each group, more live video first: "৩/৫ ক্যামেরা" before "১/৫". */
+    const byLive = liveVideoCount(b) - liveVideoCount(a);
+    if (byLive !== 0) return byLive;
     return (a.sort_order ?? 0) - (b.sort_order ?? 0);
   });
 }
@@ -238,8 +249,9 @@ export async function lookupFarmBySlug(slug: string): Promise<FarmLookup> {
 
     const farm = applySellerBrand(stripFarm(data as unknown as Record<string, unknown>) as FarmWithSeller);
     farm.cameras = (farm.cameras ?? []).sort((a, b) => a.sort_order - b.sort_order);
-    farm.camera_count = farm.cameras.length;
-    farm.online_cameras = farm.cameras.filter((c) => c.status === "online").length;
+    /* NOT farm.cameras.length: that counts TV channels as cameras and disagrees
+       with every other surface that goes through setCameraCounts. */
+    setCameraCounts(farm);
     return { state: "ok", value: farm };
   } catch (error) {
     markDbUnreachable(error);
@@ -305,7 +317,7 @@ export async function getDairyFarms(): Promise<Farm[]> {
  * `tv_count` / `tv_online` alongside it rather than inflating the camera
  * numbers — the live hub can then honestly say "২টি ক্যামেরা, ৩টি টিভি চ্যানেল".
  */
-function setCameraCounts(farm: Farm) {
+export function setCameraCounts(farm: Farm) {
   const all = (farm.cameras ?? []) as (Camera & { cloud_provider?: string | null })[];
   const cams = all.filter((c) => c.cloud_provider !== "tv");
   const tv = all.filter((c) => c.cloud_provider === "tv");

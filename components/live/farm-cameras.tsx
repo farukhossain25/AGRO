@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Video, Wifi, WifiOff, Wrench } from "lucide-react";
 import type { Camera } from "@/lib/types";
+import { cameraSourceOf, type CameraSource } from "@/lib/camera-source";
 import type { StreamMode } from "@/lib/stream-mode";
 import { LiveStreamLazy } from "./live-stream-lazy";
 import { CloudPlayer } from "./cloud-player";
@@ -20,16 +21,35 @@ export function FarmCameras({
   farmName: string;
   cover?: string | null;
 }) {
-  const [selected, setSelected] = useState<string | null>(cameras[0]?.id ?? null);
+  /* Open on something that is actually playing, and prefer a free channel when
+     there is one: it needs no login, so it is the one piece of live video every
+     visitor can watch. `cameras[0]` alone meant a farm that added a channel
+     after its cameras opened on an offline camera (or a locked one) and the
+     channel was never seen. Order inside each group stays the admin's
+     sort_order, which the caller already applied. */
+  const playing = useMemo(() => {
+    const online = cameras.filter((c) => c.status === "online");
+    const pool = online.length ? online : cameras;
+    const free = pool.find((c) => c.cloud_provider === "tv" || c.is_premium === false);
+    return [free, ...pool.filter((c) => c !== free)].filter(Boolean) as Camera[];
+  }, [cameras]);
+
+  const [selected, setSelected] = useState<string | null>(playing[0]?.id ?? null);
   const [mode, setMode] = useState<StreamMode>("locked");
 
-  const active = useMemo(() => cameras.find((c) => c.id === selected) ?? cameras[0], [cameras, selected]);
+  const active = useMemo(() => playing.find((c) => c.id === selected) ?? playing[0], [playing, selected]);
 
   /* A TV channel is hung on the same farm row as the cameras, so this list can
      hold both. It is the same player and the same signed-token path — only the
      words change, because calling a channel "ক্যামেরা" would be wrong in the
      one place a visitor checks what they are looking at. */
-  const isTv = active?.cloud_provider === "tv";
+  /* `stream_url` is a server-only secret and is never in the public camera
+     columns, so that half of the rule cannot be applied here — only
+     `cloud_provider` can. The admin table and the product page, which run on
+     the server, do get the full answer (lib/camera-source.ts). */
+  const activeSource = (cam: Camera | undefined): CameraSource => cameraSourceOf(cam?.cloud_provider ?? null);
+
+  const isTv = activeSource(active) === "tv";
 
   if (!cameras.length) {
     return (
@@ -46,7 +66,7 @@ export function FarmCameras({
       <div>
         {/* A cloud-bridge camera (seller's own app keeps it online) uses the
             plain player; everything else keeps the VPS/token path. */}
-        {active!.cloud_provider && active!.cloud_provider !== "none" ? (
+        {activeSource(active) !== "rtsp" ? (
           <CloudPlayer
             key={active!.id}
             cameraId={active!.id}
