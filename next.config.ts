@@ -51,9 +51,29 @@ function supabaseImageHost(): { protocol: "https"; hostname: string } | null {
   }
 }
 
+/* The deployment's identity, exposed to the client so the service worker can
+   tell a new build from the one it has cached. Vercel provides the commit SHA
+   on every deploy; a local/self-hosted build falls back to the build clock.
+
+   WHY IT MUST BE STABLE PER BUILD AND DIFFERENT BETWEEN BUILDS
+   `components/pwa-register.tsx` compares this with what the browser saw last
+   time and, on a change, unregisters every worker and deletes every cache
+   before reloading. If the value did not change, a visitor would keep the
+   previous build's chunks and the error boundary would stay stuck; if it
+   changed on every REQUEST the page would reload in a loop. A build-time
+   constant is exactly right. */
+const BUILD_ID =
+  process.env.VERCEL_DEPLOYMENT_ID ??
+  process.env.VERCEL_GIT_COMMIT_SHA ??
+  process.env.NEXT_PUBLIC_BUILD_ID ??
+  `local-${Date.now().toString(36)}`;
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+
+  /* Inlined into the client bundle at build time (see BUILD_ID above). */
+  env: { NEXT_PUBLIC_BUILD_ID: BUILD_ID },
 
   images: {
     // AVIF first: ~50% smaller than JPEG at the same quality. WebP is the
