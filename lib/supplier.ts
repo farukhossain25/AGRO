@@ -1,4 +1,5 @@
 import { db, isDbConfigured } from "./db";
+import { cameraSourceOf, type CameraSource } from "./camera-source";
 import { getSupplierQuality } from "./reviews";
 import type { SupplierQuality } from "./types";
 
@@ -141,41 +142,97 @@ export async function getSupplierProductIds(supplier: SupplierInfo): Promise<str
   }
 }
 
-/** Cameras on the supplier's farm — the switcher options for the live block. */
-export async function getSupplierCameras(farmId: string | null): Promise<
-  {
-    id: string;
-    nameBn: string;
-    zoneBn: string | null;
-    status: string;
-    poster: string | null;
-    lastHeartbeat: string | null;
-    /** cameras.is_premium = false → open to everyone, no login needed */
-    isPublic: boolean;
-  }[]
-> {
+/**
+ * What kind of source a camera row actually is — the ONE decision that has to
+ * be right on the product page.
+ *
+ * The product page used to ignore `cloud_provider` completely and always mount
+ * the RTSP player. So a camera configured through Imou/EZVIZ, or a TV channel
+ * added with an m3u8 link, was handed to `/api/stream/token`, which plays a
+ * MediaMTX `stream_key` and nothing else. That route found no key and answered
+ * "এই ক্যামেরার স্ট্রিম কনফিগার করা হয়নি" at 503 — the exact card in the bug
+ * report — while the farm page, which does check the provider, played the same
+ * row fine.
+ *
+ * `none` (and a missing column, on a pre-migration-24 database) keeps the old
+ * path; everything else goes through the cloud bridge, which resolves the
+ * vendor or the pasted playlist.
+ */
+/* Decided in lib/camera-source.ts so the admin table, the farm page and this
+   module cannot disagree about what a row is. Re-exported under the old name
+   because the product page's prop type already speaks it. */
+export type SupplierCameraSource = CameraSource;
+
+export type SupplierCamera = {
+  id: string;
+  nameBn: string;
+  zoneBn: string | null;
+  status: string;
+  poster: string | null;
+  lastHeartbeat: string | null;
+  /** cameras.is_premium = false → open to everyone, no login needed */
+  isPublic: boolean;
+  /** which player this row needs */
+  source: SupplierCameraSource;
+};
+
+/** Cameras AND TV channels on the supplier's farm — the live block's options. */
+export async function getSupplierCameras(farmId: string | null): Promise<SupplierCamera[]> {
   if (!farmId || !isDbConfigured()) return [];
+
+  /* `cloud_provider` arrived in migration 24. Asking for it before the
+     migration is applied fails the WHOLE select, and a product page that
+     silently loses its live block is worse than one that shows the old player.
+     So it is requested first and dropped on 42703, exactly like lib/farms.ts. */
+  const base = "id, name_bn, zone_bn, status, poster, last_heartbeat, is_premium, sort_order, stream_url";
+  const run = (select: string) =>
+    db().from("cameras").select(select).eq("farm_id", farmId).eq("is_active", true).order("sort_order", { ascending: true });
+
   try {
-    const { data, error } = await db()
-      .from("cameras")
-      .select("id, name_bn, zone_bn, status, poster, last_heartbeat, is_premium")
-      .eq("farm_id", farmId)
-      .eq("is_active", true)
-      .order("sort_order", { ascending: true });
+    let result = await run(`${base}, cloud_provider`);
+    if (result.error) {
+      const message = String(result.error.message ?? "");
+      if (!/cloud_provider/.test(message) && result.error.code !== "42703") return [];
+      result = await run(base);
+      if (result.error) return [];
+    }
 
-    if (error) return [];
+    /* The dynamic select string defeats Supabase's generated row types (it
+       falls back to GenericStringError), so the shape is narrowed here once
+       instead of being asserted at each field. */
+    const rows = (result.data ?? []) as unknown as {
+      id: string;
+      name_bn: string | null;
+      zone_bn: string | null;
+      status: string | null;
+      poster: string | null;
+      last_heartbeat: string | null;
+      is_premium: boolean | null;
+      stream_url: string | null;
+      cloud_provider?: string | null;
+    }[];
+    if (!rows.length) return [];
 
-    if (!data?.length) return [];
-
-    return (data ?? []).map((c) => ({
-      id: c.id as string,
-      nameBn: c.name_bn as string,
-      zoneBn: (c.zone_bn as string | null) ?? null,
-      status: (c.status as string) ?? "offline",
-      poster: (c.poster as string | null) ?? null,
-      lastHeartbeat: (c.last_heartbeat as string | null) ?? null,
-      isPublic: c.is_premium === false,
-    }));
+    return rows.map((c) => {
+      const provider = c.cloud_provider ?? null;
+      /* stream_url rides along so a row saved with the dropdown left at "none"
+         but an https playlist pasted is still recognised as a cloud source —
+         see lib/camera-source.ts for why that mistake was guaranteed. */
+      const source = cameraSourceOf(provider, c.stream_url);
+      return {
+        id: c.id as string,
+        nameBn: c.name_bn ?? "",
+        zoneBn: c.zone_bn ?? null,
+        status: c.status ?? "offline",
+        poster: c.poster ?? null,
+        lastHeartbeat: c.last_heartbeat ?? null,
+        /* A `tv` row is free even if is_premium was left ticked — the same rule
+           the token route applies (lib/watch-rights.ts), mirrored here so the
+           lock never appears over a channel everyone may watch. */
+        isPublic: c.is_premium === false || source === "tv",
+        source,
+      };
+    });
   } catch {
     return [];
   }

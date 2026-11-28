@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Radio, Video } from "lucide-react";
 import { listFarms } from "@/lib/farms";
+import { liveBadgeParts } from "@/lib/live-counts";
 
 /* ==========================================================================
    LiveFarmsStrip — homepage teaser for the premium CCTV feature
@@ -19,7 +20,8 @@ export async function LiveFarmsStrip() {
   const farms = await listFarms({ limit: 4 });
   if (!farms.length) return null;
 
-  const online = farms.reduce((n, f) => n + (f.online_cameras ?? 0), 0);
+  const onlineCams = farms.reduce((n, f) => n + (f.online_cameras ?? 0), 0);
+  const onlineTv = farms.reduce((n, f) => n + (f.tv_online ?? 0), 0);
 
   return (
     <section className="border-y border-white/[0.06] bg-gradient-to-b from-ink-850/60 to-ink-900">
@@ -33,7 +35,15 @@ export async function LiveFarmsStrip() {
               নিজের চোখে দেখুন — <span className="text-leaf-700">খামারে কী হচ্ছে</span>
             </h2>
             <p className="mt-2.5 max-w-xl text-[13.5px] leading-relaxed text-sand-100/60">
-              {bn(online)}টি ক্যামেরা এখন লাইভ। সবজি তোলা, গাভীর দোহন, ডিম বাছাই — সবকিছু সম্পাদনাহীন।
+              {/* Channels count here too: a farm playing one free channel is
+                  just as worth clicking as a farm with a camera. */}
+              {[
+                onlineCams ? `${bn(onlineCams)}টি ক্যামেরা` : "",
+                onlineTv ? `${bn(onlineTv)}টি টিভি চ্যানেল` : "",
+              ]
+                .filter(Boolean)
+                .join(" ও ") || "ভিডিও"}
+              এখন লাইভ। সবজি তোলা, গাভীর দোহন, ডিম বাছাই — সবকিছু সম্পাদনাহীন।
             </p>
           </div>
           <Link href="/live" className="btn-ghost btn-sm shrink-0 self-start sm:self-auto">
@@ -76,7 +86,8 @@ export async function LiveFarmsStrip() {
                 </div>
                 <p className={`${farm.logo ? "ml-9" : "mt-0.5"} flex items-center gap-1 text-[9.5px] text-white/65`}>
                   <Video className="h-2.5 w-2.5" />
-                  {bn(farm.online_cameras ?? 0)} ক্যামেরা · {TYPE_BN[farm.type]}
+                  {/* Was "০ ক্যামেরা" over a farm whose only video is a channel. */}
+                  {liveBadgeParts(farm, bn).join(" · ") || "অফলাইন"} · {TYPE_BN[farm.type]}
                 </p>
               </div>
             </Link>

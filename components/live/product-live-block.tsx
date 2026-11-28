@@ -5,8 +5,10 @@ import Link from "next/link";
 import { useState } from "react";
 import { Camera, Lock, Radio, VideoOff, WifiOff } from "lucide-react";
 import { LiveStream } from "@/components/live/live-stream";
+import { CloudPlayer } from "@/components/live/cloud-player";
 import { useLocale } from "@/lib/locale";
 import type { StreamMode } from "@/lib/stream-mode";
+import type { SupplierCameraSource } from "@/lib/supplier";
 import { formatDateTimeBn } from "@/lib/format";
 
 /* ==========================================================================
@@ -33,6 +35,16 @@ export type LiveCamera = {
   lastHeartbeat: string | null;
   /** admin opened this camera to everyone (cameras.is_premium = false) */
   isPublic?: boolean;
+  /**
+   * Which player this row needs. Missing means `rtsp`, the old behaviour, so a
+   * caller that has not been updated cannot break — it just keeps the old path.
+   *
+   * This is the field whose absence caused the reported bug: the product page
+   * mounted the RTSP player for every camera, including the Imou/EZVIZ ones and
+   * the m3u8 TV channels, and `/api/stream/token` answered "স্ট্রিম কনফিগার করা
+   * হয়নি" because those rows have a vendor/playlist, not a MediaMTX key.
+   */
+  source?: SupplierCameraSource;
 };
 
 export type ProductLiveBlockProps = {
@@ -59,7 +71,18 @@ export function ProductLiveBlock({
   const { t } = useLocale();
 
   const online = cameras.filter((c) => c.status === "online");
-  const [activeId, setActiveId] = useState<string | null>(online[0]?.id ?? cameras[0]?.id ?? null);
+
+  /* Open the block on something the visitor may actually watch.
+     It used to open on `online[0]` unconditionally, so a farm whose first row
+     is a premium camera showed the lock even when a free TV channel sat one
+     tap away — the channel was there, just never selected. A free channel or a
+     public camera matters more than list order when the viewer has no plan;
+     when they do have one, `online[0]` (usually the farm's main camera) is
+     still first. */
+  const firstOpen = online.find((c) => c.isPublic === true);
+  const [activeId, setActiveId] = useState<string | null>(
+    (!canWatch && firstOpen?.id) || online[0]?.id || cameras[0]?.id || null
+  );
   const active = cameras.find((c) => c.id === activeId) ?? cameras[0] ?? null;
 
   /* A public camera needs neither a session nor a plan — the token API checks
@@ -118,12 +141,50 @@ export function ProductLiveBlock({
 
   /* ---------------------------------------------------------- not entitled */
   if (!canWatch && !isOpen(active)) {
+    /* There is a free channel on this farm but the visitor landed on a paid
+       camera. Point at it rather than selling a plan over something they can
+       already watch. */
+    if (firstOpen) {
+      return (
+        <section aria-labelledby="live-heading" className="card overflow-hidden">
+          <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-3 sm:px-5">
+            <h2 id="live-heading" className="flex items-center gap-2 text-[14px] font-bold">
+              <Radio className="h-4 w-4 text-red-400" />
+              {firstOpen.source === "tv" ? t("লাইভ টিভি", "Live TV") : t("লাইভ ফুটেজ", "Live footage")}
+            </h2>
+            <span className="text-[10.5px] text-white/35">{farmName}</span>
+          </div>
+          <div className="p-3 sm:p-4">
+            {firstOpen.source === "tv" || firstOpen.source === "cloud" ? (
+              <CloudPlayer
+                cameraId={firstOpen.id}
+                cameraName={`${farmName ?? ""} · ${firstOpen.nameBn}`}
+                poster={firstOpen.poster}
+              />
+            ) : (
+              <LiveStream
+                cameraId={firstOpen.id}
+                cameraName={`${farmName ?? ""} · ${firstOpen.nameBn}`}
+                poster={firstOpen.poster}
+              />
+            )}
+            <p className="mt-2 text-[10.5px] text-white/40">
+              {t(
+                "এই ক্যামেরাটি সবার জন্য খোলা — লগইন ছাড়াই দেখতে পারছেন।",
+                "This camera is open to everyone — no sign-in needed."
+              )}
+            </p>
+          </div>
+        </section>
+      );
+    }
+
     return (
       <section aria-labelledby="live-heading" className="card overflow-hidden">
         <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-3 sm:px-5">
           <h2 id="live-heading" className="flex items-center gap-2 text-[14px] font-bold">
             <Radio className="h-4 w-4 text-red-400" />
-            {t("লাইভ ফুটেজ", "Live footage")}
+            {active?.source === "tv" ? t("লাইভ টিভি", "Live TV") : t("লাইভ ফুটেজ", "Live footage")}
           </h2>
           <span className="text-[10.5px] text-white/35">{farmName}</span>
         </div>
@@ -171,10 +232,15 @@ export function ProductLiveBlock({
           </div>
 
           <p className="mt-2 text-center text-[10.5px] text-white/35">
-            {t(
-              `${online.length}টি ক্যামেরা এই খামারে লাইভ আছে`,
-              `${online.length} camera(s) live on this farm`
-            )}
+            {/* Channels are not cameras — same rule as the farm pages. */}
+            {(() => {
+              const cams = online.filter((c) => c.source !== "tv").length;
+              const tv = online.filter((c) => c.source === "tv").length;
+              const parts: string[] = [];
+              if (cams) parts.push(t(`${cams}টি ক্যামেরা লাইভ`, `${cams} camera(s) live`));
+              if (tv) parts.push(t(`${tv}টি টিভি চ্যানেল চলছে`, `${tv} channel(s) playing`));
+              return parts.length ? parts.join(" · ") : t("এই মুহূর্তে কোনো ভিডিও লাইভ নেই", "Nothing is live right now");
+            })()}
           </p>
         </div>
       </section>
@@ -187,7 +253,7 @@ export function ProductLiveBlock({
       <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-3 sm:px-5">
         <h2 id="live-heading" className="flex items-center gap-2 text-[14px] font-bold">
           <Radio className="h-4 w-4 text-red-400" />
-          {t("লাইভ ফুটেজ", "Live footage")}
+          {active?.source === "tv" ? t("লাইভ টিভি", "Live TV") : t("লাইভ ফুটেজ", "Live footage")}
           <span className="rounded-full bg-red-500/15 px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-red-300">
             {reason === "trial"
               ? t("ট্রায়াল", "Trial")
@@ -202,12 +268,25 @@ export function ProductLiveBlock({
       <div className="p-3 sm:p-4">
         {active ? (
           active.status === "online" ? (
-            <LiveStream
-              key={active.id}
-              cameraId={active.id}
-              cameraName={`${farmName ?? ""} · ${active.nameBn}`}
-              poster={active.poster}
-            />
+            /* Pick the player the ROW needs, not the one the page was built
+               around. `rtsp` keeps the MediaMTX/token path; a vendor camera or
+               a TV channel goes through the cloud bridge, which is the only
+               thing that knows how to resolve its stream. */
+            active.source === "rtsp" || !active.source ? (
+              <LiveStream
+                key={active.id}
+                cameraId={active.id}
+                cameraName={`${farmName ?? ""} · ${active.nameBn}`}
+                poster={active.poster}
+              />
+            ) : (
+              <CloudPlayer
+                key={active.id}
+                cameraId={active.id}
+                cameraName={`${farmName ?? ""} · ${active.nameBn}`}
+                poster={active.poster}
+              />
+            )
           ) : (
             <StateCard
               embedded
@@ -258,7 +337,9 @@ export function ProductLiveBlock({
                     }`}
                   />
                   {cam.nameBn}
-                  {cam.zoneBn ? (
+                  {cam.source === "tv" ? (
+                    <span className="text-[9px] font-bold text-mint">· টিভি</span>
+                  ) : cam.zoneBn ? (
                     <span className="text-[9.5px] text-white/35">· {cam.zoneBn}</span>
                   ) : null}
                 </button>
@@ -270,11 +351,21 @@ export function ProductLiveBlock({
         <div className="mt-2 flex items-center justify-between">
           <p className="inline-flex items-center gap-1 text-[10.5px] text-white/35">
             <Camera className="h-3 w-3" />
-            {t("৫ মিনিটের নিরাপদ স্ট্রিম টোকেন", "5-minute signed stream token")}
+            {active?.source === "tv"
+              ? t("মোবাইল ও কম্পিউটার — সবার জন্য ফ্রি", "Free for everyone, phone and desktop")
+              : t("৫ মিনিটের নিরাপদ স্ট্রিম টোকেন", "5-minute signed stream token")}
           </p>
-          <Link href="/live/plans" className="text-[10.5px] text-leaf-300 hover:underline">
-            {t("প্ল্যান ম্যানেজ করুন", "Manage plan")}
-          </Link>
+          {/* Selling a plan under a free channel would be a lie, so the link
+              only appears for paid footage. */}
+          {active?.source === "tv" ? (
+            <Link href={farmSlug ? `/live/farms/${farmSlug}` : "/live"} className="text-[10.5px] text-leaf-300 hover:underline">
+              {t("খামার প্রোফাইল", "Farm profile")}
+            </Link>
+          ) : (
+            <Link href="/live/plans" className="text-[10.5px] text-leaf-300 hover:underline">
+              {t("প্ল্যান ম্যানেজ করুন", "Manage plan")}
+            </Link>
+          )}
         </div>
       </div>
     </section>
