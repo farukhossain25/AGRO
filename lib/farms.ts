@@ -33,6 +33,17 @@ const PUBLIC_CAMERA_COLUMNS = [
  */
 const PUBLIC_CAMERA_COLUMNS_V24 = `${PUBLIC_CAMERA_COLUMNS}, cloud_provider`;
 
+/**
+ * What the farm DIRECTORY needs: just enough to say "N of M live" without
+ * pulling posters and coordinates for every camera on every card.
+ *
+ * It carries `cloud_provider` because a TV channel is not a camera. Since a
+ * farm's hang-off point is where the live video lives, a TV channel can be
+ * hung on the same farm row — and counting it as a camera would tell the
+ * visitor "৩টি ক্যামেরা" on a farm that has none. The counts are split below.
+ */
+const DIRECTORY_CAMERA_COLUMNS = "id, status, sort_order, is_active, cloud_provider";
+
 /* The seller who owns a farm uploads a logo and a banner from /seller. A farm
    row only has `cover`, so the seller's banner is copied there on save — and
    read here as well, so a store branded before that sync existed still shows
@@ -158,8 +169,10 @@ export async function listFarms(filters: FarmFilters = {}): Promise<Farm[]> {
       return q;
     };
 
+    /* Pre-migration-24 databases have no `cloud_provider` column; asking for
+       it fails the WHOLE embedded select, so the fallback stays column-less. */
     const plain = `*, cameras (${PUBLIC_CAMERA_COLUMNS})`;
-    const plainV24 = `*, cameras (${PUBLIC_CAMERA_COLUMNS_V24})`;
+    const plainV24 = `*, cameras (${DIRECTORY_CAMERA_COLUMNS})`;
     const { data, error } = await selectFarms(
       () => run(`${plainV24}, ${SELLER_BRAND_EMBED}`),
       () => run(plainV24),
@@ -173,8 +186,7 @@ export async function listFarms(filters: FarmFilters = {}): Promise<Farm[]> {
       const farm = applySellerBrand(stripFarm(row as unknown as Record<string, unknown>) as FarmWithSeller);
       const cams = (farm.cameras ?? []).sort((a, b) => a.sort_order - b.sort_order);
       farm.cameras = cams;
-      farm.camera_count = cams.length;
-      farm.online_cameras = cams.filter((c) => c.status === "online").length;
+      setCameraCounts(farm);
       return farm;
     });
 
@@ -269,8 +281,7 @@ export async function getFarmBySlug(slug: string): Promise<Farm | null> {
       if (data) {
         const farm = applySellerBrand(stripFarm(data as unknown as Record<string, unknown>) as FarmWithSeller);
         farm.cameras = (farm.cameras ?? []).sort((a, b) => a.sort_order - b.sort_order);
-        farm.camera_count = farm.cameras.length;
-        farm.online_cameras = farm.cameras.filter((c) => c.status === "online").length;
+        setCameraCounts(farm);
         return farm;
       }
     } catch (error) {
@@ -284,6 +295,24 @@ export async function getFarmBySlug(slug: string): Promise<Farm | null> {
 export async function getDairyFarms(): Promise<Farm[]> {
   const farms = await listFarms({ type: "dairy" });
   return farms;
+}
+
+/**
+ * Camera counts, with TV channels counted separately.
+ *
+ * `camera_count` feeds the "লাইভ ক্যামেরা ৩/৫" stats and several admin screens,
+ * so it must keep meaning cameras. A farm that also carries TV channels gets
+ * `tv_count` / `tv_online` alongside it rather than inflating the camera
+ * numbers — the live hub can then honestly say "২টি ক্যামেরা, ৩টি টিভি চ্যানেল".
+ */
+function setCameraCounts(farm: Farm) {
+  const all = (farm.cameras ?? []) as (Camera & { cloud_provider?: string | null })[];
+  const cams = all.filter((c) => c.cloud_provider !== "tv");
+  const tv = all.filter((c) => c.cloud_provider === "tv");
+  farm.camera_count = cams.length;
+  farm.online_cameras = cams.filter((c) => c.status === "online").length;
+  farm.tv_count = tv.length;
+  farm.tv_online = tv.filter((c) => c.status === "online").length;
 }
 
 export async function listCamerasByFarm(farmId: string): Promise<Camera[]> {

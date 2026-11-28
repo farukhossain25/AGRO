@@ -27,6 +27,9 @@ export default async function LiveHubPage() {
   const [farms, plans] = await Promise.all([listFarms({}), listPlans(true)]);
   const online = farms.reduce((n, f) => n + (f.online_cameras ?? 0), 0);
   const cameras = farms.reduce((n, f) => n + (f.camera_count ?? 0), 0);
+  /* Channels are counted apart from cameras — see `setCameraCounts` in
+     lib/farms.ts for why adding them together was a lie in the stats bar. */
+  const channels = farms.reduce((n, f) => n + ((f.tv_count as number | undefined) ?? 0), 0);
   const featured = plans.find((p) => p.is_popular) ?? plans[0];
 
   const byType = farms.reduce<Record<string, number>>((acc, f) => {
@@ -72,6 +75,9 @@ export default async function LiveHubPage() {
           <dl className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
               { label: "লাইভ ক্যামেরা", value: online, suffix: `/${cameras}` },
+              /* Only shown once at least one channel exists, so a site that has
+                 never used the TV option is byte-for-byte what it was. */
+              ...(channels ? [{ label: "টিভি চ্যানেল", value: channels, suffix: "" }] : []),
               { label: "খামার", value: farms.length, suffix: "" },
               { label: "জেলা", value: new Set(farms.map((f) => f.district)).size, suffix: "" },
               { label: "ফ্রি ট্রায়াল", value: 10, suffix: " মিনিট" },

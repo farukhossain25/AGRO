@@ -49,16 +49,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ path?: string[]
      cloud cameras for up to 5 minutes, while the same action cut a MediaMTX
      viewer off immediately. One indexed primary-key read closes that gap and
      keeps both paths honest. */
-  const { data: session } = await db()
-    .from("stream_tokens")
-    .select("jti, camera_id, expires_at")
-    .eq("jti", payload.jti)
-    .maybeSingle();
-
-  if (!session || new Date(session.expires_at) < new Date() || session.camera_id !== cameraId) {
-    return fail("লাইভ সেশন শেষ — পেজ রিফ্রেশ করুন", 401);
-  }
-
+  /* The camera row is needed FIRST now, because whether a session row exists
+     depends on what the source is: a free `tv` channel reserves no viewer slot
+     (lib/watch-rights.ts), so there is no row to verify and none to miss. */
   const { data: camera, error } = await db()
     .from("cameras")
     .select("id, cloud_provider, cloud_serial, cloud_channel, stream_url, is_active, status")
@@ -67,6 +60,25 @@ export async function GET(req: Request, ctx: { params: Promise<{ path?: string[]
 
   if (error) return fail("ক্যামেরার তথ্য পাওয়া যাচ্ছে না", 503);
   if (!camera) return fail("ক্যামেরা পাওয়া যায়নি", 404);
+
+  /* Free public sources have no viewer cap, hence no reserved slot. Skipping
+     the row check is not a weakening: the token is still signed, still bound
+     to this exact camera id, and still expires — there is simply nothing
+     countable on the other end. */
+  const freePublic = camera.cloud_provider === "tv";
+
+  if (!freePublic) {
+    const { data: session } = await db()
+      .from("stream_tokens")
+      .select("jti, camera_id, expires_at")
+      .eq("jti", payload.jti)
+      .maybeSingle();
+
+    if (!session || new Date(session.expires_at) < new Date() || session.camera_id !== cameraId) {
+      return fail("লাইভ সেশন শেষ — পেজ রিফ্রেশ করুন", 401);
+    }
+  }
+
   if (!camera.is_active || camera.status === "offline") return fail("ক্যামেরাটি এখন অফলাইন", 409);
 
   const upstreamPath = rest.join("/");
@@ -85,10 +97,19 @@ export async function GET(req: Request, ctx: { params: Promise<{ path?: string[]
       return NextResponse.json({ ok: false, message }, { status: 502 });
     }
 
-    const upstream = await fetch(resolved.url, {
+    /* `resolveCloudHls` already screened the owner-supplied URL (and, for a
+       vendor provider, the URL the vendor returned). Re-checking costs nothing
+       and covers the one case that file cannot: a redirect that lands on an
+       internal host. `redirect: "follow"` would take us there silently. */
+    const { checkUpstreamUrl } = await import("@/lib/upstream-guard");
+    const playlistCheck = checkUpstreamUrl(resolved.url);
+    if (!playlistCheck.ok) return fail(playlistCheck.reason, 403);
+
+    const upstream = await fetch(playlistCheck.url, {
       headers: { "user-agent": "BiswasAgro-CamProxy/1.0" },
       cache: "no-store",
       redirect: "follow",
+      signal: AbortSignal.timeout(12_000),
     }).catch(() => null);
 
     if (!upstream?.ok) return fail("ক্যামেরাটি এখন লাইভ দিচ্ছে না", 404);
@@ -182,15 +203,31 @@ export async function GET(req: Request, ctx: { params: Promise<{ path?: string[]
     return fail("অনুমোদিত নয় এমন স্ট্রিম সার্ভার", 403);
   }
 
-  // Direct-HLS cameras are opt-in: an admin-typed URL would otherwise let the
-  // proxy reach anything that admin's row names.
-  if (camera.cloud_provider === "hls" && !process.env.CAM_ALLOW_DIRECT_HLS) {
-    return fail("সরাসরি HLS লিংক চালু নেই (CAM_ALLOW_DIRECT_HLS)", 403);
-  }
+  /* Direct-HLS CAMERAS are opt-in: an admin-typed URL would otherwise let the
+     proxy reach anything that admin's row names.
 
-  const upstream = await fetch(target, {
+     `tv` is deliberately NOT behind this switch. It is the same transport (a
+     pasted .m3u8), but it is now the primary way the site plays live video
+     while there is no public IP, and requiring an env var to make a TV channel
+     a TV channel would mean "it does not work" on a fresh deploy for no safety
+     gain: the URL is still typed by a panel user, still signed per segment, and
+     still unreachable from the browser without a token for that exact row. */
+
+  /* The signature proves WE minted this URL — it does not prove the URL points
+     somewhere harmless. A playlist from a hostile host can name any address it
+     likes, and the response would be streamed straight back to the viewer.
+     So the host is checked again here, at the moment of the fetch: https only,
+     public host only, 443 only. See lib/upstream-guard.ts. */
+  const { checkUpstreamUrl } = await import("@/lib/upstream-guard");
+  const allowed = checkUpstreamUrl(target.toString());
+  if (!allowed.ok) return fail(allowed.reason, 403);
+
+  const upstream = await fetch(allowed.url, {
     headers: { "user-agent": "BiswasAgro-CamProxy/1.0" },
     cache: "no-store",
+    /* A stalled segment must not hold a viewer's connection open forever —
+       the same pathology lib/read-deadline.ts fixed for page renders. */
+    signal: AbortSignal.timeout(15_000),
   }).catch(() => null);
 
   if (!upstream?.ok) return fail("সেগমেন্ট লোড হয়নি", 502);

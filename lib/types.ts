@@ -534,6 +534,16 @@ export type Farm = {
   /** added by v_farm_stats / joined queries */
   camera_count?: number;
   online_cameras?: number;
+  /**
+   * Live TV channels hung on this farm (cloud_provider = 'tv').
+   *
+   * They are NOT cameras and must not be added to the camera counts: a farm
+   * carrying a channel is where the video lives, not a farm with an extra
+   * camera watching it. Kept as separate fields so every existing "N cameras"
+   * label stays true.
+   */
+  tv_count?: number;
+  tv_online?: number;
   product_count?: number;
   cameras?: Camera[];
   /** the seller who owns this farm uploaded a logo from the dashboard */
@@ -546,7 +556,7 @@ export type CameraStatus = "online" | "offline" | "maintenance";
  * Public camera shape. stream_key / stream_url are NEVER included — the browser
  * only receives a signed playback URL from /api/stream/token.
  */
-export type CameraCloudProvider = "none" | "hls" | "imou" | "ezviz";
+export type CameraCloudProvider = "none" | "hls" | "tv" | "imou" | "ezviz";
 
 export type Camera = {
   id: string;

@@ -104,6 +104,9 @@ export async function POST(req: Request) {
        premium check inside it; everything else is identical. */
     const gate = await checkWatchRights(req, camera, user);
     if (gate.denied) return gate.denied;
+    /* This route never asks for `freePublic`, so a slot is always reserved; the
+       guard keeps the invariant explicit instead of asserting it away. */
+    if (!gate.slot) return fail("স্ট্রিম সেশন তৈরি করা যাচ্ছে না — আবার চেষ্টা করুন", 503);
 
     /* ---- from here on a slot EXISTS; every exit must give it back ---------
        The slot was reserved atomically inside checkWatchRights(). Everything

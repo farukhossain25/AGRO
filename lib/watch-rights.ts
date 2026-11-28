@@ -37,8 +37,11 @@ export type WatchCheck =
        * Routes MUST sign their token with this jti — it is the row the cap is
        * counted from, so a token minted with any other jti is an un-capped
        * session and /api/stream/auth will not honour it.
+       *
+       * `null` only for a FREE public source (see `freePublic` below): there is
+       * no viewer cap to enforce, so there is no row to reserve.
        */
-      slot: { jti: string; expiresAt: string };
+      slot: { jti: string; expiresAt: string } | null;
     };
 
 type CameraGate = {
@@ -48,8 +51,40 @@ type CameraGate = {
   status: string | null;
   is_premium: boolean | null;
   max_viewers: number | null;
+  /** 'tv' is always free; the other providers follow `is_premium`. */
+  cloud_provider?: string | null;
 };
 
+/**
+ * A source with nothing to sell: a free TV channel, or a camera the owner has
+ * opened to everyone.
+ *
+ * Premium state, device limits, the basic-tier rule and the viewer cap all
+ * exist to protect something that costs money — a vendor's media quota, a paid
+ * plan. A free public playlist has none of that, and running the whole gate on
+ * it made a login-free TV channel impossible: an anonymous visitor has no
+ * `stream_tokens` row to reserve a slot in.
+ *
+ * So a free public source skips entitlement entirely and gets NO reserved slot.
+ * What it keeps is everything that is about safety rather than entitlement —
+ * the token is still signed, still bound to this one camera id, still expires
+ * in 5 minutes, and the playlist is still rewritten so segments can only be
+ * fetched from the host the playlist itself named.
+ *
+ * A guest has no identity at all, and a shared "public:" fingerprint would let
+ * one viewer's revocation log out every other; both are fine here because
+ * there is no per-user limit to enforce.
+ */
+/*
+ * `freePublic` is DERIVED, never passed in.
+ *
+ * It used to be a route-supplied option, which meant a future route could
+ * forget it and quietly send a free channel through the paid gate — the exact
+ * kind of drift this module exists to prevent (it already happened once, when
+ * /api/cam/token was a copy of /api/stream/token). Reading it off the camera
+ * row makes every caller correct by construction: a `tv` source is free, and
+ * nothing else is.
+ */
 export async function checkWatchRights(
   req: Request,
   camera: CameraGate,
@@ -58,16 +93,28 @@ export async function checkWatchRights(
   const fingerprint = deviceFingerprint(req);
   const client = db();
 
+  if (camera.cloud_provider === "tv") {
+    return { denied: null, user, mode: "public", fingerprint, subscribed: false, slot: null };
+  }
+
   /* `cameras.is_premium = false` → the farm opened this one to everyone. Same
      rule in both routes; the token still expires in 5 minutes and is still
      revocable, so switching the flag back stops playback within one TTL. */
   const isPublic = camera.is_premium === false;
 
-  const state = isPublic
+  /* A free TV channel is public regardless of the stored flag. `is_premium`
+     defaults to true on every camera row, so relying on the owner clearing it
+     would have every new channel answered with a login wall the first time it
+     was added — and the admin form's own hint says the tick means "premium".
+     The provider is the stronger statement: a `tv` source is a free channel. */
+  const isFreeChannel = (camera as CameraGate & { cloud_provider?: string | null }).cloud_provider === "tv";
+  const isOpen = isPublic || isFreeChannel;
+
+  const state = isOpen
     ? null
     : await resolvePremiumState(user?.id ?? null, user?.role ?? null, fingerprint);
 
-  if (!isPublic && !state?.canWatch) {
+  if (!isOpen && !state?.canWatch) {
     return {
       denied: fail(
         state?.reason === "anonymous"
@@ -142,7 +189,7 @@ export async function checkWatchRights(
     }
   }
 
-  const mode: "public" | "trial" | "premium" = isPublic
+  const mode: "public" | "trial" | "premium" = isOpen
     ? "public"
     : state?.reason === "trial"
       ? "trial"

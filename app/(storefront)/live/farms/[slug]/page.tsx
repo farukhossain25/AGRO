@@ -204,9 +204,19 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ slu
             <h2 className="mb-1 flex items-center gap-2 text-lg font-bold">
               <Video className="h-4.5 w-4.5 text-mint" /> লাইভ ক্যামেরা
             </h2>
+            {/* The heading and the count stay honest for a farm that carries a
+                free TV channel next to its cameras: the channel rides the same
+                list (same player, same signed path) but is not a camera. */}
             <p className="mb-4 text-[12.5px] text-sand-100/50">
-              {toBn(cameras.length)}টি ক্যামেরা — ক্লিক করলে স্ট্রিম চালু হবে।
-              {cameras.length === 0 && " এই খামারে এখনো ক্যামেরা বসানো হয়নি।"}
+              {(() => {
+                const tv = cameras.filter((c) => c.cloud_provider === "tv").length;
+                const cams = cameras.length - tv;
+                const parts: string[] = [];
+                if (cams) parts.push(`${toBn(cams)}টি ক্যামেরা`);
+                if (tv) parts.push(`${toBn(tv)}টি টিভি চ্যানেল`);
+                if (!parts.length) return "এই খামারে এখনো ক্যামেরা বসানো হয়নি।";
+                return `${parts.join(" ও ")} — ক্লিক করলে স্ট্রিম চালু হবে।`;
+              })()}
             </p>
             <FarmCameras cameras={cameras} farmName={farm.name_bn} cover={farm.cover} />
           </section>

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { currentUser, fail, ok } from "@/lib/api";
@@ -77,8 +78,15 @@ export async function POST(req: Request) {
   /* Entitlement + basic tier + device limit, identical to the RTSP route.
      `is_premium = false` (a camera the farm opened to everyone) is handled
      inside — the token is still short-lived and revocable. */
+  /* A free TV channel is not a paid camera: there is no vendor quota to
+     protect and nothing to sell, so entitlement is skipped rather than turned
+     into a login wall. `checkWatchRights` decides that from the camera row, so
+     this route cannot pass the wrong flag. Every premium camera keeps the full
+     gate. */
+  const freePublic = camera.cloud_provider === "tv";
   const gate = await checkWatchRights(req, camera, user);
   if (gate.denied) return gate.denied;
+  if (!gate.slot && !freePublic) return fail("স্ট্রিম সেশন তৈরি করা যাচ্ছে না — আবার চেষ্টা করুন", 503);
 
   /* Viewer cap. Every concurrent viewer bills the vendor's media quota (Imou:
      2 GB/month free, then $0.25/GB), so this is the cost guard, not a nicety.
@@ -91,7 +99,10 @@ export async function POST(req: Request) {
 
      The jti must be the reserved one. A token signed with a fresh uuid would
      have no stream_tokens row and /api/cam/auth rejects it. */
-  const token_jti = gate.slot.jti;
+  /* With no price and no cap there is no row to reserve, so the token is
+     stamped with a fresh id purely to keep the payload shape identical — it is
+     never looked up on this path (see the freePublic arm in lib/watch-rights). */
+  const token_jti = gate.slot?.jti ?? randomUUID();
 
   // A real signed, expiring token — the same signer the RTSP player uses, so a
   // hand-written /api/cam/live/<other camera> URL cannot be assembled by hand.

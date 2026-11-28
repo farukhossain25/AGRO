@@ -1,6 +1,15 @@
 import { db, isDbConfigured } from "@/lib/db";
 import { SimpleManager } from "@/components/admin/simple-manager";
 
+/** Same words as the form's select, so a row never disagrees with its editor. */
+const PROVIDER_LABEL_BN: Record<string, string> = {
+  tv: "লাইভ টিভি চ্যানেল",
+  hls: "ক্লাউড HLS (ক্যামেরা)",
+  imou: "Imou Life",
+  ezviz: "EZVIZ",
+  none: "MediaMTX / RTSP",
+};
+
 export const dynamic = "force-dynamic";
 
 export default async function AdminCamerasPage() {
@@ -26,6 +35,10 @@ export default async function AdminCamerasPage() {
         rows = (cams as Record<string, unknown>[]).map((c) => ({
           ...c,
           farm_name: farmOptions.find((f) => f.value === c.farm_id)?.label ?? "—",
+          /* Raw values like 'imou' mean nothing to the owner; the same Bangla
+             words as the form's select, so a row never disagrees with its
+             editor. `SimpleManager` renders what it is given. */
+          cloud_provider_label: PROVIDER_LABEL_BN[String(c.cloud_provider ?? "none")] ?? String(c.cloud_provider),
         }));
         online = rows.filter((r) => r.status === "online").length;
       }
@@ -39,9 +52,14 @@ export default async function AdminCamerasPage() {
       {/* MediaMTX is now optional: a cloud-bridge camera (Imou / EZVIZ / a
           public HLS link) plays without any server of ours, so the warning is
           only shown when NO path is configured at all. */}
-      {!proxyReady && !imouReady && !ezvizReady && (
+      {/* A TV channel needs no key at all — paste an .m3u8 and it plays — so a
+          site whose live section is channels must not be told that "no live
+          path is configured" and pushed towards a vendor cloud it is not using. */}
+      {!proxyReady && !imouReady && !ezvizReady && rows.every((r) => r.cloud_provider !== "tv") && (
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/8 p-3.5 text-[11.5px] leading-relaxed text-amber-200">
-          <strong>লাইভের কোনো পথ চালু নেই।</strong> সহজ উপায়: Vercel-এ{" "}
+          <strong>লাইভের কোনো পথ চালু নেই।</strong> সবচেয়ে সহজ: নিচে স্ট্রিম সোর্স{" "}
+          <strong>“লাইভ টিভি চ্যানেল”</strong> বেছে নিয়ে চ্যানেলের .m3u8 লিংক বসান — কোনো সার্ভার,
+          ভিপিএস বা API কী লাগবে না। অথবা Imou/EZVIZ ব্যবহার করতে চাইলে: Vercel-এ{" "}
           <code className="rounded bg-neu-sunken px-1 text-neu-accent-strong">IMOU_APP_ID</code> /{" "}
           <code className="rounded bg-neu-sunken px-1 text-neu-accent-strong">IMOU_APP_SECRET</code> দিন, তারপর
           ক্যামেরার স্ট্রিম সোর্স <strong>Imou Life</strong> বেছে নিন — কোনো ভিপিএস বা ল্যাপটপ লাগবে না।
@@ -84,7 +102,7 @@ export default async function AdminCamerasPage() {
         columns={[
           { key: "name_bn", label: "ক্যামেরা", format: "stack", subKey: "zone_bn" },
           { key: "farm_name", label: "খামার" },
-          { key: "cloud_provider", label: "স্ট্রিম সোর্স" },
+          { key: "cloud_provider_label", label: "স্ট্রিম সোর্স" },
           { key: "stream_key", label: "Stream key", format: "code" },
           { key: "protocol", label: "প্রোটোকল" },
           { key: "status", label: "স্টেটাস" },
@@ -116,12 +134,23 @@ export default async function AdminCamerasPage() {
             type: "select",
             colSpan: 2,
             options: [
+              { value: "tv", label: "লাইভ টিভি চ্যানেল (m3u8 — পাবলিক IP লাগে না)" },
               { value: "imou", label: "Imou Life অ্যাপ (কোনো ল্যাপটপ/ভিপিএস ছাড়া)" },
               { value: "ezviz", label: "EZVIZ অ্যাপ (কোনো ল্যাপটপ/ভিপিএস ছাড়া)" },
               { value: "hls", label: "ক্লাউড HLS লিংক (আগে থেকেই পাবলিক)" },
               { value: "none", label: "MediaMTX / RTSP (ভিপিএস লাগবে)" },
             ],
-            hint: "Imou/EZVIZ বেছে নিলে সেলারের ফোনের অ্যাপই ক্যামেরা অনলাইন রাখে — আলাদা কিছু লাগে না",
+            hint:
+              "লাইভ টিভি: নিচের লিংক ঘরে চ্যানেলের .m3u8 ঠিকানা দিন — সবার জন্য ফ্রি চলবে, সাবস্ক্রিপশন লাগবে না। Imou/EZVIZ বেছে নিলে সেলারের ফোনের অ্যাপই ক্যামেরা অনলাইন রাখে।",
+          },
+          {
+            name: "stream_url",
+            label: "স্ট্রিম / চ্যানেল লিংক (https)",
+            type: "text",
+            colSpan: 2,
+            placeholder: "https://example.com/live/channel.m3u8",
+            hint:
+              "লাইভ টিভি হলে এখানে চ্যানেলের .m3u8 দিন; একটার বদলে একটা .m3u (চ্যানেল তালিকা) দিলে তালিকার প্রথম HLS চ্যানেল চলবে — প্রতিটি আলাদা চ্যানেলের জন্য আলাদা ক্যামেরা রো বানান। Imou/EZVIZ-এ খালি রাখুন।",
           },
           {
             name: "cloud_serial",
