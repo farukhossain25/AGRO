@@ -70,6 +70,14 @@ export function CategoryGrid({ categories }: { categories: Category[] }) {
         subtitle="প্রতিটি ক্যাটাগরির পণ্য আসে সরাসরি নির্বাচিত খামার থেকে — আজ তোলা, আজই পাঠানো।"
         action={<ViewAll href="/categories" label="সব ক্যাটাগরি" />}
       />
+      {!categories.length ? (
+        /* Reachable when the catalogue read timed out or the table is empty.
+           A bare heading with nothing under it reads as a broken page; this
+           says what happened in one line and links somewhere useful. */
+        <p className="rounded-xl border border-dashed border-neu-line/70 p-8 text-center text-[13.5px] text-sand-100/55">
+          ক্যাটাগরি এখন দেখানো যাচ্ছে না — <Link className="text-leaf-300 underline" href="/products">সব পণ্য দেখুন</Link>।
+        </p>
+      ) : (
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
         {categories.map((c, i) => (
           <Link
@@ -104,6 +112,7 @@ export function CategoryGrid({ categories }: { categories: Category[] }) {
           </Link>
         ))}
       </div>
+      )}
     </section>    </>
   );
 }
@@ -124,7 +133,13 @@ export function FeaturedProducts({
         subtitle="আমাদের গ্রাহকদের সবচেয়ে পছন্দের পণ্যগুলো — সীমিত স্টক, তাই দ্রুত অর্ডার করুন।"
         action={<ViewAll href="/products" label="সব পণ্য" />}
       />
-      <ProductGrid products={products} />
+      {products.length ? (
+        <ProductGrid products={products} />
+      ) : (
+        <p className="rounded-xl border border-dashed border-neu-line/70 p-8 text-center text-[13.5px] text-sand-100/55">
+          পণ্যের তালিকা এখন লোড হচ্ছে না — কয়েক সেকেন্ড পর আবার দেখা হবে।
+        </p>
+      )}
     </section>
     </>
   );

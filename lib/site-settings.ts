@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { db } from "./db";
+import { withReadDeadline } from "./read-deadline";
 import {
   defaultStoreSettings,
   normalizePhone,
@@ -33,13 +34,30 @@ function bool(value: unknown, fallback: boolean): boolean {
   return typeof value === "boolean" ? value : fallback;
 }
 
+/**
+ * One settings row, or `{}`.
+ *
+ * `dbUsable()` first: this file backs the root layout (delivery + store
+ * settings) and the storefront shell (announcement), so it runs on EVERY
+ * request. It used to call `db()` unconditionally, which means that after the
+ * breaker had opened everywhere else, these three reads still paid the full
+ * socket timeout — measured as the last 8 s block in a 39 s homepage render.
+ */
 async function readRow(key: string): Promise<Record<string, unknown>> {
-  try {
-    const { data } = await db().from("site_settings").select("value").eq("key", key).maybeSingle();
-    return (data?.value ?? {}) as Record<string, unknown>;
-  } catch {
-    return {};
-  }
+  return withReadDeadline(
+    "settings",
+    key,
+    async (signal) => {
+      const { data } = await db()
+        .from("site_settings")
+        .select("value")
+        .eq("key", key)
+        .abortSignal(signal)
+        .maybeSingle();
+      return (data?.value ?? {}) as Record<string, unknown>;
+    },
+    {}
+  );
 }
 
 /* ------------------------------------------------------------- delivery */

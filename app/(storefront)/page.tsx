@@ -27,13 +27,38 @@ import {
   Trust,
   WhyChoose,
 } from "@/components/home/sections";
-import { FALLBACK_SLIDES, getHeroSlides, getVisibleSections, sectionConfig } from "@/lib/content";
+import { DEFAULT_SECTIONS, FALLBACK_SLIDES, getHeroSlides, getVisibleSections, sectionConfig } from "@/lib/content";
+import { logHomepage, redact } from "@/lib/log";
+import { SectionBoundary } from "@/components/home/section-boundary";
 import { HeroSlider } from "@/components/home/hero-slider";
 import { NewsletterSignup } from "@/components/newsletter-signup";
 import { alternatesFor } from "@/lib/seo";
 import { withSeo } from "@/lib/seo-db";
 
-export const revalidate = 120;
+/* ⚠️ THIS PAGE MUST NOT BE ISR-CACHED, AND WHY THAT WAS THE REAL BUG
+   `revalidate = 120` put the whole rendered route in Next's Full Route Cache
+   for two minutes. That is a fine default for a page whose data is stable and
+   a disaster for a page whose data can fail:
+
+     • a render that hit the database timeout was cached exactly like a good
+       one — the shop then served eleven empty sections, and the built-in hero,
+       for 120 s no matter how healthy Supabase was;
+     • the cache is keyed by URL, so every visitor got that same broken copy;
+     • and because the cached render never re-issued a query, the circuit
+       breaker had nothing to measure, so the process never recovered by itself.
+
+   Measured consequence in this environment: alternating 78 s and 3 s responses
+   with both `unstable_cache` and the breaker in place — the failure was above
+   them, in the route cache.
+
+   The page is dynamic now, like the rest of the storefront (it reads the
+   session for the header and the cart). The shared work is still cheap: the
+   section queries run once per render, in parallel, each with a 4 s ceiling,
+   and the in-flight de-duplication in lib/data.ts means the two `categories`
+   reads are one query. That is the trade this page wants — a fast, correct
+   render on every request rather than a stale one that might be empty.
+*/
+export const dynamic = "force-dynamic";
 
 /* The home page carries the money keywords, so its title/description live in
    seo_meta and can be tuned from the panel’s SEO screen without shipping a release. */
@@ -142,8 +167,99 @@ function HomeSectionsSkeleton() {
   );
 }
 
+/**
+ * Run every homepage read independently.
+ *
+ * `Promise.all` rejects on the first failure and discards the rest — which is
+ * fine when nothing throws, and exactly wrong when something unexpected does,
+ * because then eleven successful sections are thrown away with the one bad
+ * read. `Promise.allSettled` keeps every result and reports which reads
+ * produced nothing, so the page renders with whatever it has and the log names
+ * the ones that did not.
+ */
+async function loadHomeSections() {
+  const started = Date.now();
+  type Settled<T> = { value: T; ok: boolean };
+
+  const results = await Promise.allSettled([
+    getCategories(),
+    getProducts({ featuredOnly: true, limit: 8 }),
+    getProducts({ sort: "newest", limit: 4 }),
+    getCombos(),
+    getPackages(),
+    /* One query serves every slice size the ring may use; in-stock only, since
+       a sold-out product at the front of the wheel is a dead end. */
+    getProducts({ sort: "newest", inStockOnly: true, limit: 48 }),
+    getBlogPosts(3),
+    getFarmers(),
+    getApprovedReviews(undefined, 6),
+    getVisibleSections(),
+    getFaqGroups(),
+  ] as const);
+
+  const keys = [
+    "categories",
+    "featured",
+    "fresh_picks",
+    "combos",
+    "packages",
+    "ring",
+    "blog",
+    "farmers",
+    "reviews",
+    "layout",
+    "faq",
+  ] as const;
+
+  const failed: string[] = [];
+  const value = <T,>(index: number, fallback: T): Settled<T> => {
+    const result = results[index];
+    if (result.status === "fulfilled") return { value: result.value as T, ok: true };
+    failed.push(keys[index]);
+    console.error(`[home] read failed key=${keys[index]} err=${redact(result.reason)}`);
+    return { value: fallback, ok: false };
+  };
+
+  const categories = value(0, [] as Awaited<ReturnType<typeof getCategories>>);
+  const featured = value(1, [] as Awaited<ReturnType<typeof getProducts>>);
+  const freshPicks = value(2, [] as Awaited<ReturnType<typeof getProducts>>);
+  const combos = value(3, [] as Awaited<ReturnType<typeof getCombos>>);
+  const packages = value(4, [] as Awaited<ReturnType<typeof getPackages>>);
+  const ringPool = value(5, [] as Awaited<ReturnType<typeof getProducts>>);
+  const posts = value(6, [] as Awaited<ReturnType<typeof getBlogPosts>>);
+  const farmers = value(7, [] as Awaited<ReturnType<typeof getFarmers>>);
+  const reviews = value(8, [] as Awaited<ReturnType<typeof getApprovedReviews>>);
+  const layout = value(9, DEFAULT_SECTIONS);
+  const faqGroups = value(10, [] as Awaited<ReturnType<typeof getFaqGroups>>);
+
+  /* A layout read that failed is not "the owner hid every section" — it means
+     we do not know the order, so the built-in order is the honest answer.
+     `getVisibleSections` already falls back internally; this covers the case
+     where the rejection happened before it could, and keeps the page whole
+     instead of turning a slow read into a blank homepage. */
+  const sections = layout.value.length ? layout.value : DEFAULT_SECTIONS;
+
+  logHomepage(Date.now() - started, sections.length, failed);
+
+  return {
+    categories: categories.value,
+    featured: featured.value,
+    freshPicks: freshPicks.value,
+    combos: combos.value,
+    packages: packages.value,
+    ringPool: ringPool.value,
+    posts: posts.value,
+    farmers: farmers.value,
+    reviews: reviews.value,
+    faqGroups: faqGroups.value,
+    sections,
+    failed,
+  };
+}
+
 async function HomeSections() {
-  const [
+  const data = await loadHomeSections();
+  const {
     categories,
     featured,
     freshPicks,
@@ -153,39 +269,18 @@ async function HomeSections() {
     posts,
     farmers,
     reviews,
-    layout,
     faqGroups,
-  ] = await Promise.all([
-    getCategories(),
-    getProducts({ featuredOnly: true, limit: 8 }),
-    getProducts({ sort: "newest", limit: 4 }),
-    getCombos(),
-    getPackages(),
-    /* The ring is ordered newest-first and culled client-side to `limit`, so a
-       single query serves every slice size the owner may pick. In-stock only:
-       a sold-out product at the front of the wheel is a dead end. */
-    getProducts({ sort: "newest", inStockOnly: true, limit: 48 }),
-    getBlogPosts(3),
-    getFarmers(),
-    getApprovedReviews(undefined, 6),
-    /* Hero slides are fetched by HomeHero, above the Suspense boundary — asking
-       for them here too would be a second identical (cached) read for data this
-       component no longer renders. */
-    getVisibleSections(),
-    getFaqGroups(),
-  ]);
+    sections,
+  } = data;
 
   /* Flat list of Q&A for the homepage block; it shares the table with /faq so
-     the owner only maintains one place. Only fetched/used when the block is
-     visible, so a hidden block costs nothing beyond one memoised read. */
-  const faqItems = faqGroups.flatMap((group) => group.items);
+     the owner only maintains one place. */
+  const faqItems = (faqGroups ?? []).flatMap((group) => group.items ?? []);
 
-  const byKey = new Map(layout.map((section) => [section.key, section]));
+  const byKey = new Map(sections.map((section) => [section.key, section]));
 
   const blocks: Record<string, () => React.ReactNode> = {
-    /* Rendered above the Suspense boundary (HomeHero), not here — otherwise the
-       hero would appear twice: once from the hero, once when this block
-       streamed in. */
+    /* Rendered above this boundary by HomeHero — see HomePage. */
     hero_slider: () => null,
 
     trust_strip: () => <Trust />,
@@ -274,10 +369,14 @@ async function HomeSections() {
 
   return (
     <>
-      {layout.map((section) => {
+      {sections.map((section) => {
         const block = blocks[section.key];
         if (!block) return null;
-        return <div key={section.id}>{block()}</div>;
+        return (
+          <SectionBoundary key={section.id} name={section.key}>
+            {block()}
+          </SectionBoundary>
+        );
       })}
 
       {/* The closing CTA used to be a full-screen panel repeating products and

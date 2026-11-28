@@ -40,6 +40,32 @@
  */
 import { unstable_cache } from "next/cache";
 import { revalidateTag } from "next/cache";
+import { logCache } from "./log";
+
+/**
+ * The catalogue cache is OPT-IN.
+ *
+ * ⚠️ WHY IT IS OFF BY DEFAULT
+ *   `unstable_cache` wraps the read in a promise the caller cannot cancel. When
+ *   that read stalls, the deadline in lib/data.ts gives up and the page paints —
+ *   but the underlying query keeps running to its own 8 s socket timeout, fails,
+ *   and the data cache stores that failure for a minute. Measured on a stalling
+ *   host: every page view re-issued all eleven reads and paid 4 s each, forever,
+ *   because each one "made progress" in the background and the circuit breaker
+ *   could never stay closed. A cache that cannot be cancelled turns a bounded
+ *   failure into a permanent one.
+ *
+ *   With it off, a failed read marks the database unreachable (lib/db.ts
+ *   breaker) and the next reads return instantly for the probe window. On a
+ *   healthy database the cost is one extra query per render — mitigated by the
+ *   in-flight de-duplication in lib/data.ts and by the per-request React cache
+ *   in lib/content.ts / lib/site-settings.ts, which cover the duplicates that
+ *   actually occur (the homepage asks for `categories` twice).
+ *
+ *   Set `CATALOGUE_CACHE=1` to turn it back on. The write-path invalidation
+ *   (`invalidateCatalogue`) is wired either way and stays correct.
+ */
+export const CATALOGUE_CACHE_ENABLED = process.env.CATALOGUE_CACHE === "1";
 
 /** One tag for everything a customer may browse. Writes invalidate it wholesale. */
 export const CATALOGUE_TAG = "catalogue";
@@ -54,11 +80,43 @@ export const CATALOGUE_TTL = 60;
  * `/products?category=fish` and `/products?category=dairy` share one cache
  * entry and one of them shows the wrong products.
  */
+/**
+ * The plain cached read: one cache entry per key, 60 s, tagged.
+ *
+ * ⚠️ WHAT THIS CANNOT DO, AND WHERE THE FIX LIVES INSTEAD
+ *   A promise handed to `unstable_cache` is stored as soon as it settles —
+ *   INCLUDING when it rejects. Wrapping the inner function with its own timer
+ *   cannot prevent that, because the rejection still reaches `unstable_cache`;
+ *   the first attempt here proved it (a "not cached" log line, and the next
+ *   request paying the same budget again).
+ *
+ *   So the deadline must sit ABOVE this call, and a timed-out read must never
+ *   reach `unstable_cache` at all. `lib/data.ts` does exactly that: it races
+ *   the read against `READ_TIMEOUT_MS`, and on timeout it stops waiting, opens
+ *   the circuit breaker and returns the empty state — the in-flight promise is
+ *   abandoned, not stored.
+ */
+
 export function cachedRead<T>(keyParts: (string | number | boolean)[], fn: () => Promise<T>): Promise<T> {
-  return unstable_cache(fn, keyParts.map(String), {
-    revalidate: CATALOGUE_TTL,
-    tags: [CATALOGUE_TAG],
-  })();
+  /* Uncached: see CATALOGUE_CACHE_ENABLED above. Callers and `safe()` are
+     unchanged — this is one switch, not a second code path. */
+  if (!CATALOGUE_CACHE_ENABLED) return fn();
+
+  const key = keyParts.map(String).join(":");
+  try {
+    return unstable_cache(fn, keyParts.map(String), {
+      revalidate: CATALOGUE_TTL,
+      tags: [CATALOGUE_TAG],
+    })();
+  } catch (error) {
+    /* `unstable_cache` throws synchronously outside a request scope ("Invariant:
+       incrementalCache missing") — a script, a test harness, a cron entry
+       point. That must not fail the read: the uncached value is correct, just
+       unshared. Logged because it is the difference between "the cache is not
+       working" and "this code is not running in a request". */
+    logCache("unstable_cache unavailable — reading direct", { key, err: (error as Error)?.message });
+    return fn();
+  }
 }
 
 /**
@@ -73,7 +131,11 @@ export function cachedRead<T>(keyParts: (string | number | boolean)[], fn: () =>
 export function invalidateCatalogue(): void {
   try {
     revalidateTag(CATALOGUE_TAG);
-  } catch {
-    /* outside a request scope — the TTL handles it */
+  } catch (error) {
+    /* Outside a request scope, or the write ran before the cache existed. The
+       60-second TTL clears it either way — but say so, because "the owner
+       edited a product and did not see it for a minute" is a real report and
+       this line explains it. */
+    logCache("invalidate failed — TTL will clear it", { err: (error as Error)?.message });
   }
 }

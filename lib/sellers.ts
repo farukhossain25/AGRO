@@ -1,4 +1,5 @@
 import { db, isDbConfigured } from "./db";
+import { withReadDeadline } from "./read-deadline";
 import type { Seller } from "./types";
 
 /* ==========================================================================
@@ -88,25 +89,21 @@ export async function approvePendingSellerProducts(sellerId: string): Promise<nu
 }
 
 export async function getApprovedSellers(limit = 60): Promise<SellerWithStats[]> {
-  if (!isDbConfigured()) return [];
-
-  try {
-    return await queryApprovedSellers(limit);
-  } catch (error) {
-    // Offline / DB outage: the marketplace renders an empty state instead of 500.
-    console.warn("[sellers] list failed:", (error as Error).message);
-    return [];
-  }
+  /* Abortable and bounded, like every other storefront read.
+     `dbUsable()` is still checked first — inside `withReadDeadline` — so an
+     open breaker makes this free instead of paying the socket timeout again. */
+  return withReadDeadline("sellers", "approved", (signal) => queryApprovedSellers(limit, signal), []);
 }
 
-async function queryApprovedSellers(limit: number): Promise<SellerWithStats[]> {
+async function queryApprovedSellers(limit: number, signal?: AbortSignal): Promise<SellerWithStats[]> {
   const client = db();
   const { data, error } = await client
     .from("sellers")
     .select("*")
     .eq("status", "approved")
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .limit(limit)
+    .abortSignal(signal as AbortSignal);
 
   if (error) throw error;
   const sellers = (data ?? []) as Seller[];
