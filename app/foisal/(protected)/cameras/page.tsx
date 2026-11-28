@@ -1,5 +1,6 @@
 import { db, isDbConfigured } from "@/lib/db";
 import { SimpleManager } from "@/components/admin/simple-manager";
+import { ChannelLinkTester } from "@/components/admin/channel-link-tester";
 
 /** Same words as the form's select, so a row never disagrees with its editor. */
 const PROVIDER_LABEL_BN: Record<string, string> = {
@@ -78,6 +79,7 @@ export default async function AdminCamerasPage() {
           দর্শক "ক্যামেরা চালু করা যাচ্ছে না" দেখবেন।
         </div>
       )}
+      <ChannelLinkTester />
       <SimpleManager
         title="ক্যামেরা"
         subtitle={`${rows.length}টি ক্যামেরা · ${online}টি অনলাইন`}
@@ -150,7 +152,7 @@ export default async function AdminCamerasPage() {
             colSpan: 2,
             placeholder: "https://example.com/live/channel.m3u8",
             hint:
-              "লাইভ টিভি হলে এখানে চ্যানেলের .m3u8 দিন; একটার বদলে একটা .m3u (চ্যানেল তালিকা) দিলে তালিকার প্রথম HLS চ্যানেল চলবে — প্রতিটি আলাদা চ্যানেলের জন্য আলাদা ক্যামেরা রো বানান। Imou/EZVIZ-এ খালি রাখুন।",
+              "যেকোনো .m3u8 বা .m3u লিংক চলবে — সার্ভার নিজেই দেখে নেয় সেটা স্ট্রিম না চ্যানেল-তালিকা, আর তালিকা হলে তার প্রথম চালু চ্যানেল বেছে নেয় (একাধিক ধাপ হলেও)। প্রতিটি আলাদা চ্যানেলের জন্য আলাদা ক্যামেরা রো বানান। Imou/EZVIZ-এ খালি রাখুন। নিচের “লিংক পরীক্ষা করুন” দিয়ে আগেই যাচাই করে নিন।",
           },
           {
             name: "cloud_serial",

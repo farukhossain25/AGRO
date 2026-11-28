@@ -42,6 +42,16 @@ export function CloudPlayer({
   const gone = useRef(false);
 
   const [status, setStatus] = useState<"loading" | "playing" | "locked" | "offline" | "error">("loading");
+  /**
+   * Retries are BOUNDED.
+   *
+   * The network-error handler used to re-attach every 5 s, for ever. On a
+   * channel that is genuinely dead — or, as it turned out, on a playlist that
+   * was actually a channel LIST the player could not parse — that produced no
+   * error at all: just "লাইভ লোড হচ্ছে…" and a request every few seconds until
+   * the visitor gave up. Three attempts, then say so and offer the button.
+   */
+  const retries = useRef(0);
   const statusRef = useRef(status);
   statusRef.current = status;
   const [message, setMessage] = useState("লাইভ লোড হচ্ছে…");
@@ -60,6 +70,7 @@ export function CloudPlayer({
       if (gone.current) return;
 
       try {
+        if (!isRefresh) retries.current = 0;
         const res = await fetch("/api/cam/token", {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -119,6 +130,13 @@ export function CloudPlayer({
           hls.on(HlsLib.Events.ERROR, (_e: unknown, payload: { fatal: boolean; type: string }) => {
             if (!payload.fatal) return;
             if (payload.type === HlsLib.ErrorTypes.NETWORK_ERROR) {
+              retries.current += 1;
+              if (retries.current > 3) {
+                setStatus("offline");
+                setMessage("চ্যানেলটি এখন পাওয়া যাচ্ছে না — লিংকটি হয়তো আর চালু নেই");
+                teardown();
+                return;
+              }
               setStatus("offline");
               setMessage("সংযোগ বিচ্ছিন্ন — আবার চেষ্টা করছি…");
               setTimeout(() => attach(true), 5000);
@@ -138,7 +156,7 @@ export function CloudPlayer({
         setMessage("নেটওয়ার্ক সমস্যা — আবার চেষ্টা করুন");
       }
     },
-    [cameraId, autoPlay, onMode]
+    [cameraId, autoPlay, onMode, teardown]
   );
 
   useEffect(() => {
@@ -224,6 +242,7 @@ export function CloudPlayer({
               <button
                 type="button"
                 onClick={() => {
+                  retries.current = 0;
                   setStatus("loading");
                   setMessage("আবার চেষ্টা করছি…");
                   teardown();

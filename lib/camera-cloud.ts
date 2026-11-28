@@ -342,26 +342,102 @@ export async function resolveCloudHls(camera: CloudCamera): Promise<{ url: strin
  */
 const M3U_LIMIT_BYTES = 512 * 1024;
 
-export async function resolvePlaylistUrl(raw: string): Promise<string> {
-  const trimmed = raw.trim();
+/**
+ * Fetch a playlist and look at what is actually in it.
+ *
+ * ⚠️ THE FILE EXTENSION LIES.
+ *
+ * "IPTV Cat", "m3u4u", and most channel-list services hand out a URL ending in
+ * `.m3u8` that is NOT a stream — it is a one-entry CHANNEL LIST holding another
+ * playlist URL:
+ *
+ *     #EXTM3U
+ *     #EXTINF:0 tvg-country="BD",Deshi TV (720p)
+ *     https://deshitv.deshitv24.net/live/myStream/playlist.m3u8?checkedby:…
+ *
+ * The previous version saw `.m3u8` and returned the URL untouched. hls.js then
+ * fetched that list, found no `#EXTINF`/segment lines it could use, and sat on
+ * "লাইভ লোড হচ্ছে…" forever — the exact screenshot this fixes.
+ *
+ * So the extension is only a hint. The DECISION comes from the body:
+ *
+ *   has #EXT-X-STREAM-INF   → a master playlist. hls.js resolves the variant
+ *                             itself; hand it straight to the player.
+ *   has #EXTINF + segment   → a media playlist. A real stream. Same.
+ *   has #EXTINF + a URL that
+ *   is not a segment          → a CHANNEL LIST. Take its first playable entry
+ *                             and look again (bounded, so a list that points at
+ *                             a list that points at a list cannot loop).
+ *
+ * A channel list may also point at `.m3u8` files that are themselves lists, so
+ * the lookup recurses — at most `MAX_HOPS` times, which is enough for every
+ * real provider and small enough that a hostile chain costs one page render.
+ */
+const MAX_HOPS = 3;
 
-  /* SSRF gate: the server is about to fetch this. See lib/upstream-guard.ts
-     for why a pasted URL is not automatically a public one. */
-  const allowed = checkDirectUpstream(trimmed);
-  if (!allowed.ok) throw new CloudError(allowed.reason, "device");
+type PlaylistKind = "master" | "media" | "list" | "unknown";
 
-  /* Already a stream: nothing to resolve. */
-  if (/\.m3u8(\?|#|$)/i.test(trimmed)) return trimmed;
+/**
+ * What is this body? Decided from its lines, never from its name.
+ * Exported for the admin diagnostic (/api/foisal/channel-check), which walks
+ * the same chain and must not grow its own second opinion.
+ */
+export function classifyPlaylistText(text: string, base: string): { kind: PlaylistKind; next?: string } {
+  return classifyPlaylist(text, base);
+}
 
-  if (!/\.m3u(\?|#|$)/i.test(trimmed)) {
-    throw new CloudError("লিংকটি .m3u8 (স্ট্রিম) বা .m3u (চ্যানেল তালিকা) হতে হবে", "device");
+function classifyPlaylist(text: string, base: string): { kind: PlaylistKind; next?: string } {
+  /* Not a playlist at all. IPTV hosts answer a dead channel with a 200 and a
+     friendly HTML page — "this stream is offline", or a host login form. It has
+     no #EXTM3U, so nothing in it is a segment and nothing is a channel URL. The
+     old tail treated "found no segment" as "media" and returned a URL hls.js
+     dies on, which is the endless "লাইভ লোড হচ্ছে…" all over again, now with a
+     200 behind it. Say unknown instead, and let the caller report it. */
+  if (/^\s*<(!doctype|html|head|body)/i.test(text)) return { kind: "unknown" };
+  if (!/^\s*#EXTM3U/i.test(text)) return { kind: "unknown" };
+
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+
+  /* An HLS master playlist names its variants. hls.js handles this natively —
+     including picking the right bitrate for the connection. */
+  if (lines.some((l) => l.startsWith("#EXT-X-STREAM-INF"))) return { kind: "master" };
+
+  let sawExtinf = false;
+  for (const line of lines) {
+    if (line.startsWith("#")) {
+      if (line.startsWith("#EXTINF")) sawExtinf = true;
+      continue;
+    }
+    /* A media playlist's URIs are SEGMENTS (.ts / .m4s / .aac / .mp4) or a
+       nested playlist directive; anything else is a channel entry. */
+    const absolute = /^https?:\/\//i.test(line) ? line : safeJoin(line, base);
+    if (!absolute) continue;
+    if (/\.(ts|m4s|aac|mp4|m4a)(\?|#|$)/i.test(absolute)) return { kind: "media" };
+    if (sawExtinf) return { kind: "list", next: absolute };
   }
 
+  /* No #EXTINF at all but also no segment: a bare list of URLs. */
+  const firstUrl = lines.find((l) => !l.startsWith("#") && /^https?:\/\//i.test(l));
+  if (firstUrl) return { kind: "list", next: firstUrl };
+
+  /* #EXTM3U with no entries and no segments — an empty channel, not a stream. */
+  return { kind: "unknown" };
+}
+
+/** new URL() that returns null instead of throwing on a malformed line. */
+function safeJoin(value: string, base: string): string | null {
+  try {
+    return new URL(value, base).toString();
+  } catch {
+    return null;
+  }
+}
+
+async function fetchPlaylistText(url: string): Promise<string> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(new Error("playlist read timed out")), 6000);
-  let text = "";
   try {
-    const res = await fetch(trimmed, {
+    const res = await fetch(url, {
       signal: controller.signal,
       redirect: "follow",
       cache: "no-store",
@@ -370,26 +446,51 @@ export async function resolvePlaylistUrl(raw: string): Promise<string> {
     if (!res.ok) throw new CloudError(`চ্যানেল তালিকা পড়া যায়নি (${res.status})`, "upstream");
     const length = Number(res.headers.get("content-length") ?? 0);
     if (length > M3U_LIMIT_BYTES) throw new CloudError("চ্যানেল তালিকা খুব বড়", "upstream");
-    text = (await res.text()).slice(0, M3U_LIMIT_BYTES);
+    return (await res.text()).slice(0, M3U_LIMIT_BYTES);
   } catch (error) {
     if (error instanceof CloudError) throw error;
     throw new CloudError("চ্যানেল তালিকা লোড হয়নি — লিংক ও ইন্টারনেট দেখুন", "upstream");
   } finally {
     clearTimeout(timer);
   }
+}
 
-  const base = trimmed.replace(/[^/]*$/, "");
-  for (const line of text.split(/\r?\n/)) {
-    const value = line.trim();
-    if (!value || value.startsWith("#")) continue;
-    const absolute = /^https?:\/\//i.test(value) ? value : new URL(value, base).toString();
-    /* HLS only: an .m3u of rtsp:// or youtube.com links is not something this
-       proxy can play, and pretending otherwise produces a spinner, not a
-       picture. */
-    if (/\.m3u8(\?|#|$)/i.test(absolute)) return absolute;
+/**
+ * Resolve whatever the owner pasted into a URL hls.js can actually play.
+ * Never throws for a recoverable shape problem — it throws a `CloudError`
+ * with a Bangla sentence the player shows instead of a spinner.
+ */
+export async function resolvePlaylistUrl(raw: string): Promise<string> {
+  const trimmed = raw.trim();
+
+  /* SSRF gate: the server is about to fetch this. See lib/upstream-guard.ts. */
+  const allowed = checkDirectUpstream(trimmed);
+  if (!allowed.ok) throw new CloudError(allowed.reason, "device");
+
+  if (!/\.(m3u8?|mpd)(\?|#|$)/i.test(trimmed) && !/playlist|m3u/i.test(trimmed)) {
+    throw new CloudError("লিংকটি .m3u8 (স্ট্রিম) বা .m3u (চ্যানেল তালিকা) হতে হবে", "device");
   }
 
-  throw new CloudError("তালিকায় কোনো HLS (.m3u8) চ্যানেল পাওয়া যায়নি", "device");
+  let current = trimmed;
+  for (let hop = 0; hop < MAX_HOPS; hop++) {
+    const check = checkDirectUpstream(current);
+    if (!check.ok) throw new CloudError(check.reason, "device");
+
+    const text = await fetchPlaylistText(current);
+    const { kind, next } = classifyPlaylist(text, current.replace(/[^/]*$/, ""));
+
+    if (kind === "master" || kind === "media") return current;
+    if (kind === "unknown") {
+      throw new CloudError("লিংকটি স্ট্রিম নয় — হোস্ট প্লেলিস্টের বদলে অন্য কিছু পাঠিয়েছে", "device");
+    }
+    if (!next) break;
+
+    /* The list pointed at a channel; loop and look at THAT, because channel
+       lists routinely point at other lists (iptvcat → deshitv → the stream). */
+    current = next;
+  }
+
+  throw new CloudError("তালিকায় চালানো যায় এমন স্ট্রিম পাওয়া যায়নি", "device");
 }
 
 /* --------------------------------------------------------- playlist cache */
@@ -407,6 +508,23 @@ export async function resolvePlaylistUrl(raw: string): Promise<string> {
  * not a correctness guarantee, and it never serves a dead URL for long.
  */
 const PLAYLIST_TTL_MS = Number(process.env.CAM_PLAYLIST_TTL_MS ?? 20_000);
+
+/**
+ * A TV channel gets a much shorter cache, and the reason is not cost.
+ *
+ * The 20 s TTL above exists for VENDOR cameras, where every miss is a billed
+ * API call and the vendor URL is stable. A channel's URL is not fetched from a
+ * vendor — it is resolved by walking the pasted link, which is cheap again on
+ * every hit because the hop results are obvious. Worse, many IPTV hosts hand
+ * out a token-carrying segment path that stops working within seconds, and a
+ * cached one is a playlist whose every segment 404s: the player shows
+ * "লোড হচ্ছে…" and never recovers until the cache expires.
+ *
+ * Two seconds is enough to absorb the burst of playlist requests that follow a
+ * player attach (hls.js asks for the media playlist on every fragment), and
+ * short enough that a stale token costs one segment, not a minute.
+ */
+const TV_PLAYLIST_TTL_MS = 2_000;
 
 // Keyed by camera + the fields that change the answer, so re-pointing a camera
 // in the admin panel takes effect on the next request instead of minutes later.
@@ -434,7 +552,8 @@ export async function resolveCloudHlsCached(
   // Bound the map: a serverless instance serves a handful of cameras, but never
   // let a pathological caller grow it without limit.
   if (playlistCache.size > 200) playlistCache.clear();
-  playlistCache.set(key, { ...resolved, expires: Date.now() + PLAYLIST_TTL_MS });
+  const ttl = camera.cloud_provider === "tv" ? TV_PLAYLIST_TTL_MS : PLAYLIST_TTL_MS;
+  playlistCache.set(key, { ...resolved, expires: Date.now() + ttl });
   return resolved;
 }
 

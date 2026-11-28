@@ -135,22 +135,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ path?: string[]
        Supabase credentials are both missing: 502, not a free stream.) */
     let rewritten: string;
     try {
-      rewritten = text
-        .split("\n")
-        .map((line) => {
-          const value = line.trim();
-          if (!value) return line;
-          if (value.startsWith("#")) {
-            // key / map URIs live inside tags — route those too
-            return value.replace(/URI="([^"]+)"/g, (_all, uri: string) => {
-              const absolute = /^https?:/i.test(uri) ? uri : new URL(uri, base).toString();
-              return `URI="${pin(absolute)}"`;
-            });
-          }
-          const absolute = /^https?:/i.test(value) ? value : new URL(value, base).toString();
-          return pin(absolute);
-        })
-        .join("\n");
+      rewritten = rewritePlaylistUris(text, base, pin);
     } catch (err) {
       return NextResponse.json(
         {
@@ -233,11 +218,97 @@ export async function GET(req: Request, ctx: { params: Promise<{ path?: string[]
   if (!upstream?.ok) return fail("সেগমেন্ট লোড হয়নি", 502);
 
   const headers = new Headers();
-  const type = upstream.headers.get("content-type");
-  if (type) headers.set("content-type", type);
+  /* ⚠️ THE CONTENT-TYPE DECIDES WHETHER hls.js PARSES AT ALL.
+     A segment route can also be asked for a NESTED PLAYLIST — an IPTV channel
+     often points at another .m3u8 (the deshitv case), and the browser then
+     requests that through this same signed segment path. Passing the upstream
+     header through blindly is what a CDN does but not what a player can use:
+     many IPTV hosts serve playlists as text/plain or application/octet-stream,
+     hls.js sees "not a playlist", and the UI sits on "লাইভ লোড হচ্ছে…" with no
+     error to show. So the type is inferred from what we actually know: the
+     path the viewer asked for, then the upstream header, then a sane default.
+     The body is streamed, never inspected twice. */
+  const askedForPlaylist = /\.m3u8?(\?|$)/i.test(carried ? absolute : "") || /\.m3u8?(\?|$)/i.test(target.pathname);
+  const upstreamType = upstream.headers.get("content-type") ?? "";
+  const isPlaylistType = /mpegurl|x-mpegurl/i.test(upstreamType);
+
+  /* ⚠️ A PLAYLIST FETCHED THROUGH THE SEGMENT ROUTE STILL HAS TO BE REWRITTEN.
+     This is the master-playlist case, and it was a real bug rather than a
+     nicety: hls.js asks `/api/cam/live/<id>/index.m3u8`, gets a master (one
+     `#EXT-X-STREAM-INF` per bitrate), and then asks for the variant it picked.
+     That variant URL went out through the FIRST branch — which returns the
+     body verbatim — so the media playlist arrived with segment paths relative
+     to `/api/cam/live/<id>/seg/<base64>/` instead of to the CDN. Every segment
+     then resolved to a page that does not exist, and the channel sat on
+     "লাইভ লোড হচ্ছে…" exactly like the list-in-a-stream-extension bug. Rewrite
+     it here too, so the chain holds however deep the channel nests. */
+  if (isPlaylistType || askedForPlaylist) {
+    const body = await upstream.text();
+    if (/^\s*#EXTM3U/i.test(body)) {
+      headers.set("content-type", "application/vnd.apple.mpegurl");
+      headers.set("cache-control", "no-store");
+      const { signSegment } = await import("@/lib/camera-cloud");
+      const pin = (abs: string) =>
+        `/api/cam/live/${cameraId}/seg/${Buffer.from(abs).toString("base64url")}?s=${signSegment(
+          cameraId,
+          abs
+        )}&t=${token}`;
+      const base = absolute.replace(/[^/]*$/, "");
+      try {
+        return new NextResponse(rewritePlaylistUris(body, base, pin), {
+          status: 200,
+          headers,
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "প্লেলিস্ট পড়া যাচ্ছে না";
+        return fail(message, 502);
+      }
+    }
+    /* Not actually a playlist despite the name — an HTML "offline" page from an
+       IPTV host, which used to be streamed to hls.js as if it were media. It
+       cannot be passed through even as an error: `upstream.text()` above has
+       already consumed the body, so `upstream.body` would be empty by now. Say
+       so plainly instead; the player shows the message rather than spinning. */
+    return fail("স্ট্রিম সার্ভার প্লেলিস্টের বদলে অন্য কিছু পাঠিয়েছে — চ্যানেলটি সম্ভবত বন্ধ", 502);
+  } else if (upstreamType) {
+    headers.set("content-type", upstreamType);
+  }
+
   const length = upstream.headers.get("content-length");
   if (length) headers.set("content-length", length);
   headers.set("cache-control", "no-store");
 
   return new NextResponse(upstream.body, { status: 200, headers });
+}
+
+/* ==========================================================================
+   rewritePlaylistUris — one place that turns a playlist into OUR playlist.
+   --------------------------------------------------------------------------
+   Every URI a playlist names (media lines, and the URI="…" inside #EXT-X-KEY /
+   #EXT-X-MAP / #EXT-X-MEDIA tags) is replaced with a signed proxy path. A line
+   we cannot resolve throws, because passing it through would send the browser
+   straight to the CDN and skip the per-segment signature.
+
+   `classifyPlaylistText` is deliberately NOT consulted here. Rewriting is a
+   transport concern: whatever the body is, if it names URIs we must pin them.
+   The classifier answers a different question — "does this chain end at a
+   stream?" — and is used by resolvePlaylistUrl and the admin link tester.
+   ========================================================================== */
+function rewritePlaylistUris(text: string, base: string, pin: (absolute: string) => string): string {
+  return text
+    .split("\n")
+    .map((line) => {
+      const value = line.trim();
+      if (!value) return line;
+      if (value.startsWith("#")) {
+        // key / map / media URIs live inside tags — route those too
+        return value.replace(/URI="([^"]+)"/g, (_all, uri: string) => {
+          const absolute = /^https?:/i.test(uri) ? uri : new URL(uri, base).toString();
+          return `URI="${pin(absolute)}"`;
+        });
+      }
+      const absolute = /^https?:/i.test(value) ? value : new URL(value, base).toString();
+      return pin(absolute);
+    })
+    .join("\n");
 }
