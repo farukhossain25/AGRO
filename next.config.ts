@@ -1,3 +1,5 @@
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import type { NextConfig } from "next";
 import { IS_PREVIEW } from "./lib/site-url";
 
@@ -62,11 +64,44 @@ function supabaseImageHost(): { protocol: "https"; hostname: string } | null {
    previous build's chunks and the error boundary would stay stuck; if it
    changed on every REQUEST the page would reload in a loop. A build-time
    constant is exactly right. */
-const BUILD_ID =
-  process.env.VERCEL_DEPLOYMENT_ID ??
-  process.env.VERCEL_GIT_COMMIT_SHA ??
-  process.env.NEXT_PUBLIC_BUILD_ID ??
-  `local-${Date.now().toString(36)}`;
+/* ⚠️ THE FALLBACK MUST BE STABLE PER BUILD, NOT PER PROCESS.
+   This file is evaluated twice in a normal lifecycle: once by `next build`,
+   and again by `next start` (and by the route that serves /sw.js). A
+   timestamp fallback therefore produced TWO different ids for the same build —
+   the client bundle carried the build's, the worker carried the runtime's, the
+   PWA's build-id watcher saw a mismatch on every load and reloaded the page in
+   a loop. Vercel always provides the two variables above, which is why this
+   never showed there; any self-hosted or preview run would have hit it.
+   `next build` writes the id to .next/, so the runtime can read the very same
+   value back. */
+function resolveBuildId(): string {
+  const fromDeploy = process.env.VERCEL_DEPLOYMENT_ID ?? process.env.VERCEL_GIT_COMMIT_SHA;
+  if (fromDeploy) return fromDeploy;
+
+  /* A build already stamped this tree: reuse it instead of inventing another. */
+  try {
+    const stamped = readFileSync(join(process.cwd(), ".next", "build-id"), "utf8").trim();
+    if (stamped) return stamped;
+  } catch {
+    /* no build yet — fall through and make one */
+  }
+
+  if (process.env.NEXT_PUBLIC_BUILD_ID) return process.env.NEXT_PUBLIC_BUILD_ID;
+
+  const generated = `local-${Date.now().toString(36)}`;
+  /* Persist it for the runtime half of this lifecycle. Best-effort: a read-only
+     filesystem must not break the build, and Vercel never reaches here. */
+  try {
+    mkdirSync(join(process.cwd(), ".next"), { recursive: true });
+    writeFileSync(join(process.cwd(), ".next", "build-id"), generated);
+  } catch {
+    /* build ids will differ between the two evaluations; the PWA's guard is
+       per build id, so the worst case is one extra cleanup, not a loop. */
+  }
+  return generated;
+}
+
+const BUILD_ID = resolveBuildId();
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -164,14 +199,13 @@ const nextConfig: NextConfig = {
         headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
       },
 
-      // ── the service worker must never be cached by the browser
-      {
-        source: "/sw.js",
-        headers: [
-          { key: "Cache-Control", value: "public, max-age=0, must-revalidate" },
-          { key: "Service-Worker-Allowed", value: "/" },
-        ],
-      },
+      /* ⚠️ /sw.js IS NOT LISTED HERE ON PURPOSE.
+         It is now answered by app/sw.js/route.ts, because its cache name has
+         to carry the deployment id (a hand-written constant meant one skipped
+         bump served the previous build forever). headers() would apply to the
+         route's response as well, but the route already sets Cache-Control and
+         Service-Worker-Allowed itself — one owner per header is worth more than
+         the few lines saved. */
 
       // ── feed + machine files
       {

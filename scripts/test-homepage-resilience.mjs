@@ -142,14 +142,52 @@ async function main() {
   check("sw.js served", sw.status === 200);
   check("sw.js is not browser-cached", /max-age=0/.test(sw.headers.get("cache-control") ?? ""), sw.headers.get("cache-control") ?? "");
   check("sw.js has a version marker", /const SHELL\s*=/.test(sw.body));
+  /* The name must come from the build, not from a constant someone has to
+     remember to bump: one skipped bump served the previous build to every
+     installed phone, permanently. `dev` is what an unbuilt local run sees. */
+  const shellName = /const SHELL\s*=\s*["']([^"']+)["']/.exec(sw.body)?.[1] ?? "";
+  check(
+    "sw.js cache name is per-deployment (no __BUILD_ID__ placeholder left)",
+    shellName.length > 3 && !shellName.includes("__BUILD_ID__"),
+    shellName
+  );
+  check("sw.js declares a Service-Worker-Allowed scope", sw.headers.get("service-worker-allowed") === "/", sw.headers.get("service-worker-allowed") ?? "(none)");
   check("sw.js serves an offline page, not the document", sw.body.includes("/offline"));
+  /* The worker must not sit between the browser and a hashed build asset.
+     Every stale-chunk incident came from a worker-held copy that outlived a
+     deploy, so the check slices the branch out and reads it rather than
+     matching the whole file with one fragile regex. */
+  const staticBranch = (() => {
+    const at = sw.body.indexOf('url.pathname.startsWith("/_next/static/")');
+    if (at === -1) return "";
+    /* Cut at the next branch, then drop comments — the block's own explanation
+       mentions `respondWith`, and matching that would fail forever. */
+    const end = sw.body.indexOf("// ---- fonts", at);
+    const block = sw.body.slice(at, end === -1 ? at + 1200 : end);
+    return block.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  })();
+  check(
+    "sw.js does not serve /_next/static from its own cache",
+    staticBranch.length > 0 && !staticBranch.includes("cache.put") && !staticBranch.includes("respondWith")
+  );
+  const navBranch = (() => {
+    const at = sw.body.indexOf('request.mode === "navigate"');
+    if (at === -1) return "";
+    const end = sw.body.indexOf("// ---- build assets", at);
+    const block = sw.body.slice(at, end === -1 ? at + 1200 : end);
+    return block.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  })();
+  check("sw.js never writes an HTML document into a cache", navBranch.length > 0 && !navBranch.includes("cache.put"));
   check(
     "sw.js does not return `cached || network` (the undefined bug)",
     !/return cached \|\| network/.test(sw.body)
   );
+  /* The policy changed from "network-first" to "not intercepted at all", which
+     is the stronger form of the same rule. Accept either wording so an older
+     deployed worker still passes this check. */
   check(
-    "build assets are network-first",
-    /network-first/i.test(sw.body) || /NO stale fallback/i.test(sw.body)
+    "build assets are never served stale",
+    /network-first/i.test(sw.body) || /GET OUT OF THE WAY/i.test(sw.body)
   );
 
   /* ── summary ──────────────────────────────────────────────────────── */

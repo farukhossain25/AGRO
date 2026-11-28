@@ -10,8 +10,9 @@ import { useEffect } from "react";
 
    THE PART THAT MATTERS: GETTING A STUCK VISITOR OUT
    --------------------------------------------------------------------------
-   The worker in `public/sw.js` used to serve build chunks out of a cache named
-   by a hand-written constant. After a deploy the HTML was new but the chunks
+   The worker (now `app/sw.js/sw.js`, served through app/sw.js/route.ts so its
+   cache name carries the deployment id) used to serve build chunks out of a
+   cache named by a hand-written constant. After a deploy the HTML was new but the chunks
    were the previous build's, so React failed while hydrating and every page
    showed "কিছু একটা ভুল হয়েছে" until site data was cleared by hand. A hard
    refresh did not help — the worker answered before the network did.
@@ -106,6 +107,32 @@ export function PWARegister() {
     // A chunk that fails to load arrives as a resource error, which does not
     // fire on `window` — this listener is added in the capture phase below.
 
+    /* ── 3. the worker says it just took over ──────────────────────────────
+       `sw.js` posts { type: "sw-activated", shell } from its activate handler,
+       with a comment saying the page should offer a single reload. Nothing was
+       listening, so a newly activated worker changed nothing for the visitor
+       until they happened to reload — the stale page stayed stale. This is that
+       missing listener: if a DIFFERENT worker now controls a page that this
+       component loaded under another one, one reload applies it. */
+    const onWorkerMessage = (event: MessageEvent) => {
+      if (!event.data || event.data.type !== "sw-activated") return;
+      const activated = String(event.data.shell ?? "");
+      if (!activated) return;
+      /* Only reload when the shell this page was built for does not match the
+         one that just activated — the normal first install posts the same one
+         and must not cause a gratuitous reload. */
+      try {
+        if (window.sessionStorage.getItem(RECOVERY_KEY) === BUILD_ID) return;
+        window.sessionStorage.setItem(RECOVERY_KEY, BUILD_ID);
+      } catch {
+        return;
+      }
+      void purgeEverything().then(() => window.location.reload());
+    };
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.addEventListener("message", onWorkerMessage);
+    }
+
     const register = () => {
       navigator.serviceWorker
         .register("/sw.js", { scope: "/", updateViaCache: "none" })
@@ -153,6 +180,9 @@ export function PWARegister() {
       window.removeEventListener("error", onEarlyError);
       window.removeEventListener("unhandledrejection", onEarlyError);
       window.removeEventListener("error", onResourceError, true);
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.removeEventListener("message", onWorkerMessage);
+      }
     };
   }, []);
 
