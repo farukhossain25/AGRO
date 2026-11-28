@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { SUPABASE_PUBLIC_KEY, SUPABASE_URL, isSupabasePublicConfigured } from "@/lib/env";
 import { normalizeRole } from "@/lib/session";
+import { withDeadline } from "@/lib/fetch-deadline";
 import type { UserRole } from "@/lib/types";
 
 /* ==========================================================================
@@ -17,6 +18,11 @@ import type { UserRole } from "@/lib/types";
    The same call answers "who is this?" for the route guards, so a guarded
    request costs exactly one auth round-trip — no duplicate verification.
    ========================================================================== */
+
+/** Milliseconds the pre-route auth check may take before the request proceeds
+ *  as signed out. Keep it well under a second or two of user-visible waiting —
+ *  this runs before the page, so its latency is added to everything. */
+const MIDDLEWARE_AUTH_TIMEOUT_MS = Number(process.env.SUPABASE_MIDDLEWARE_TIMEOUT_MS ?? 3000);
 
 export type SessionResult = {
   /** Response that already carries any refreshed auth cookies. */
@@ -42,6 +48,13 @@ export async function updateSession(
   }
 
   const supabase = createServerClient(SUPABASE_URL, SUPABASE_PUBLIC_KEY, {
+    /* Middleware runs BEFORE the route, so an auth call that never returns
+       means the visitor never receives a byte of HTML at all — worse than the
+       slow page it was meant to protect. The deadline is shorter than the
+       server-side one because this is on the critical path of every request:
+       past it, the request is treated as signed out (the catch below already
+       does that for a network error, so the behaviour is identical). */
+    global: { fetch: withDeadline(MIDDLEWARE_AUTH_TIMEOUT_MS) },
     cookies: {
       getAll: () => req.cookies.getAll(),
       setAll: (cookiesToSet) => {

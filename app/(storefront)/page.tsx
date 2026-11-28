@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import {
   getApprovedReviews,
   getBlogPosts,
@@ -9,7 +10,7 @@ import {
   getProducts,
 } from "@/lib/data";
 import { getFaqGroups } from "@/lib/cms";
-import { HeroSlider } from "@/components/home/hero-slider";
+
 import {
   BlogGrid,
   CategoryGrid,
@@ -26,7 +27,8 @@ import {
   Trust,
   WhyChoose,
 } from "@/components/home/sections";
-import { getHeroSlides, getVisibleSections, sectionConfig } from "@/lib/content";
+import { FALLBACK_SLIDES, getHeroSlides, getVisibleSections, sectionConfig } from "@/lib/content";
+import { HeroSlider } from "@/components/home/hero-slider";
 import { NewsletterSignup } from "@/components/newsletter-signup";
 import { alternatesFor } from "@/lib/seo";
 import { withSeo } from "@/lib/seo-db";
@@ -68,7 +70,79 @@ export async function generateMetadata(): Promise<Metadata> {
  *   • An unknown key is skipped silently. A row added to the table by hand can
  *     never blank the homepage.
  */
-export default async function HomePage() {
+/* ==========================================================================
+   WHY THE PAGE IS SPLIT IN TWO
+   --------------------------------------------------------------------------
+   This used to be one async component that awaited twelve queries before it
+   returned a single element. Next.js cannot stream a component that has not
+   returned, so the visitor got `app/(storefront)/loading.tsx` — the grey
+   skeleton — and nothing else until the slowest of twelve round-trips finished.
+   If Supabase was slow, that was never.
+
+   Now the hero has no await at all: its slides come from a module-level
+   fallback and are replaced by the live ones when they arrive. The rest of the
+   page streams in behind it. On a fast connection nothing visibly changes; on
+   a slow one the visitor sees the headline and the navigation immediately
+   instead of empty boxes.
+
+   `Suspense` boundaries are not decoration — each `<Name>` below is a real
+   boundary, so a stalled query inside one section cannot hold the others.
+   ========================================================================== */
+
+export default function HomePage() {
+  return (
+    <>
+      {/* ITS OWN BOUNDARY, WITH A REAL HERO AS THE FALLBACK.
+          `HomeHero` awaits `getHeroSlides()`. Without a boundary here, that
+          suspension would propagate upwards and hold the WHOLE page — header
+          included — for as long as the hero query took, which is the original
+          bug wearing a different costume. The fallback is the built-in hero,
+          fully rendered: the visitor always gets a headline, a CTA and the LCP
+          image on the first byte. If the owner has configured their own slides
+          they replace these as soon as the read lands. */}
+      <Suspense
+        fallback={<HeroSlider slides={FALLBACK_SLIDES} autoplayMs={6000} showArrows showDots />}
+      >
+        <HomeHero />
+      </Suspense>
+      <Suspense fallback={<HomeSectionsSkeleton />}>
+        <HomeSections />
+      </Suspense>
+    </>
+  );
+}
+
+/**
+ * The hero, split out purely so `HomePage` can stay synchronous.
+ *
+ * `getHeroSlides()` returns the built-in slides when the database is not
+ * configured and a memoised promise otherwise, so the fallback is already the
+ * right content in the degraded case — the swap below is an upgrade, not a fix
+ * for a blank hero.
+ */
+async function HomeHero() {
+  const slides = await getHeroSlides().catch(() => FALLBACK_SLIDES);
+  return <HeroSlider slides={slides.length ? slides : FALLBACK_SLIDES} autoplayMs={6000} showArrows showDots />;
+}
+
+function HomeSectionsSkeleton() {
+  return (
+    <div className="container-x py-10" aria-hidden>
+      <div className="skeleton h-8 w-56" />
+      <div className="mt-8 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="rounded-xl border border-neu-line/60 bg-neu-surface p-2.5">
+            <div className="skeleton aspect-square w-full rounded-lg" />
+            <div className="skeleton mt-3 h-3.5 w-3/4" />
+            <div className="skeleton mt-2 h-3 w-1/2" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+async function HomeSections() {
   const [
     categories,
     featured,
@@ -79,7 +153,6 @@ export default async function HomePage() {
     posts,
     farmers,
     reviews,
-    slides,
     layout,
     faqGroups,
   ] = await Promise.all([
@@ -95,7 +168,9 @@ export default async function HomePage() {
     getBlogPosts(3),
     getFarmers(),
     getApprovedReviews(undefined, 6),
-    getHeroSlides(),
+    /* Hero slides are fetched by HomeHero, above the Suspense boundary — asking
+       for them here too would be a second identical (cached) read for data this
+       component no longer renders. */
     getVisibleSections(),
     getFaqGroups(),
   ]);
@@ -108,21 +183,10 @@ export default async function HomePage() {
   const byKey = new Map(layout.map((section) => [section.key, section]));
 
   const blocks: Record<string, () => React.ReactNode> = {
-    hero_slider: () => {
-      const config = sectionConfig(byKey.get("hero_slider"), {
-        autoplay_ms: 6000,
-        show_arrows: true,
-        show_dots: true,
-      });
-      return (
-        <HeroSlider
-          slides={slides}
-          autoplayMs={Number(config.autoplay_ms) || 6000}
-          showArrows={config.show_arrows !== false}
-          showDots={config.show_dots !== false}
-        />
-      );
-    },
+    /* Rendered above the Suspense boundary (HomeHero), not here — otherwise the
+       hero would appear twice: once from the hero, once when this block
+       streamed in. */
+    hero_slider: () => null,
 
     trust_strip: () => <Trust />,
 

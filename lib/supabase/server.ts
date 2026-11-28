@@ -11,6 +11,7 @@ import {
 } from "@/lib/env";
 import { normalizeRole, type SessionUser } from "@/lib/session";
 import type { Database } from "@/lib/database.types";
+import { withDeadline, withDeadlineFallback } from "@/lib/fetch-deadline";
 
 /* ==========================================================================
    Server Supabase clients
@@ -37,6 +38,10 @@ export async function createServerSupabaseClient(): Promise<SupabaseClient<Datab
   const cookieStore = await cookies();
 
   return createServerClient<Database>(SUPABASE_URL, SUPABASE_PUBLIC_KEY, {
+    /* Every request through this client — auth.getUser(), the profile read, any
+       RLS-scoped query — now has a deadline. Without it a slow Supabase held the
+       whole tree open and the visitor watched the route skeleton. */
+    global: { fetch: withDeadline() },
     cookies: {
       getAll() {
         return cookieStore.getAll().map(({ name, value }) => ({ name, value }));
@@ -71,7 +76,7 @@ export function supabaseAdmin(): SupabaseClient<Database> {
 
   adminClient = createClient<Database>(SUPABASE_URL, SUPABASE_SECRET_KEY, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-    global: { headers: { "X-Client-Info": "biswas-agro-server" } },
+    global: { headers: { "X-Client-Info": "biswas-agro-server" }, fetch: withDeadline() },
   });
   return adminClient;
 }
@@ -98,12 +103,17 @@ export const getServerUser = cache(async () => {
 
   try {
     const supabase = await createServerSupabaseClient();
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
-    if (error || !user) return null;
-    return user;
+    /* `auth.getUser()` is a network call to /auth/v1/user, and the SDK builds
+       that request itself — the client-level fetch deadline does not always
+       apply to it. Racing it is the only way to guarantee a ceiling: without
+       this, a Supabase auth endpoint that accepts the connection and then
+       stalls kept the entire page render waiting indefinitely. */
+    const result = await withDeadlineFallback(
+      supabase.auth.getUser(),
+      { data: { user: null }, error: null } as unknown as Awaited<ReturnType<typeof supabase.auth.getUser>>
+    );
+    if (result.error || !result.data?.user) return null;
+    return result.data.user;
   } catch {
     return null;
   }

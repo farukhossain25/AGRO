@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { db, dbUsable } from "./db";
+import { withDeadlineFallback } from "./fetch-deadline";
 
 /* ==========================================================================
    Editable SEO copy (migration 0006 → `seo_meta`)
@@ -35,16 +36,36 @@ let cache: { at: number; rows: Map<string, SeoRow> } | null = null;
 async function loadAll(): Promise<Map<string, SeoRow>> {
   if (cache && Date.now() - cache.at < CACHE_TTL_MS) return cache.rows;
   const rows = new Map<string, SeoRow>();
+  let ok = true;
   if (dbUsable()) {
-    try {
-      const { data, error } = await db().from("seo_meta").select("*");
-      if (error) throw error;
-      for (const row of (data ?? []) as SeoRow[]) rows.set(row.path, row);
-    } catch (error) {
-      console.warn("[seo] falling back to built-in metadata:", (error as Error).message);
+    /* `generateMetadata` runs BEFORE the page renders, so an SEO read that
+       hangs delays the entire response even though the copy it supplies is
+       optional — every page has a hand-written default. This is the one query
+       in the app whose failure is completely invisible to the visitor, so it
+       gets the shortest leash: past the deadline, the defaults win and the
+       page renders. */
+    const result = await withDeadlineFallback(
+      Promise.resolve().then(() =>
+        db().from("seo_meta").select("*").then(
+          (res: { data: SeoRow[] | null; error: { message: string } | null }) => res,
+          (error: Error) => ({ data: null as SeoRow[] | null, error }),
+        ),
+      ),
+      { data: null as SeoRow[] | null, error: { message: "seo read exceeded its deadline" } },
+      1500,
+    );
+    if (result?.error) {
+      ok = false;
+      console.warn("[seo] falling back to built-in metadata:", result.error.message);
+    } else {
+      for (const row of (result?.data ?? []) as SeoRow[]) rows.set(row.path, row);
     }
   }
-  cache = { at: Date.now(), rows };
+  /* Only remember a SUCCESSFUL read. Caching the empty map after a timeout
+     pinned every page to its built-in title for five minutes even though the
+     database was healthy again a second later — the kind of bug that looks like
+     "the panel's SEO screen stopped working". */
+  if (ok) cache = { at: Date.now(), rows };
   return rows;
 }
 
