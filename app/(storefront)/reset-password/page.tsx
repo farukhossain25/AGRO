@@ -32,7 +32,7 @@ export default function ResetPasswordPage() {
         </Link>
 
         <div
-          className="auth-rise auth-frame rounded-[26px] border border-white/[0.07] bg-ink-900/85 p-6 shadow-[0_40px_100px_-50px_rgba(0,0,0,0.95)] backdrop-blur-xl sm:p-8"
+          className="auth-rise auth-frame rounded-2xl border border-white/[0.07] bg-ink-900/85 p-6 shadow-[0_40px_100px_-50px_rgba(0,0,0,0.95)] backdrop-blur-xl sm:p-8"
           style={{ ["--d" as string]: "90ms" }}
         >
           <span className="grid h-11 w-11 place-items-center rounded-2xl bg-leaf-600/15 text-leaf-700 ring-1 ring-leaf-500/25">

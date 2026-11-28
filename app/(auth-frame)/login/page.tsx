@@ -204,7 +204,7 @@ export default function LoginPage() {
               aria-hidden
             />
             <Suspense
-              fallback={<div className="h-[560px] w-full max-w-[440px] animate-pulse rounded-3xl bg-neu-sunken" />}
+              fallback={<div className="h-[560px] w-full max-w-[440px] animate-pulse rounded-xl bg-neu-sunken" />}
             >
               <LoginForm />
             </Suspense>

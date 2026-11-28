@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronRight } from "lucide-react";
+import { BackLink } from "@/components/back-link";
 import { decodeRouteParam } from "@/lib/format";
 import { getApprovedReviews, getCategories, getProducts, getRelatedProducts, lookupProductBySlug } from "@/lib/data";
 import { ProductDetail } from "@/components/shop/product-detail";
@@ -200,6 +201,9 @@ export default async function ProductPage({
       />
 
       <div className="container-x py-6 sm:py-10">
+        {/* Phone users have no visible back affordance once the browser's own
+            bar scrolls away; the breadcrumb helps but its links are 11 px. */}
+        <BackLink fallback="/products" label="সব পণ্যে ফিরে যান" className="mb-4" />
         <nav aria-label="ব্রেডক্রাম্ব" className="mb-5 flex flex-wrap items-center gap-1 text-[12px] text-sand-100/45">
           <Link href="/" className="hover:text-leaf-200">হোম</Link>
           <ChevronRight className="h-3 w-3" />

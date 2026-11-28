@@ -156,7 +156,7 @@ export default async function FarmPage() {
       </section>
 
       <section className="container-x pb-14">
-        <div className="flex flex-col items-center justify-between gap-4 rounded-3xl border border-neu-accent/25 bg-gradient-to-r from-neu-accent-soft to-neu-raised p-6 text-center sm:flex-row sm:text-left">
+        <div className="flex flex-col items-center justify-between gap-4 rounded-2xl border border-neu-accent/25 bg-gradient-to-r from-neu-accent-soft to-neu-raised p-6 text-center sm:flex-row sm:text-left">
           <div>
             <h2 className="text-lg font-bold">খামার নিজে দেখতে চান?</h2>
             <p className="mt-1 text-[12.5px] text-sand-100/60">

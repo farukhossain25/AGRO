@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { BackLink } from "@/components/back-link";
 import { notFound } from "next/navigation";
 import { BadgeCheck, Eye, MapPin, Phone, ShieldCheck } from "lucide-react";
 import { decodeRouteParam } from "@/lib/format";
@@ -167,6 +168,7 @@ export default async function SellerStorePage({ params }: { params: Promise<{ sl
       </section>
 
       <div className="container-x py-8">
+        <BackLink fallback="/market" label="মার্কেটপ্লেসে ফিরে যান" className="mb-4 !text-white/75 hover:!text-[#7CE3B4]" />
         <div className="mb-6 flex flex-wrap gap-1.5">
           {(seller.product_types ?? []).map((t) => (
             <span key={t} className="chip">

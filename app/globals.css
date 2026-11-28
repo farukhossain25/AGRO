@@ -238,21 +238,34 @@
   }
 
   /* ------------------------------------------------------------------ */
-  /* Neumorphic primitives                                               */
+  /* Surfaces                                                            */
   /* ------------------------------------------------------------------ */
+  /* WHAT CHANGED AND WHY
+     `.card` used to be the whole neumorphic look in one class: a 24 px
+     radius, a white inner ring, a two-layer drop shadow AND a 145° gradient —
+     on 213 call sites. Every list row, every panel, every summary ended up
+     inside a rounded, elevated, gradient-filled box, which is what made the
+     site feel like a collection of frames instead of pages.
 
-  /* Raised card — dual shadow + inner top highlight */
+     A card is now a *surface*: flat fill, one hairline, a small 12 px radius.
+     Depth is reserved for things that are actually lifted off the page
+     (dropdowns, drawers, modals, the sticky header), so the eye can still read
+     elevation as meaning something.
+
+     Everything else — spacing, colour tokens, hover transitions — is
+     unchanged, and `.card` keeps its name, so no call site had to move. */
   .card {
-    border-radius: 1.5rem;
-    border: 1px solid rgba(255, 255, 255, 0.8);
+    border-radius: 0.75rem;
+    border: 1px solid var(--neu-line);
     background-color: var(--neu-surface);
-    box-shadow: var(--neu-shadow-raised), inset 0 1px 0 rgba(255, 255, 255, 0.9);
     color: var(--neu-ink);
   }
 
-  /* the gradient only applies when the element does not set its own bg-* utility */
-  .card:not([class*="bg-"]) {
-    background-image: linear-gradient(145deg, #eef2f8 0%, #e3e8f0 100%);
+  /* Opt-in depth, for the rare card that really is floating (a popover menu,
+     a dragged item). Previously every card got this for free. */
+  .card-lifted {
+    box-shadow: var(--neu-shadow-raised-sm);
+    border-radius: 1rem;
   }
 
   .card-hover {

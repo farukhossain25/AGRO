@@ -264,7 +264,7 @@ export function Toast({ message }: { message: string }) {
 export function Accordion({ items }: { items: { q: string; a: ReactNode }[] }) {
   const [open, setOpen] = useState<number | null>(0);
   return (
-    <div className="card divide-y divide-neu-line/50 overflow-hidden !rounded-3xl p-2">
+    <div className="card divide-y divide-neu-line/50 overflow-hidden !rounded-xl p-2">
       {items.map((item, i) => {
         const isOpen = open === i;
         return (

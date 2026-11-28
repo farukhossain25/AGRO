@@ -38,7 +38,7 @@ export function AccountNav({ isSeller = false }: { isSeller?: boolean }) {
 
   return (
     <nav aria-label="অ্যাকাউন্ট মেনু" className="min-w-0 lg:sticky lg:top-24 lg:self-start">
-      <ul className="no-scrollbar neu-raised flex w-full max-w-full gap-1.5 overflow-x-auto overscroll-x-contain rounded-[22px] p-1.5 lg:flex-col lg:gap-0.5">
+      <ul className="no-scrollbar neu-raised flex w-full max-w-full gap-1.5 overflow-x-auto overscroll-x-contain rounded-xl p-1.5 lg:flex-col lg:gap-0.5">
         {items.map(({ href, labelBn, labelEn, Icon }) => {
           const active = pathname === href || (href !== "/account" && pathname.startsWith(`${href}/`));
           return (

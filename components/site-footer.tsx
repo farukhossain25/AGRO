@@ -7,7 +7,6 @@ import { useLocale } from "@/lib/locale";
 import { footerLinks } from "@/lib/site";
 import { useStoreInfo } from "@/lib/store-info";
 import { toBn } from "@/lib/format";
-import { Logo } from "./icon-logo";
 import { FooterPayments, type FooterPaymentMethod as FooterPaymentMethodType } from "./footer-payments";
 
 /* ==========================================================================
@@ -57,35 +56,32 @@ export function SiteFooter({
   }));
 
   return (
-    <footer className="mt-16 sm:mt-20">
-      <div className="container-x pb-6 sm:pb-8">
-        <div className="neu-raised-lg relative overflow-hidden rounded-[30px] p-5 sm:rounded-[36px] sm:p-8 lg:p-10">
-          {/* ── decoration: two soft mint glows + hairline rings ────── */}
-          <div aria-hidden className="pointer-events-none absolute inset-0">
-            <div className="absolute -right-28 -top-32 h-80 w-80 rounded-full bg-leaf-500/15 blur-3xl" />
-            <div className="absolute -bottom-32 -left-24 h-72 w-72 rounded-full bg-neu-accent-soft blur-2xl" />
-            <svg
-              viewBox="0 0 400 400"
-              className="absolute -right-20 -top-24 h-[340px] w-[340px] text-neu-line"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1"
-            >
-              <circle cx="200" cy="200" r="70" opacity="0.6" />
-              <circle cx="200" cy="200" r="120" opacity="0.42" />
-              <circle cx="200" cy="200" r="170" opacity="0.26" />
-            </svg>
-          </div>
-
+    <footer className="mt-16 border-t border-neu-line/60 bg-neu-surface/60 sm:mt-20">
+      {/* No card, no radius, no shadow. The footer used to be a neu-raised
+          panel floating inside the page with a 30-36 px radius and two glow
+          blobs behind it — the last "frame" a visitor saw on the way out. It
+          now reads as the end of the document: a tinted band, one hairline. */}
+      <div className="container-x py-10 sm:py-12">
+        <div className="relative">
           {/* ── 1 · brand ──────────────────────────────────────────── */}
           {/* The newsletter card and the "230+ farm families" tile are gone:
               the signup is already the closing band of the page and the number
               already sits in the home sections — a footer that repeats both
               was the single tallest block on a phone screen. */}
           <div className="relative min-w-0">
-            <Logo variant="full" width={132} priority={false} />
+            {/* Type, not the seal. `variant="full"` draws the whole artwork —
+                emblem, wordmark, wave and tagline — on a plate, which at this
+                size was a second logo box inside the footer box. */}
+            <Link href="/" className="inline-flex items-baseline gap-2">
+              <span className="text-[20px] font-extrabold leading-none tracking-tight text-neu-ink">
+                বিশ্বাস <span className="text-neu-accent-strong">এগ্রো</span>
+              </span>
+              <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-neu-muted">
+                Bishwas Agro
+              </span>
+            </Link>
 
-            <p className="mt-5 max-w-md text-[13.5px] leading-relaxed text-neu-muted">
+            <p className="mt-4 max-w-md text-[13.5px] leading-relaxed text-neu-muted">
               {t(
                 "২০২১ সাল থেকে বিশ্বাস এগ্রো বাংলাদেশের কৃষকদের কাছ থেকে সরাসরি তাজা ও নিরাপদ খাবার পরিবারের কাছে পৌঁছে দিচ্ছে। কোনো মধ্যস্বত্বভোগী নেই, কোনো ক্ষতিকর কেমিক্যাল নেই।",
                 "Since 2021 Biswas Agro has delivered safe, traceable food from Bangladeshi farmers directly to families — no middlemen, no harmful chemicals."
@@ -139,7 +135,7 @@ export function SiteFooter({
           </div>
 
           {/* ── 2 · link columns — accordion on phones, grid from md ──── */}
-          <div className="relative mt-9 border-t border-neu-line/50 pt-2 sm:mt-11 md:mt-12 md:grid md:grid-cols-2 md:gap-x-8 md:gap-y-8 md:pt-9 lg:grid-cols-4 lg:gap-x-10">
+          <div className="relative mt-9 border-t border-neu-line/50 pt-6 sm:mt-10 md:grid md:grid-cols-2 md:gap-x-8 md:gap-y-8 md:pt-9 lg:grid-cols-4 lg:gap-x-10">
             <FooterGroup id="shop" title={t("কেনাকাটা", "Shop")} links={footerLinks.shop} />
             <FooterGroup id="categories" title={t("ক্যাটাগরি", "Categories")} links={categoryLinks} />
             <FooterGroup id="support" title={t("সহায়তা", "Support")} links={footerLinks.help} />

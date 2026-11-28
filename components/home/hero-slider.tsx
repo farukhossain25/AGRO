@@ -128,7 +128,7 @@ export function HeroSlider({ slides, autoplayMs = 6000, showArrows = true, showD
       tabIndex={0}
     >
       {/* the whole carousel is one raised, rounded card */}
-      <div className="relative overflow-hidden rounded-[28px] bg-neu-sunken shadow-neu-lg sm:rounded-[34px]">
+      <div className="relative overflow-hidden rounded-2xl bg-neu-sunken shadow-neu-lg sm:rounded-[34px]">
       {/* ---- media ---- */}
       <div className="relative h-[clamp(320px,52vw,560px)] w-full">
         {slides.map((item, i) => {

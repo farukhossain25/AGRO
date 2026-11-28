@@ -57,7 +57,7 @@ export default function AdminLoginPage() {
         </div>
 
         <div
-          className="auth-rise auth-frame neu-raised-lg rounded-[26px] p-5 sm:p-7"
+          className="auth-rise auth-frame neu-raised-lg rounded-2xl p-5 sm:p-7"
           style={{ ["--d" as string]: "80ms" }}
         >
           <div className="mb-4 flex items-center gap-2.5">
