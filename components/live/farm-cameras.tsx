@@ -25,6 +25,12 @@ export function FarmCameras({
 
   const active = useMemo(() => cameras.find((c) => c.id === selected) ?? cameras[0], [cameras, selected]);
 
+  /* A TV channel is hung on the same farm row as the cameras, so this list can
+     hold both. It is the same player and the same signed-token path — only the
+     words change, because calling a channel "ক্যামেরা" would be wrong in the
+     one place a visitor checks what they are looking at. */
+  const isTv = active?.cloud_provider === "tv";
+
   if (!cameras.length) {
     return (
       <div className="grid place-items-center rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-10 text-center">
@@ -62,14 +68,22 @@ export function FarmCameras({
 
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-sand-100/45">
           <StatusPill status={active!.status} />
-          <span>জোন: {active!.zone_bn}</span>
-          <span>সর্বোচ্চ {active!.max_viewers} দর্শক</span>
+          {isTv ? (
+            <span className="rounded-full bg-mint/15 px-2 py-0.5 text-[10.5px] font-semibold text-mint">
+              লাইভ টিভি — ফ্রি
+            </span>
+          ) : (
+            <>
+              <span>জোন: {active!.zone_bn}</span>
+              <span>সর্বোচ্চ {active!.max_viewers} দর্শক</span>
+            </>
+          )}
           {mode === "trial" && (
             <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10.5px] font-semibold text-amber-300">
               ফ্রি ট্রায়াল চলছে
             </span>
           )}
-          {mode === "public" && (
+          {!isTv && mode === "public" && (
             <span className="rounded-full bg-mint/15 px-2 py-0.5 text-[10.5px] font-semibold text-mint">
               সবার জন্য খোলা — কোথাও লগইন ছাড়াই দেখা যাচ্ছে
             </span>

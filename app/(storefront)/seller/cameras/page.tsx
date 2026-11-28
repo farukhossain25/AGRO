@@ -7,6 +7,8 @@ import { getSellerByUser } from "@/lib/sellers";
 import { ensureSellerFarm } from "@/lib/seller-farm";
 import { toBn } from "@/lib/format";
 import { CameraRequestForm } from "@/components/seller/camera-request-form";
+import { ChannelForm } from "@/components/seller/channel-form";
+import { ChannelList } from "@/components/seller/channel-list";
 
 export const dynamic = "force-dynamic";
 
@@ -48,11 +50,15 @@ export default async function SellerCamerasPage() {
     farm
       ? db()
           .from("cameras")
-          .select("id, status, stream_key")
+          .select("id, name_bn, zone_bn, status, stream_key, cloud_provider, stream_url")
           .eq("farm_id", farm.id)
           .eq("is_active", true)
       : Promise.resolve({ data: null, error: null }),
   ]);
+
+  const channels = (cameraRows ?? [])
+    .filter((c) => c.cloud_provider === "tv")
+    .map((c) => ({ id: c.id, name_bn: c.name_bn, status: c.status, stream_url: c.stream_url }));
 
   const mine = farm
     ? {
@@ -93,6 +99,12 @@ export default async function SellerCamerasPage() {
           </Link>
         </div>
       )}
+
+      {/* Channels first: they are the live video a seller can publish TODAY,
+          with no public IP and no installation visit. The camera request below
+          stays exactly as it was, for when the hardware path is ready. */}
+      {farm && <ChannelList channels={channels} farmSlug={mine?.slug ?? null} />}
+      <ChannelForm disabled={!farm} />
 
       <CameraRequestForm hasFarm={Boolean(farm)} />
 

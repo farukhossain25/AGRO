@@ -1,4 +1,5 @@
 import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import { checkUpstreamUrl as checkDirectUpstream } from "./upstream-guard";
 
 /* ==========================================================================
    Camera cloud bridge — play a seller's camera without any server of ours
@@ -17,15 +18,24 @@ import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto
 
    Three providers are supported:
 
-     hls    play `cameras.stream_url` as-is (any camera already public via HLS)
+     hls    play `cameras.stream_url` as-is (an ALREADY-PUBLIC https .m3u8)
+     tv     same URL, but pointed at a free/open TV channel instead of a camera
      imou   Imou Life Open Platform   (open.imoulife.com)
      ezviz  EZVIZ Open Platform       (open.ys7.com / iusopen.ezvizlife.com)
+
+   `hls` vs `tv` is a LABEL, not a different transport: both fetch a playlist
+   URL the owner pasted and re-serve it through this server. The label exists
+   because a channel and a camera answer the same question differently — a TV
+   channel has no vendor quota, no viewer cap and no subscription, and the UI
+   says "লাইভ টিভি" instead of "খামারের ক্যামেরা". Keeping them apart in the data
+   means switching a farm from a test channel to a real camera later is an edit
+   in the admin panel, not a redeploy.
 
    Every call is signed server-side: the AppSecret never leaves this module, and
    the HLS URL we hand to the browser points at OUR proxy, not at the vendor.
    ========================================================================== */
 
-export type CloudProvider = "none" | "hls" | "imou" | "ezviz";
+export type CloudProvider = "none" | "hls" | "tv" | "imou" | "ezviz";
 
 export type CloudCamera = {
   id: string;
@@ -278,11 +288,21 @@ async function ezvizLiveUrl(camera: CloudCamera): Promise<string> {
 export async function resolveCloudHls(camera: CloudCamera): Promise<{ url: string; origin: string }> {
   const provider = (camera.cloud_provider || "none") as CloudProvider;
 
-  if (provider === "hls") {
-    const url = camera.stream_url ?? "";
-    if (!/^https:\/\//i.test(url)) {
-      throw new CloudError("এই ক্যামেরার স্ট্রিম লিংক সঠিক নয় (https দিয়ে শুরু হতে হবে)", "device");
+  if (provider === "hls" || provider === "tv") {
+    const raw = camera.stream_url ?? "";
+    if (!/^https:\/\//i.test(raw)) {
+      throw new CloudError(
+        provider === "tv"
+          ? "চ্যানেলের লিংক সঠিক নয় (https দিয়ে শুরু হতে হবে)"
+          : "এই ক্যামেরার স্ট্রিম লিংক সঠিক নয় (https দিয়ে শুরু হতে হবে)",
+        "device"
+      );
     }
+    /* `.m3u` (a channel LIST) resolves to its first HLS entry; `.m3u8` is
+       already a stream and comes back unchanged. The result is cached by the
+       caller, so a multi-hundred-entry IPTV list is fetched once per TTL, not
+       once per playlist refresh. */
+    const url = await resolvePlaylistUrl(raw);
     return { url, origin: new URL(url).origin };
   }
 
@@ -297,6 +317,79 @@ export async function resolveCloudHls(camera: CloudCamera): Promise<{ url: strin
   }
 
   throw new CloudError("এই ক্যামেরাটি ক্লাউড ব্রিজে সেট করা নেই", "config");
+}
+
+
+/* ------------------------------------------------------- .m3u (multi-channel) */
+/**
+ * Resolve a pasted .m3u playlist to ONE playable .m3u8.
+ *
+ * `.m3u8` is HLS — index it and play. `.m3u` is not a stream: it is a LIST of
+ * channels, the format every "open source TV" playlist on the internet uses
+ * (IPTV-org, public broadcaster lists, an owner's own export from VLC). A
+ * seller or the owner pastes one line and reasonably expects a picture.
+ *
+ * What this does is pick the first entry that is itself an HLS playlist, so a
+ * playlist of RTSP or YouTube links fails with a Bangla explanation instead of
+ * a timeout. It is a deliberate "first working channel" rule, not a channel
+ * picker: one camera row = one visible channel, which is the mental model the
+ * admin form already teaches. Multiple channels = multiple rows, each with its
+ * own .m3u8.
+ *
+ * The playlist bytes are fetched HERE, server-side, with a hard deadline and no
+ * credentials: a URL that hangs must not hold a page render (see
+ * lib/read-deadline.ts for what that cost before).
+ */
+const M3U_LIMIT_BYTES = 512 * 1024;
+
+export async function resolvePlaylistUrl(raw: string): Promise<string> {
+  const trimmed = raw.trim();
+
+  /* SSRF gate: the server is about to fetch this. See lib/upstream-guard.ts
+     for why a pasted URL is not automatically a public one. */
+  const allowed = checkDirectUpstream(trimmed);
+  if (!allowed.ok) throw new CloudError(allowed.reason, "device");
+
+  /* Already a stream: nothing to resolve. */
+  if (/\.m3u8(\?|#|$)/i.test(trimmed)) return trimmed;
+
+  if (!/\.m3u(\?|#|$)/i.test(trimmed)) {
+    throw new CloudError("লিংকটি .m3u8 (স্ট্রিম) বা .m3u (চ্যানেল তালিকা) হতে হবে", "device");
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new Error("playlist read timed out")), 6000);
+  let text = "";
+  try {
+    const res = await fetch(trimmed, {
+      signal: controller.signal,
+      redirect: "follow",
+      cache: "no-store",
+      headers: { "user-agent": "BiswasAgro-Playlist/1.0" },
+    });
+    if (!res.ok) throw new CloudError(`চ্যানেল তালিকা পড়া যায়নি (${res.status})`, "upstream");
+    const length = Number(res.headers.get("content-length") ?? 0);
+    if (length > M3U_LIMIT_BYTES) throw new CloudError("চ্যানেল তালিকা খুব বড়", "upstream");
+    text = (await res.text()).slice(0, M3U_LIMIT_BYTES);
+  } catch (error) {
+    if (error instanceof CloudError) throw error;
+    throw new CloudError("চ্যানেল তালিকা লোড হয়নি — লিংক ও ইন্টারনেট দেখুন", "upstream");
+  } finally {
+    clearTimeout(timer);
+  }
+
+  const base = trimmed.replace(/[^/]*$/, "");
+  for (const line of text.split(/\r?\n/)) {
+    const value = line.trim();
+    if (!value || value.startsWith("#")) continue;
+    const absolute = /^https?:\/\//i.test(value) ? value : new URL(value, base).toString();
+    /* HLS only: an .m3u of rtsp:// or youtube.com links is not something this
+       proxy can play, and pretending otherwise produces a spinner, not a
+       picture. */
+    if (/\.m3u8(\?|#|$)/i.test(absolute)) return absolute;
+  }
+
+  throw new CloudError("তালিকায় কোনো HLS (.m3u8) চ্যানেল পাওয়া যায়নি", "device");
 }
 
 /* --------------------------------------------------------- playlist cache */
