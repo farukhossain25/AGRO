@@ -598,15 +598,20 @@
     @apply relative after:absolute after:-bottom-0.5 after:left-0 after:h-px after:w-0 after:bg-neu-accent after:transition-all hover:after:w-full;
   }
 
+  /* Skeletons are the first paint, and a route can hold 20 of them. The old
+     version gave EVERY placeholder its own ::after shimmer — 20 composited
+     layers animating transform at once, on the same main thread that is still
+     parsing the page's JavaScript. That is a self-inflicted delay on a slow
+     phone, and the shimmer was invisible on most of them anyway because the
+     shapes are small.
+
+     Now: one static gradient, no animation, no extra layer. The page still says
+     "content is coming" (role="status" announces it) but stops competing with
+     the work that makes the content arrive. `animate-shimmer` is kept for the
+     handful of places that genuinely want it. */
   .skeleton {
-    @apply relative overflow-hidden rounded-2xl;
+    @apply relative overflow-hidden rounded-xl;
     background-color: var(--neu-sunken);
-    box-shadow: var(--neu-inset-xs);
-  }
-  .skeleton::after {
-    content: "";
-    @apply absolute inset-0 -translate-x-full animate-shimmer;
-    background-image: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.65), transparent);
   }
 
   .divider {

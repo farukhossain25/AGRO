@@ -1,3 +1,4 @@
+import { invalidateCatalogue } from "@/lib/catalogue-cache";
 import { db } from "@/lib/db";
 import { created, fail, handleError, ok, requirePermission } from "@/lib/api";
 import { diffOf, recordAudit } from "@/lib/audit";
@@ -45,6 +46,7 @@ export async function POST(req: Request) {
       userAgent: req.headers.get("user-agent"),
     });
 
+    invalidateCatalogue();
     return created(product);
   } catch (error) {
     const status = (error as { status?: number }).status;
@@ -81,6 +83,7 @@ export async function PATCH(req: Request) {
       userAgent: req.headers.get("user-agent"),
     });
 
+    invalidateCatalogue();
     return ok(product);
   } catch (error) {
     const status = (error as { status?: number }).status;
@@ -110,6 +113,7 @@ export async function DELETE(req: Request) {
       userAgent: req.headers.get("user-agent"),
     });
 
+    invalidateCatalogue();
     return ok({ id, archived: true });
   } catch (error) {
     const status = (error as { status?: number }).status;

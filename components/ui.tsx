@@ -11,12 +11,21 @@ export function SectionHeader({
   subtitle,
   align = "left",
   action,
+  as: Heading = "h2",
 }: {
   eyebrow?: string;
   title: ReactNode;
   subtitle?: ReactNode;
   align?: "left" | "center";
   action?: ReactNode;
+  /**
+   * Heading level. Defaults to h2, which is right for a section inside a page
+   * that already has its own h1. A page whose ONLY heading is this one — /market,
+   * /categories, /blog — must pass "h1": Lighthouse's
+   * "page does not have an h1" audit is an SEO score item, and a page that
+   * starts at h2 also reads as a missing section to a screen reader.
+   */
+  as?: "h1" | "h2";
 }) {
   return (
     <div
@@ -26,7 +35,7 @@ export function SectionHeader({
     >
       <div className={align === "center" ? "mx-auto max-w-2xl" : "max-w-2xl"}>
         {eyebrow ? <span className="eyebrow mb-3">{eyebrow}</span> : null}
-        <h2 className="h-section">{title}</h2>
+        <Heading className="h-section">{title}</Heading>
         {subtitle ? <p className="mt-3 text-[15px] leading-relaxed text-neu-muted">{subtitle}</p> : null}
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}

@@ -1,4 +1,5 @@
 import { revalidatePath } from "next/cache";
+import { invalidateCatalogue } from "@/lib/catalogue-cache";
 import { db } from "@/lib/db";
 import type { TablesInsert, TablesUpdate } from "@/lib/database.types";
 import { created, fail, handleError, limitGuard, ok, requireUser } from "@/lib/api";
@@ -22,6 +23,7 @@ function refreshStorefront() {
   try {
     revalidatePath("/products");
     revalidatePath("/");
+    invalidateCatalogue();
   } catch {
     /* outside a request context — nothing to purge */
   }

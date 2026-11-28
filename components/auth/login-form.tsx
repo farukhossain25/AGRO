@@ -531,12 +531,14 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
             <ShieldCheck className="h-3.5 w-3.5" /> Secure admin access
           </span>
         ) : null}
-        <h2
+        {/* h1, not h2: this is the only heading on the page and Lighthouse's
+            "page has no h1" audit is a real SEO signal, not a formality. */}
+        <h1
           className="auth-rise text-[21px] font-bold tracking-tight text-neu-ink sm:text-[23px]"
           style={{ ["--d" as string]: "60ms" }}
         >
           {mode === "signup" ? "নতুন অ্যাকাউন্ট" : mode === "forgot" ? "পাসওয়ার্ড রিসেট" : admin ? "অ্যাডমিন প্যানেল" : "আবার স্বাগতম"}
-        </h2>
+        </h1>
         <p className="auth-rise mt-1 text-[12.5px] leading-relaxed text-neu-muted" style={{ ["--d" as string]: "90ms" }}>
           {mode === "signup"
             ? "মাত্র ৩টি তথ্য দিয়ে অ্যাকাউন্ট খুলুন — অর্ডার, ঠিকানা আর স্ট্যাটাস এক জায়গায়।"

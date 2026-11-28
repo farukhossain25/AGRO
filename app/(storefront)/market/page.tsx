@@ -38,6 +38,7 @@ export default async function MarketPage() {
   return (
     <div className="container-x py-10 sm:py-14">
       <SectionHeader
+        as="h1"
         eyebrow="মাল্টি-ভেন্ডর"
         title="মার্কেটপ্লেস"
         subtitle="একই ছাদের নিচে দেশের নানা প্রান্তের খামার ও বিক্রেতা। প্রত্যেককে আমরা যাচাই করি — তারপরই পণ্য তালিকায় আসে।"

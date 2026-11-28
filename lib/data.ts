@@ -12,6 +12,7 @@
  * Writes never come through here — they live in the route handlers, which do
  * surface errors (in Bangla) because the person must know a save failed.
  */
+import { cachedRead, invalidateCatalogue } from "./catalogue-cache";
 import { dbUsable } from "./db";
 import * as q from "./queries";
 import type {
@@ -44,11 +45,24 @@ export class DataUnavailableError extends Error {
   }
 }
 
-/** Run a read, degrade to `empty` instead of throwing. */
-async function safe<T>(fn: () => Promise<T>, empty: T, key = "catalogue"): Promise<T> {
+/**
+ * Run a read, degrade to `empty` instead of throwing.
+ *
+ * `cacheKey` opts the read into the shared catalogue cache. It MUST include
+ * every argument that changes the result — two different filters sharing one
+ * key means one of them silently shows the other's rows. Reads without a key
+ * stay direct, and that is the right default: anything scoped to a signed-in
+ * visitor must never be shared between visitors.
+ */
+async function safe<T>(
+  fn: () => Promise<T>,
+  empty: T,
+  key = "catalogue",
+  cacheKey?: (string | number | boolean)[]
+): Promise<T> {
   if (!dbUsable()) return empty;
   try {
-    const value = await fn();
+    const value = await (cacheKey ? cachedRead(cacheKey, fn) : fn());
     return value ?? empty;
   } catch (error) {
     if (process.env.NODE_ENV !== "test" && !warned.has(key)) {
@@ -86,22 +100,37 @@ async function lookup<T>(fn: () => Promise<T>, key = "row"): Promise<Lookup<T>> 
 
 /* --------------------------------------------------------------- categories */
 export function getCategories(activeOnly = true): Promise<Category[]> {
-  return safe(() => q.getCategories(activeOnly), [], "categories");
+  return safe(() => q.getCategories(activeOnly), [], "categories", ["categories", activeOnly]);
 }
 
 export function getCategoryBySlug(slug: string): Promise<Category | null> {
-  return safe(() => q.getCategoryBySlug(slug), null, "category");
+  return safe(() => q.getCategoryBySlug(slug), null, "category", ["category", slug]);
+}
+
+
+/**
+ * A stable cache key for a filter object. Object key order in JS is insertion
+ * order, so two call sites writing `{limit, sort}` and `{sort, limit}` would
+ * produce different keys for the same query — same data cached twice, and the
+ * admin's invalidation only clears one. Sorting the entries removes that.
+ */
+function filtersKey(filters: ProductFilters): string {
+  return Object.entries(filters)
+    .filter(([, v]) => v !== undefined && v !== null && v !== "")
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => `${k}=${String(v)}`)
+    .join("&");
 }
 
 /* ----------------------------------------------------------------- products */
 export type ProductFilters = q.ProductFilters;
 
 export function getProducts(filters: ProductFilters = {}): Promise<Product[]> {
-  return safe(() => q.getProducts(filters), [], "products");
+  return safe(() => q.getProducts(filters), [], "products", ["products", filtersKey(filters)]);
 }
 
 export function getProductBySlug(slug: string): Promise<Product | null> {
-  return safe(() => q.getProductBySlug(slug), null, "product");
+  return safe(() => q.getProductBySlug(slug), null, "product", ["product", slug]);
 }
 
 /** Slug lookups whose caller renders a 404 — never confuse outage with absence. */
@@ -122,46 +151,49 @@ export function lookupBlogPost(slug: string): Promise<Lookup<BlogPost | null>> {
 }
 
 export function getRelatedProducts(product: Product, limit = 4): Promise<Product[]> {
-  return safe(() => q.getRelatedProducts(product, limit), [], "related");
+  return safe(() => q.getRelatedProducts(product, limit), [], "related", ["related", product.id, limit]);
 }
 
 /* ------------------------------------------------------- combos & packages */
 export function getCombos(kind?: Combo["kind"]): Promise<Combo[]> {
-  return safe(() => q.getCombos(kind), [], "combos");
+  return safe(() => q.getCombos(kind), [], "combos", ["combos", kind ?? "all"]);
 }
 
 export function getComboBySlug(slug: string): Promise<Combo | null> {
-  return safe(() => q.getComboBySlug(slug), null, "combo");
+  return safe(() => q.getComboBySlug(slug), null, "combo", ["combo", slug]);
 }
 
 export function getPackages(): Promise<Package[]> {
-  return safe(() => q.getPackages(), [], "packages");
+  return safe(() => q.getPackages(), [], "packages", ["packages"]);
 }
 
 /* ------------------------------------------------------------------ content */
 export function getBlogPosts(limit = 12): Promise<BlogPost[]> {
-  return safe(() => q.getBlogPosts(limit), [], "blog");
+  return safe(() => q.getBlogPosts(limit), [], "blog", ["blog", limit]);
 }
 
 export function getBlogPost(slug: string): Promise<BlogPost | null> {
-  return safe(() => q.getBlogPost(slug), null, "post");
+  return safe(() => q.getBlogPost(slug), null, "post", ["post", slug]);
 }
 
 export function getFarmers(): Promise<Farmer[]> {
-  return safe(() => q.getFarmers(), [], "farmers");
+  return safe(() => q.getFarmers(), [], "farmers", ["farmers"]);
 }
 
 export function getBanners(placement = "home_hero"): Promise<Banner[]> {
-  return safe(() => q.getBanners(placement), [], "banners");
+  return safe(() => q.getBanners(placement), [], "banners", ["banners", placement]);
 }
 
 export function getApprovedReviews(productId?: string, limit = 8): Promise<Review[]> {
-  return safe(() => q.getApprovedReviews(productId, limit), [], "reviews");
+  return safe(() => q.getApprovedReviews(productId, limit), [], "reviews", ["reviews", productId ?? "all", limit]);
 }
+
+/* Re-exported so write paths have one import for "forget the catalogue". */
+export { invalidateCatalogue };
 
 /* ---------------------------------------------------------------- logistics */
 export function getDeliveryZones(): Promise<DeliveryZone[]> {
-  return safe(() => q.getDeliveryZones(), [], "zones");
+  return safe(() => q.getDeliveryZones(), [], "zones", ["zones"]);
 }
 
 export function getCouponByCode(code: string): Promise<Coupon | null> {
