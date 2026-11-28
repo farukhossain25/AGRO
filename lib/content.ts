@@ -115,7 +115,13 @@ function byPlacement(placement: SocialPlacement) {
 
 /* -------------------------------------------------------------- hero slides */
 
-const FALLBACK_SLIDES: HeroSlide[] = [
+/**
+ * The hero the page renders before Supabase answers.
+ * Exported so `/` can paint its above-the-fold band on the first byte instead of
+ * waiting for a query: the visitor sees a real headline, not a grey box, and the
+ * live slides swap in when they arrive.
+ */
+export const FALLBACK_SLIDES: HeroSlide[] = [
   {
     id: "fallback-1",
     title_bn: "খামার থেকে সোজা আপনার রান্নাঘরে",

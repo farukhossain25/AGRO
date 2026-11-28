@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
@@ -19,14 +20,9 @@ export async function generateMetadata(): Promise<Metadata> {
   });
 }
 
-export default async function CategoriesPage() {
-  const [categories, products] = await Promise.all([getCategories(), getProducts({})]);
-
-  const counts = products.reduce<Record<string, number>>((acc, p) => {
-    if (p.category_id) acc[p.category_id] = (acc[p.category_id] ?? 0) + 1;
-    return acc;
-  }, {});
-
+export default function CategoriesPage() {
+  /* Same split as /products and /market: the title needs no database read, so
+     it is sent now and the category grid streams behind it. */
   return (
     <div className="container-x py-8 sm:py-12">
       <nav aria-label="ব্রেডক্রাম্ব" className="mb-4 text-[12px] text-sand-100/45">
@@ -38,10 +34,26 @@ export default async function CategoriesPage() {
       <header className="mb-8">
         <h1 className="text-[26px] font-bold sm:text-4xl">সব ক্যাটাগরি</h1>
         <p className="mt-2 max-w-2xl text-[14px] leading-relaxed text-sand-100/55">
-          {categories.length}টি ক্যাটাগরিতে সাজানো আমাদের সম্পূর্ণ সংগ্রহ। যেটা দরকার, সেটা বেছে নিন।
+          আমাদের সম্পূর্ণ সংগ্রহ ক্যাটাগরি অনুযায়ী সাজানো। যেটা দরকার, সেটা বেছে নিন।
         </p>
       </header>
 
+      <Suspense fallback={<CategoryGridFallback />}>
+        <CategoryGrid />
+      </Suspense>
+    </div>
+  );
+}
+
+async function CategoryGrid() {
+  const [categories, products] = await Promise.all([getCategories(), getProducts({})]);
+
+  const counts = products.reduce<Record<string, number>>((acc, p) => {
+    if (p.category_id) acc[p.category_id] = (acc[p.category_id] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  return (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {categories.map((c) => (
           <Link
@@ -85,6 +97,16 @@ export default async function CategoriesPage() {
           </Link>
         ))}
       </div>
+  );
+}
+
+/** Six tiles of the same proportions — the swap does not move the footer. */
+function CategoryGridFallback() {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-hidden>
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="skeleton aspect-[16/9] w-full rounded-xl" />
+      ))}
     </div>
   );
 }
