@@ -233,8 +233,26 @@ export async function GET(req: Request, ctx: { params: Promise<{ path?: string[]
   if (!upstream?.ok) return fail("সেগমেন্ট লোড হয়নি", 502);
 
   const headers = new Headers();
-  const type = upstream.headers.get("content-type");
-  if (type) headers.set("content-type", type);
+  /* ⚠️ THE CONTENT-TYPE DECIDES WHETHER hls.js PARSES AT ALL.
+     A segment route can also be asked for a NESTED PLAYLIST — an IPTV channel
+     often points at another .m3u8 (the deshitv case), and the browser then
+     requests that through this same signed segment path. Passing the upstream
+     header through blindly is what a CDN does but not what a player can use:
+     many IPTV hosts serve playlists as text/plain or application/octet-stream,
+     hls.js sees "not a playlist", and the UI sits on "লাইভ লোড হচ্ছে…" with no
+     error to show. So the type is inferred from what we actually know: the
+     path the viewer asked for, then the upstream header, then a sane default.
+     The body is streamed, never inspected twice. */
+  const askedForPlaylist = /\.m3u8?(\?|$)/i.test(carried ? absolute : "") || /\.m3u8?(\?|$)/i.test(target.pathname);
+  const upstreamType = upstream.headers.get("content-type") ?? "";
+  const isPlaylistType = /mpegurl|x-mpegurl/i.test(upstreamType);
+
+  if (askedForPlaylist || isPlaylistType) {
+    headers.set("content-type", "application/vnd.apple.mpegurl");
+  } else if (upstreamType) {
+    headers.set("content-type", upstreamType);
+  }
+
   const length = upstream.headers.get("content-length");
   if (length) headers.set("content-length", length);
   headers.set("cache-control", "no-store");

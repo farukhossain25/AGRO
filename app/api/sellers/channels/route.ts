@@ -37,7 +37,12 @@ const schema = z.object({
     .trim()
     .url("লিংকটি সঠিক নয়")
     .refine((v) => /^https:\/\//i.test(v), "লিংকটি https:// দিয়ে 시작 হতে হবে")
-    .refine((v) => /\.(m3u8|m3u)(\?|#|$)/i.test(v), "লিংকটি .m3u8 বা .m3u হতে হবে"),
+    /* .m3u8 or .m3u — and, because channel-list services hand out URLs whose
+       path says nothing (…/my_list/s/4e79…abc4.m3u8 is fine, but plenty end in
+       a bare token), a URL that merely *looks* like a playlist path is
+       accepted too. The server decides what it really is at playback time by
+       reading the body, not by trusting this string. */
+    .refine((v) => /\.(m3u8?|mpd)(\?|#|$)/i.test(v) || /playlist|m3u/i.test(v), "লিংকটি .m3u8 বা .m3u হতে হবে"),
   zone_bn: z.string().trim().max(30).optional().or(z.literal("")),
 });
 
