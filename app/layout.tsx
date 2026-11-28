@@ -6,9 +6,10 @@ import { HeadMirror } from "@/components/head-mirror";
 import { PWARegister } from "@/components/pwa-register";
 import { Analytics } from "@/components/analytics";
 import { site } from "@/lib/site";
-import { getDeliverySettings } from "@/lib/site-settings";
+import { defaultDeliverySettings, getDeliverySettings } from "@/lib/site-settings";
 import { localBusinessLdFrom, organizationLd, websiteLd } from "@/lib/seo";
 import { defaultStoreSettings, getStoreSettings } from "@/lib/site-settings";
+import { withShellDeadline } from "@/lib/fetch-deadline";
 
 export const metadata: Metadata = {
   metadataBase: new URL(site.url),
@@ -154,10 +155,17 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   /* Delivery numbers are read once here and handed to the client so the cart,
      drawer and checkout promise exactly what computeDelivery() will charge.
      Cached per request by lib/site-settings.ts. */
-  const delivery = await getDeliverySettings();
+  /* Same budget as the storefront shell: these two reads gate the whole
+     document (this is the outermost layout), and both have complete defaults —
+     the cart then charges what computeDelivery() would anyway. A hung settings
+     row must not be able to hold the site's first byte. */
+  const delivery = await withShellDeadline(getDeliverySettings().catch(() => defaultDeliverySettings), defaultDeliverySettings);
   /* Phone/address in the structured data must match what the page shows, so
      the admin's contact block drives the LocalBusiness node too. */
-  const store = await getStoreSettings().catch(() => defaultStoreSettings);
+  const store = await withShellDeadline(
+    getStoreSettings().catch(() => defaultStoreSettings),
+    defaultStoreSettings,
+  );
   const graph = [organizationLd, localBusinessLdFrom(store), websiteLd].map(
     ({ "@context": _ctx, ...node }) => node
   );
