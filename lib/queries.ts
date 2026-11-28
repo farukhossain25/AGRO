@@ -14,17 +14,29 @@ import type {
   Review,
 } from "./types";
 
+/**
+ * Attach a caller's AbortSignal to a query builder.
+ *
+ * Every read accepts one so `lib/read-deadline.ts` can cancel the request on
+ * the wire instead of merely abandoning a promise — that difference is the
+ * whole reason a "4 s timeout" used to produce a 39 s page. Optional, so the
+ * admin routes that call these without a deadline keep working unchanged.
+ */
+function withSignal<T extends { abortSignal?: (s: AbortSignal) => T }>(builder: T, signal?: AbortSignal): T {
+  return signal && builder.abortSignal ? builder.abortSignal(signal) : builder;
+}
+
 /* ------------------------------------------------------------------ catalog */
-export async function getCategories(activeOnly = true): Promise<Category[]> {
-  let q = db().from("categories").select("*").order("sort_order", { ascending: true });
+export async function getCategories(activeOnly = true, signal?: AbortSignal): Promise<Category[]> {
+  let q = withSignal(db().from("categories").select("*").order("sort_order", { ascending: true }), signal);
   if (activeOnly) q = q.eq("is_active", true);
   const { data, error } = await q;
   if (error) throw error;
   return (data ?? []) as Category[];
 }
 
-export async function getCategoryBySlug(slug: string): Promise<Category | null> {
-  const { data, error } = await db().from("categories").select("*").eq("slug", slug).maybeSingle();
+export async function getCategoryBySlug(slug: string, signal?: AbortSignal): Promise<Category | null> {
+  const { data, error } = await withSignal(db().from("categories").select("*").eq("slug", slug), signal).maybeSingle();
   if (error) throw error; // a failed read is NOT "category missing"
   return (data as Category) ?? null;
 }
@@ -41,16 +53,16 @@ export type ProductFilters = {
   inStockOnly?: boolean;
 };
 
-export async function getProducts(filters: ProductFilters = {}): Promise<Product[]> {
+export async function getProducts(filters: ProductFilters = {}, signal?: AbortSignal): Promise<Product[]> {
   let categoryId = filters.categoryId;
 
   if (!categoryId && filters.categorySlug) {
-    const cat = await getCategoryBySlug(filters.categorySlug);
+    const cat = await getCategoryBySlug(filters.categorySlug, signal);
     categoryId = cat?.id;
     if (!cat) return [];
   }
 
-  let q = db().from("products").select("*").eq("is_active", true);
+  let q = withSignal(db().from("products").select("*").eq("is_active", true), signal);
   if (categoryId) q = q.eq("category_id", categoryId);
   if (filters.featuredOnly) q = q.eq("is_featured", true);
   if (filters.inStockOnly) q = q.gt("stock", 0);
@@ -85,8 +97,8 @@ export async function getProducts(filters: ProductFilters = {}): Promise<Product
   return (data ?? []) as Product[];
 }
 
-export async function getProductBySlug(slug: string): Promise<Product | null> {
-  const { data, error } = await db().from("products").select("*").eq("slug", slug).maybeSingle();
+export async function getProductBySlug(slug: string, signal?: AbortSignal): Promise<Product | null> {
+  const { data, error } = await withSignal(db().from("products").select("*").eq("slug", slug), signal).maybeSingle();
   // Swallowing this error turned every product link into "পণ্য পাওয়া যায়নি"
   // during a Supabase hiccup. Callers decide 404 vs retry via lookup().
   if (error) throw error;
@@ -124,20 +136,23 @@ export async function getCombosBySlugs(slugs: string[]): Promise<Combo[]> {
   })) as Combo[];
 }
 
-export async function getRelatedProducts(product: Product, limit = 4): Promise<Product[]> {
-  const { data } = await db()
-    .from("products")
-    .select("*")
-    .eq("is_active", true)
-    .eq("category_id", product.category_id ?? "")
-    .neq("id", product.id)
-    .limit(limit);
+export async function getRelatedProducts(product: Product, limit = 4, signal?: AbortSignal): Promise<Product[]> {
+  const { data } = await withSignal(
+    db()
+      .from("products")
+      .select("*")
+      .eq("is_active", true)
+      .eq("category_id", product.category_id ?? "")
+      .neq("id", product.id)
+      .limit(limit),
+    signal
+  );
   return (data ?? []) as Product[];
 }
 
 /* ------------------------------------------------------- combos & packages */
-export async function getCombos(kind?: "daily" | "weekly" | "monthly"): Promise<Combo[]> {
-  let query = db().from("combos").select("*").eq("is_active", true).order("sort_order");
+export async function getCombos(kind?: "daily" | "weekly" | "monthly", signal?: AbortSignal): Promise<Combo[]> {
+  let query = withSignal(db().from("combos").select("*").eq("is_active", true).order("sort_order"), signal);
   if (kind) query = query.eq("kind", kind);
   const { data, error } = await query;
   if (error) throw error;
@@ -147,8 +162,8 @@ export async function getCombos(kind?: "daily" | "weekly" | "monthly"): Promise<
   })) as Combo[];
 }
 
-export async function getComboBySlug(slug: string): Promise<Combo | null> {
-  const { data, error } = await db().from("combos").select("*").eq("slug", slug).maybeSingle();
+export async function getComboBySlug(slug: string, signal?: AbortSignal): Promise<Combo | null> {
+  const { data, error } = await withSignal(db().from("combos").select("*").eq("slug", slug), signal).maybeSingle();
   if (error) throw error; // never let an outage look like "combo removed"
   if (!data) return null;
   return {
@@ -158,30 +173,36 @@ export async function getComboBySlug(slug: string): Promise<Combo | null> {
 }
 
 /** Monthly family plans live in `subscription_plans` (was `packages`). */
-export async function getPackages(): Promise<Package[]> {
-  const { data, error } = await db()
-    .from("subscription_plans")
-    .select("*")
-    .eq("is_active", true)
-    .order("sort_order");
+export async function getPackages(signal?: AbortSignal): Promise<Package[]> {
+  const { data, error } = await withSignal(
+    db()
+      .from("subscription_plans")
+      .select("*")
+      .eq("is_active", true)
+      .order("sort_order"),
+    signal
+  );
   if (error) throw error;
   return (data ?? []) as unknown as Package[];
 }
 
 /* ------------------------------------------------------------------ content */
-export async function getBlogPosts(limit = 12): Promise<BlogPost[]> {
-  const { data, error } = await db()
-    .from("blog_posts")
-    .select("*")
-    .eq("is_active", true)
-    .order("published_at", { ascending: false })
-    .limit(limit);
+export async function getBlogPosts(limit = 12, signal?: AbortSignal): Promise<BlogPost[]> {
+  const { data, error } = await withSignal(
+    db()
+      .from("blog_posts")
+      .select("*")
+      .eq("is_active", true)
+      .order("published_at", { ascending: false })
+      .limit(limit),
+    signal
+  );
   if (error) throw error;
   return (data ?? []) as BlogPost[];
 }
 
-export async function getBlogPost(slug: string): Promise<BlogPost | null> {
-  const { data, error } = await db().from("blog_posts").select("*").eq("slug", slug).maybeSingle();
+export async function getBlogPost(slug: string, signal?: AbortSignal): Promise<BlogPost | null> {
+  const { data, error } = await withSignal(db().from("blog_posts").select("*").eq("slug", slug), signal).maybeSingle();
   if (error) throw error;
   return (data as BlogPost) ?? null;
 }
@@ -190,7 +211,7 @@ export async function getBlogPost(slug: string): Promise<BlogPost | null> {
  * The "our farmers" strip on /farm is built from the farms table now — a farm
  * IS the farmer profile, so there is no second table to keep in sync.
  */
-export async function getFarmers(): Promise<Farmer[]> {
+export async function getFarmers(signal?: AbortSignal): Promise<Farmer[]> {
   // `sellers` (owner-seller of the farm) brings the logo / banner the seller
   // uploads from the dashboard; the banner doubles as the card's picture.
   // Falls back to the plain select on a database that predates migration 22.
@@ -199,7 +220,10 @@ export async function getFarmers(): Promise<Farmer[]> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic select string
   type FarmRows = { data: any[] | null; error: { code?: string; message: string } | null };
   const query = (select: string): Promise<FarmRows> =>
-    db().from("farms").select(select).eq("is_active", true).order("sort_order") as unknown as Promise<FarmRows>;
+    withSignal(
+      db().from("farms").select(select).eq("is_active", true).order("sort_order"),
+      signal
+    ) as unknown as Promise<FarmRows>;
   let result = await query(`${cols}, sellers(slug, logo, banner)`);
   if (result.error && /sellers\.(logo|banner)|42703/i.test(`${result.error.code} ${result.error.message}`)) {
     result = await query(cols);
@@ -223,13 +247,11 @@ export async function getFarmers(): Promise<Farmer[]> {
   }) as Farmer[];
 }
 
-export async function getBanners(placement = "home_hero"): Promise<Banner[]> {
-  const { data } = await db()
-    .from("banners")
-    .select("*")
-    .eq("is_active", true)
-    .eq("placement", placement)
-    .order("sort_order");
+export async function getBanners(placement = "home_hero", signal?: AbortSignal): Promise<Banner[]> {
+  const { data } = await withSignal(
+    db().from("banners").select("*").eq("is_active", true).eq("placement", placement).order("sort_order"),
+    signal
+  );
   return (data ?? []) as Banner[];
 }
 
@@ -237,14 +259,17 @@ export async function getBanners(placement = "home_hero"): Promise<Banner[]> {
  * Published reviews rendered as testimonials. A review row carries its own
  * display name for guests; for signed-in customers we fall back to the profile.
  */
-export async function getApprovedReviews(productId?: string, limit = 8): Promise<Review[]> {
-  let query = db()
-    .from("reviews")
-    .select("id, product_id, user_id, rating, comment, author_name, author_location, status, created_at")
-    .eq("status", "published")
-    .not("comment", "is", null)
-    .order("created_at", { ascending: false })
-    .limit(limit);
+export async function getApprovedReviews(productId?: string, limit = 8, signal?: AbortSignal): Promise<Review[]> {
+  let query = withSignal(
+    db()
+      .from("reviews")
+      .select("id, product_id, user_id, rating, comment, author_name, author_location, status, created_at")
+      .eq("status", "published")
+      .not("comment", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(limit),
+    signal
+  );
   if (productId) query = query.eq("product_id", productId);
 
   const { data } = await query;
@@ -262,22 +287,27 @@ export async function getApprovedReviews(productId?: string, limit = 8): Promise
 }
 
 /* --------------------------------------------------------------- logistics */
-export async function getDeliveryZones(): Promise<DeliveryZone[]> {
-  const { data, error } = await db()
-    .from("delivery_charges")
-    .select("*")
-    .eq("is_active", true)
-    .order("division");
+export async function getDeliveryZones(signal?: AbortSignal): Promise<DeliveryZone[]> {
+  const { data, error } = await withSignal(
+    db()
+      .from("delivery_charges")
+      .select("*")
+      .eq("is_active", true)
+      .order("division"),
+    signal
+  );
   if (error) throw error;
   return (data ?? []) as DeliveryZone[];
 }
 
-export async function getCouponByCode(code: string): Promise<Coupon | null> {
-  const { data, error } = await db()
-    .from("coupons")
-    .select("*")
-    .ilike("code", code.trim())
-    .maybeSingle();
+export async function getCouponByCode(code: string, signal?: AbortSignal): Promise<Coupon | null> {
+  const { data, error } = await withSignal(
+    db()
+      .from("coupons")
+      .select("*")
+      .ilike("code", code.trim()),
+    signal
+  ).maybeSingle();
   // "invalid coupon" and "database down" must not collapse into one message.
   if (error) throw error;
   return (data as Coupon) ?? null;

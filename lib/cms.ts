@@ -1,4 +1,5 @@
 import { db, dbUsable } from "./db";
+import { withReadDeadline } from "./read-deadline";
 import { policies, type Policy } from "./policies";
 
 /* ==========================================================================
@@ -154,32 +155,39 @@ export type FaqGroup = { title: string; items: { q: string; a: string }[] };
 
 /** FAQ grouped for the accordion, in the admin-defined order. */
 export async function getFaqGroups(): Promise<FaqGroup[]> {
-  if (dbUsable()) {
-    try {
+  /* Abortable, with a real deadline.
+     This read used to have no bound at all: measured at 39 s on a stalling
+     host, it was THE reason a page whose every other read gave up in 4 s still
+     could not be sent. The signal is passed to PostgREST so the socket closes
+     when the deadline fires, not eight seconds later. */
+  const rows = await withReadDeadline(
+    "cms",
+    "faq_items",
+    async (signal) => {
       const { data, error } = await db()
         .from("faq_items")
         .select("id, group_bn, question_bn, answer_bn, sort_order")
         .eq("is_active", true)
-        .order("sort_order");
+        .order("sort_order")
+        .abortSignal(signal);
       if (error) throw error;
-      const rows = (data ?? []) as FaqItem[];
-      if (rows.length) {
-        const order: string[] = [];
-        const grouped = new Map<string, { q: string; a: string }[]>();
-        for (const row of rows) {
-          if (!grouped.has(row.group_bn)) {
-            grouped.set(row.group_bn, []);
-            order.push(row.group_bn);
-          }
-          grouped.get(row.group_bn)!.push({ q: row.question_bn, a: row.answer_bn });
-        }
-        return order.map((title) => ({ title, items: grouped.get(title)! }));
-      }
-    } catch (error) {
-      console.warn("[cms] FAQ fallback:", (error as Error).message);
+      return (data ?? []) as FaqItem[];
+    },
+    [] as FaqItem[]
+  );
+
+  if (!rows.length) return FAQ_FALLBACK_GROUPS;
+
+  const order: string[] = [];
+  const grouped = new Map<string, { q: string; a: string }[]>();
+  for (const row of rows) {
+    if (!grouped.has(row.group_bn)) {
+      grouped.set(row.group_bn, []);
+      order.push(row.group_bn);
     }
+    grouped.get(row.group_bn)!.push({ q: row.question_bn, a: row.answer_bn });
   }
-  return FAQ_FALLBACK_GROUPS;
+  return order.map((title) => ({ title, items: grouped.get(title)! }));
 }
 
 /* ---------------------------------------------------------------- media --- */

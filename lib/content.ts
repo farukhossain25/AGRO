@@ -10,7 +10,9 @@
    `revalidateContent()` after a write so the change shows immediately.
    ========================================================================== */
 
-import { db, isDbConfigured } from "./db";
+import { db } from "./db";
+import { logCache } from "./log";
+import { readWithOutcome } from "./read-deadline";
 import { site } from "./site";
 import type { HeroSlide, HomepageSection, SocialLink } from "./types";
 
@@ -19,15 +21,59 @@ const TTL_MS = 60_000;
 type CacheEntry<T> = { value: T; at: number };
 const cache = new Map<string, CacheEntry<unknown>>();
 
-function memo<T>(key: string, loader: () => Promise<T>): Promise<T> {
+/**
+ * Memoise one read for 60 s.
+ *
+ * `cacheable` is what stops a bad minute from becoming a bad hour. Each reader
+ * below falls back to built-in content when the database does not answer; if
+ * that fallback were memoised like real data, the page would keep serving the
+ * built-in hero and the default section order for a full minute AFTER Supabase
+ * recovered — the "it is healthy again but the site still looks broken" report.
+ * Passing `false` returns the value without caching it, so the next request
+ * retries.
+ */
+function memo<T>(key: string, loader: () => Promise<T>, cacheable = true): Promise<T> {
   const hit = cache.get(key) as CacheEntry<T> | undefined;
   if (hit && Date.now() - hit.at < TTL_MS) return Promise.resolve(hit.value);
-  return loader().then((value) => {
-    cache.set(key, { value, at: Date.now() });
+
+  /* ONE LOAD PER KEY WHILE IT IS PENDING.
+     The homepage reads the hero in two places — the `<Suspense>` fallback and
+     `HomeHero` — plus the section layout, all in the same render. Without this,
+     two identical queries went to Supabase and, on a failing database, both
+     waited out their own budget. Cleared in `finally`, so a rejection is never
+     the answer any later caller receives. */
+  const running = inflight.get(key) as Promise<T> | undefined;
+  if (running) return running;
+
+  const promise = loader().then((value) => {
+    if (cacheable) cache.set(key, { value, at: Date.now() });
+    else logCache("fallback not cached", { key });
     return value;
   });
+
+  inflight.set(key, promise);
+  void promise.finally(() => inflight.delete(key));
+  return promise;
 }
 
+/** Reads currently in flight, by memo key — shared within one process. */
+const inflight = new Map<string, Promise<unknown>>();
+
+/**
+ * The reason this file was the worst offender in production.
+ *
+ * All three readers used to gate on `isDbConfigured()` — "are credentials
+ * present?" — instead of `dbUsable()` — "are credentials present AND is the
+ * breaker closed?". `lib/db.ts` opens that breaker after a transport failure
+ * precisely so the rest of the render stops paying a full timeout per query.
+ * `lib/data.ts` honours it; this file did not. So when Supabase was
+ * unreachable, every OTHER read returned instantly while the hero, the section
+ * layout and the footer socials each waited out the full 8 s fetch timeout.
+ * Measured: 8.0 s and 8.0 s for the two the homepage awaits.
+ *
+ * `dbUsable()` returns false either way, so the fallback still renders — it
+ * just renders immediately instead of after eight seconds, per reader.
+ */
 /** Drop every memoised read — call after an admin save. */
 export function revalidateContent(prefix?: string) {
   if (!prefix) {
@@ -39,7 +85,14 @@ export function revalidateContent(prefix?: string) {
   }
 }
 
-/* ------------------------------------------------------------ social links */
+async function timed<T>(
+  key: string,
+  read: (signal: AbortSignal) => Promise<T>,
+  fallback: T
+): Promise<{ value: T; ok: boolean }> {
+  const outcome = await readWithOutcome("content", key, read, fallback);
+  return { value: outcome.value, ok: outcome.ok };
+}
 
 const FALLBACK_SOCIALS: SocialLink[] = [
   {
@@ -88,24 +141,36 @@ const FALLBACK_SOCIALS: SocialLink[] = [
 
 export type SocialPlacement = "header" | "footer" | "contact";
 
+/**
+ * Footer / header social icons. Abortable, like every other read in this file —
+ * it runs in the storefront layout, so a stalled read here delays every page.
+ */
 export function getSocialLinks(placement: SocialPlacement = "footer"): Promise<SocialLink[]> {
-  return memo(`social:${placement}`, async () => {
-    if (!isDbConfigured()) return FALLBACK_SOCIALS.filter(byPlacement(placement));
-
-    try {
-      const { data, error } = await db()
-        .from("social_links")
-        .select("*")
-        .eq("is_active", true)
-        .order("sort_order", { ascending: true });
-
-      if (error) throw error;
-      if (!data?.length) return FALLBACK_SOCIALS.filter(byPlacement(placement));
-      return (data as SocialLink[]).filter(byPlacement(placement));
-    } catch {
-      return FALLBACK_SOCIALS.filter(byPlacement(placement));
-    }
-  });
+  const fallback = FALLBACK_SOCIALS.filter(byPlacement(placement));
+  return memo(
+    `social:${placement}`,
+    async () => {
+      const { value, ok } = await timed(
+        "social_links",
+        async (signal) => {
+          const { data, error } = await db()
+            .from("social_links")
+            .select("*")
+            .eq("is_active", true)
+            .order("sort_order", { ascending: true })
+            .abortSignal(signal);
+          if (error) throw error;
+          return (data ?? []) as SocialLink[];
+        },
+        [] as SocialLink[]
+      );
+      if (!ok) return fallback;
+      if (!value.length) return fallback;
+      return value.filter(byPlacement(placement));
+    },
+    /* A fallback is not the owner's content — never memoise it. */
+    false
+  );
 }
 
 function byPlacement(placement: SocialPlacement) {
@@ -147,31 +212,31 @@ export const FALLBACK_SLIDES: HeroSlide[] = [
 
 export function getHeroSlides(): Promise<HeroSlide[]> {
   return memo("hero", async () => {
-    if (!isDbConfigured()) return FALLBACK_SLIDES;
+    const now = new Date().toISOString();
+    const { value, ok } = await timed(
+      "hero_slides",
+      async (signal) => {
+        const { data, error } = await db()
+          .from("hero_slides")
+          .select("*")
+          .eq("is_active", true)
+          .order("sort_order", { ascending: true })
+          .abortSignal(signal);
+        if (error) throw error;
+        return (data ?? []) as HeroSlide[];
+      },
+      [] as HeroSlide[]
+    );
+    if (!ok || !value.length) return FALLBACK_SLIDES;
 
-    try {
-      const now = new Date().toISOString();
-      const { data, error } = await db()
-        .from("hero_slides")
-        .select("*")
-        .eq("is_active", true)
-        .order("sort_order", { ascending: true });
+    /* Date windowing is also enforced in RLS; this is the belt to that brace
+       because the service role bypasses RLS. */
+    const live = value.filter(
+      (slide) => (!slide.starts_at || slide.starts_at <= now) && (!slide.ends_at || slide.ends_at >= now)
+    );
 
-      if (error) throw error;
-      if (!data?.length) return FALLBACK_SLIDES;
-
-      // Date windowing is also enforced in RLS; this is the belt to that brace
-      // because the service role bypasses RLS.
-      const live = (data as HeroSlide[]).filter(
-        (slide) =>
-          (!slide.starts_at || slide.starts_at <= now) && (!slide.ends_at || slide.ends_at >= now)
-      );
-
-      return live.length ? live : FALLBACK_SLIDES;
-    } catch {
-      return FALLBACK_SLIDES;
-    }
-  });
+    return live.length ? live : FALLBACK_SLIDES;
+  }, false);
 }
 
 /* --------------------------------------------------------- homepage layout */
@@ -208,53 +273,56 @@ export function defaultSectionLabel(key: string): string {
 }
 
 export function getHomeLayout(): Promise<HomepageSection[]> {
-  return memo("home-layout", async () => {
-    if (!isDbConfigured()) {
-      return DEFAULT_LAYOUT.map((section) => ({
-        ...section,
-        id: `fallback-${section.key}`,
-        updated_at: null,
-      }));
-    }
-
-    try {
-      const { data, error } = await db()
-        .from("homepage_sections")
-        .select("*")
-        .order("sort_order", { ascending: true });
-
-      if (error) throw error;
-      if (!data?.length) {
-        return DEFAULT_LAYOUT.map((section) => ({
-          ...section,
-          id: `fallback-${section.key}`,
-          updated_at: null,
-        }));
-      }
-
-      // Rows added later in the admin panel for an unknown key are ignored by
-      // the renderer, so merging in anything missing keeps the page whole.
-      const present = new Set((data as HomepageSection[]).map((s) => s.key));
-      const missing = DEFAULT_LAYOUT.filter((s) => !present.has(s.key)).map((s) => ({
-        ...s,
-        id: `fallback-${s.key}`,
-        updated_at: null,
-      }));
-
-      return [...(data as HomepageSection[]), ...missing].sort(
-        (a, b) => a.sort_order - b.sort_order
+  return memo(
+    "home-layout",
+    async () => {
+      const { value, ok } = await timed(
+        "homepage_sections",
+        async (signal) => {
+          const { data, error } = await db()
+            .from("homepage_sections")
+            .select("*")
+            .order("sort_order", { ascending: true })
+            .abortSignal(signal);
+          if (error) throw error;
+          return (data ?? []) as HomepageSection[];
+        },
+        [] as HomepageSection[]
       );
-    } catch {
-      return DEFAULT_LAYOUT.map((section) => ({
-        ...section,
-        id: `fallback-${section.key}`,
-        updated_at: null,
-      }));
-    }
-  });
+      if (!ok || !value.length) return defaultLayout();
+
+      /* Rows added later in the admin panel for an unknown key are ignored by
+         the renderer, so merging in anything missing keeps the page whole. */
+      const present = new Set(value.map((s) => s.key));
+      const missing = DEFAULT_LAYOUT.filter((s) => !present.has(s.key)).map(fallbackRow);
+
+      return [...value, ...missing].sort((a, b) => a.sort_order - b.sort_order);
+    },
+    /* A default layout is not the owner's layout — never memoise it, or a
+       one-minute outage would keep the site on default section order after the
+       database came back. */
+    false
+  );
 }
 
-/** Ordered, visible sections only — what the homepage actually renders. */
+function fallbackRow(section: Omit<HomepageSection, "id" | "updated_at">): HomepageSection {
+  return { ...section, id: `fallback-${section.key}`, updated_at: null };
+}
+
+function defaultLayout(): HomepageSection[] {
+  return DEFAULT_LAYOUT.map(fallbackRow);
+}
+
+/**
+ * The built-in section order, exported.
+ *
+ * `/` uses this as the answer when the layout read fails: without it a failed
+ * read produced an empty list, which renders an empty homepage — technically
+ * "no error", practically the same thing to a visitor. The owner's own order
+ * wins whenever the read succeeds.
+ */
+export const DEFAULT_SECTIONS: HomepageSection[] = defaultLayout();
+
 export async function getVisibleSections(): Promise<HomepageSection[]> {
   const layout = await getHomeLayout();
   return layout.filter((section) => section.is_visible);

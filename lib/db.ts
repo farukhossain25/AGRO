@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types";
+import { logBreakerOpen, logReadFail } from "./log";
 
 /**
  * Server-only Supabase client using the service role key.
@@ -15,15 +16,32 @@ let adminClient: SupabaseClient<Database> | null = null;
  * errors, so a fast failure is the right outcome: the page still paints and the
  * fallback content appears. 8s is far above a healthy round-trip (p99 ≈ 200ms).
  */
-const DB_TIMEOUT_MS = Number(process.env.SUPABASE_TIMEOUT_MS ?? 8000);
+export const DB_TIMEOUT_MS = Number(process.env.SUPABASE_TIMEOUT_MS ?? 8000);
+
+/**
+ * Aborts at the deadline and says so.
+ *
+ * `controller.abort()` with no argument makes the SDK report a bare
+ * "AbortError" — indistinguishable in a log (and in `failureKind`) from the
+ * browser cancelling a navigation. Passing a reason gives every timeout the
+ * same, recognisable signature, which is what lets lib/log.ts report
+ * `kind=timeout` instead of `kind=unknown`.
+ */
+export class DbTimeoutError extends Error {
+  constructor(readonly timeoutMs: number) {
+    super(`supabase request exceeded ${timeoutMs}ms`);
+    this.name = "DbTimeoutError";
+  }
+}
 
 const timeoutFetch: typeof fetch = (input, init) => {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), DB_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(new DbTimeoutError(DB_TIMEOUT_MS)), DB_TIMEOUT_MS);
 
   // respect a caller-supplied signal as well
   if (init?.signal) {
-    init.signal.addEventListener("abort", () => controller.abort(), { once: true });
+    if (init.signal.aborted) controller.abort(init.signal.reason);
+    else init.signal.addEventListener("abort", () => controller.abort(init.signal?.reason), { once: true });
   }
 
   return fetch(input, { ...init, signal: controller.signal })
@@ -110,7 +128,14 @@ export function markDbReachable() {
  */
 export function markDbUnreachable(error?: unknown) {
   if (!isTransportFailure(error)) return;
+  const wasClosed = Date.now() >= unreachableUntil;
   unreachableUntil = Date.now() + probeAfterMs();
+  /* Log the transition, not every failure: a render that issues eleven reads
+     against a dead database would otherwise print eleven identical lines. */
+  if (wasClosed) {
+    logBreakerOpen(unreachableUntil - Date.now());
+    logReadFail("db", "transport", 0, error, { breaker: "opened", probe_ms: probeAfterMs() });
+  }
 }
 
 function isTransportFailure(error: unknown): boolean {
@@ -128,12 +153,64 @@ function isTransportFailure(error: unknown): boolean {
 }
 
 /**
- * True when it is worth attempting a query: credentials exist AND the breaker is
- * closed (or its probe window has elapsed). Callers use it exactly like
- * `isDbConfigured()` — data modules already fall back to seed content.
+ * How long until the breaker lets a request through again (0 = closed).
+ * Used by the read helpers to report `kind=breaker` without a fake timeout.
+ */
+export function dbRetryInMs(): number {
+  return Math.max(0, unreachableUntil - Date.now());
+}
+
+/**
+ * True when it is worth attempting a query: credentials exist AND the breaker
+ * is fully closed.
+ *
+ * ⚠️ The half-open window does NOT count as usable. It used to (`Date.now() >=
+ * unreachableUntil`), and that is a subtle performance bug: at the moment the
+ * window elapses every arriving request sends real queries that then pay the
+ * whole 4 s budget before failing. Measured as `/products 5528 ms`,
+ * `/market 5527 ms` while every other page was 1.5 s. Recovery is the probe's
+ * job now (see `dbProbeDue`) — a request never discovers the database is back
+ * by waiting for it.
  */
 export function dbUsable(): boolean {
-  return isDbConfigured() && Date.now() >= unreachableUntil;
+  return isDbConfigured() && unreachableUntil === 0;
+}
+
+/**
+ * HALF-OPEN, WITH A BACKGROUND PROBE.
+ *
+ * When `unreachableUntil` elapses, the database MAY be back — but we do not
+ * know. The previous behaviour was "the next read goes through", and that is
+ * wrong under load in a way that is easy to miss:
+ *
+ *   measured on a stalling host, eleven concurrent reads all saw the window
+ *   elapsed at the same instant, all went through, and all waited out the full
+ *   read budget. The document could not be sent until they settled, so every
+ *   request cost seconds — 5.5 s per page, forever, long after the breaker had
+ *   "done its job".
+ *
+ * So a half-open breaker probes in the BACKGROUND with one small query on a
+ * short budget. Pages served during that window get their fallbacks
+ * immediately; if the probe succeeds the breaker closes and the next request
+ * reads real data. A visitor never pays for the diagnosis.
+ */
+let probeState: "idle" | "running" = "idle";
+
+/** Breaker is open, its window has elapsed, and we have not looked yet. */
+export function dbProbeDue(): boolean {
+  return isDbConfigured() && unreachableUntil > 0 && Date.now() >= unreachableUntil;
+}
+
+/** Claim the single probe slot; false when one is already running. */
+export function beginDbProbe(): boolean {
+  if (probeState === "running") return false;
+  probeState = "running";
+  return true;
+}
+
+/** Release the slot. Always in `finally` — a stuck probe disables recovery. */
+export function endDbProbe() {
+  probeState = "idle";
 }
 
 /** True when Supabase credentials are present (used for graceful demo mode). */

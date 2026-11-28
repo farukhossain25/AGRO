@@ -1,4 +1,5 @@
 import { db } from "./db";
+import { withReadDeadline } from "./read-deadline";
 import type { Database } from "./database.types";
 import type { PaymentMethodRow, PublicPaymentMethod } from "./types";
 
@@ -72,16 +73,29 @@ export async function getPublicMethods(): Promise<PublicPaymentMethod[]> {
  * hide shows up on the next page load — no redeploy, no cache to bust.
  */
 export async function getFooterPaymentMethods(): Promise<PublicPaymentMethod[]> {
-  const { data, error } = await db()
-    .from("payment_methods")
-    .select("*")
-    .eq("is_active", true)
-    .eq("show_on_checkout", true)
-    .order("sort_order", { ascending: true })
-    .order("code", { ascending: true });
+  /* On the critical path of EVERY storefront request — it runs in the shell
+     layout. It used to be a bare `db()` call, so it was the last thing still
+     opening a socket to a dead database after every other reader had given up:
+     measured as the residual 1.5–3 s on every page while the rest of the render
+     was instant. Bounded and breaker-aware now, like the other shell reads. */
+  return withReadDeadline(
+    "payments",
+    "footer_methods",
+    async (signal) => {
+      const { data, error } = await db()
+        .from("payment_methods")
+        .select("*")
+        .eq("is_active", true)
+        .eq("show_on_checkout", true)
+        .order("sort_order", { ascending: true })
+        .order("code", { ascending: true })
+        .abortSignal(signal);
 
-  if (error) throw error;
-  return ((data ?? []) as unknown as MethodClient[]).map(toPublicMethod);
+      if (error) throw error;
+      return ((data ?? []) as unknown as MethodClient[]).map(toPublicMethod);
+    },
+    []
+  );
 }
 
 /** One method by its code (case-insensitive). Null when missing/inactive. */
