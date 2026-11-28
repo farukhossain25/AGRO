@@ -55,7 +55,7 @@ const leaves = [
 
 export default function LoginPage() {
   return (
-    <div className="relative min-h-[calc(100dvh-64px)] overflow-hidden bg-neu-bg">
+    <div className="relative min-h-dvh overflow-hidden bg-neu-bg">
       {/* ── ambience: three drifting orbs + grid + vignette ────────────── */}
       <div className="pointer-events-none absolute inset-0" aria-hidden>
         <div
@@ -83,8 +83,13 @@ export default function LoginPage() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_-10%,rgba(255,255,255,.9),transparent_60%)]" />
       </div>
 
-      <div className="relative mx-auto flex min-h-[calc(100dvh-64px)] w-full max-w-7xl items-stretch justify-center px-4 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:py-10">
-        <div className="auth-rise auth-frame grid w-full overflow-hidden rounded-[30px] border border-white/85 bg-neu-surface shadow-neu-lg lg:grid-cols-[1.06fr_0.94fr]">
+      {/* Full-bleed on purpose: this page is the only thing on screen, so it
+          fills the viewport instead of floating inside a bordered card. On
+          phones the form gets the whole column; on ≥lg the brand panel takes
+          the left half. `dvh` (not `vh`) so mobile browser chrome does not push
+          the submit button below the fold. */}
+      <div className="relative grid min-h-dvh w-full lg:grid-cols-[1.06fr_0.94fr]">
+        <div className="auth-rise grid w-full lg:min-h-dvh">
           {/* ── brand panel (desktop) ─────────────────────────────────── */}
           <aside className="relative hidden overflow-hidden lg:block">
             <Image
@@ -189,14 +194,17 @@ export default function LoginPage() {
           </aside>
 
           {/* ── form panel ────────────────────────────────────────────── */}
-          <section className="relative flex items-center justify-center bg-neu-surface/60 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:p-8">
-            {/* soft glow behind the card, visible on mobile too */}
+          {/* items-start, not items-center: centring a taller-than-viewport
+              form pushes its top above the fold, so a phone opened the page
+              mid-card. `justify-center` still centres it horizontally. */}
+          <section className="relative flex items-start justify-center bg-neu-surface/60 px-5 py-8 pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-8 lg:items-center lg:py-10">
+            {/* soft glow behind the form, visible on mobile too */}
             <div
               className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(31,122,77,0.16),transparent_65%)]"
               aria-hidden
             />
             <Suspense
-              fallback={<div className="h-[560px] w-full max-w-[484px] animate-pulse rounded-3xl bg-neu-sunken" />}
+              fallback={<div className="h-[560px] w-full max-w-[440px] animate-pulse rounded-3xl bg-neu-sunken" />}
             >
               <LoginForm />
             </Suspense>

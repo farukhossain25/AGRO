@@ -222,6 +222,57 @@ CGNAT শুধু বাইরে থেকে ভেতরে ঢোকা আ
 2. টানেলের ভেতরে VPS-এর IP যেমন `10.8.0.1`, XVR-এর ঠিকানা `10.8.0.2` (উদাহরণ)।
 3. VPS-এর MediaMTX এখন `10.8.0.2`-কে LAN-এর ক্যামেরার মতোই RTSP টানতে পারে।
 
+### ধাপ ০ — টানেল বানানো (কপি-পেস্ট কনফিগ)
+
+**VPS-এ** (একবার):
+```bash
+apt update && apt install -y wireguard
+wg genkey | tee /etc/wireguard/server.key | wg pubkey > /etc/wireguard/server.pub
+wg genkey | tee /etc/wireguard/home.key   | wg pubkey > /etc/wireguard/home.pub
+```
+
+`/etc/wireguard/wg0.conf`:
+```ini
+[Interface]
+Address    = 10.8.0.1/24
+ListenPort = 51820
+PrivateKey = <server.key এর ভেতরটা>
+
+[Peer]                        # খামারের রাউটার/ফোন
+PublicKey  = <home.pub এর ভেতরটা>
+AllowedIPs = 10.8.0.2/32
+```
+
+চালু: `systemctl enable --now wg-quick@wg0`
+
+DigitalOcean Firewall-এ **UDP 51820** খুলুন (এটাই একমাত্র নতুন পোর্ট)।
+
+**খামারের রাউটারে / ফোনে** (WireGuard ক্লায়েন্ট):
+```ini
+[Interface]
+Address    = 10.8.0.2/24
+PrivateKey = <home.key এর ভেতরটা>
+
+[Peer]
+PublicKey           = <server.pub এর ভেতরটা>
+Endpoint            = <VPS-IP>:51820
+AllowedIPs          = 10.8.0.0/24     # ⚠️ শুধু টানেলের সাবনেট — 0.0.0.0/0 নয়
+PersistentKeepalive = 25              # NAT খোলা রাখে
+```
+
+**যাচাই (VPS থেকে):**
+```bash
+wg show                          # handshake হয়েছে?
+ping -c 2 10.8.0.2               # টানেলের ওপাশে পৌঁছাচ্ছে?
+```
+
+> ⚠️ **`AllowedIPs = 0.0.0.0/0` দেবেন না।** তাহলে খামারের সব ইন্টারনেট
+> ভিপিএস দিয়ে ঘুরবে — ধীর হবে, আর ডেটা খরচ বাড়বে। শুধু `10.8.0.0/24`।
+>
+> ⚠️ VPS-এর নিজের ফায়ারওয়ালে `iptables -A INPUT -i wg0 -j ACCEPT` আর
+> `net.ipv4.ip_forward` দরকার নেই — একই সাবনেটে দুই পাশ থাকলে রাউটিং লাগে না।
+> MediaMTX `10.8.0.2:554`-এ সরাসরি কানেক্ট করবে।
+
 ### ধাপ ১ — XVR-এর RTSP পথ (Dahua নিয়ম)
 
 ```

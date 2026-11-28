@@ -95,8 +95,10 @@ paths:
   # চালানোর আগে:
   #   1. docker-compose.stream-vps.yml-এ "1935:1935" পোর্টটা পাবলিশ করা আছে
   #      কি না দেখুন, আর DigitalOcean-এর Firewall-এ TCP 1935 খুলুন।
-  #   2. publishPass বদলান (উপরে pathDefaults), এবং DVR-এর RTMP সেটিংয়ে
-  #      ঠিক একই ইউজার/পাসওয়ার্ড দিন।
+  #   2. পাসওয়ার্ড আসে .env-এর MEDIAMTX_PUBLISH_PASS থেকে
+  #      (docker-compose.stream-vps.yml → MTX_AUTHINTERNALUSERS_0_PASS),
+  #      এই ফাইলে পাসওয়ার্ড লেখা হয় না। DVR-এর RTMP সেটিংয়ে
+  #      ইউজার `publisher` আর ঠিক সেই পাসওয়ার্ড দিন।
   #   3. DVR-এ: Setup → Network → Platform Access/Port → RTMP
   #        Custom Address = rtmp://<VPS-IP>:1935/dvr-cam-01
   #      (কিছু ফার্মওয়্যার address আর stream key আলাদা করে চায়: তখন

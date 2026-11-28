@@ -43,6 +43,7 @@ const EXTRA_FILES = [
   "30_critical_fixes.sql",
   "31_security_reliability_fixes.sql",
   "32_team_permission_console.sql",
+  "33_seller_farm_profile_sync.sql",
 ];
 
 async function run(file, round) {
