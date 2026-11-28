@@ -3343,6 +3343,10 @@ export type Database = {
       Args: { p_code: string; p_user: string }
       Returns: Json
     }
+      revalidate_farm_hosts: {
+      Args: {  }
+      Returns: undefined
+    }
       role_permission_defaults: {
       Args: {  }
       Returns: Json[]
@@ -3379,9 +3383,17 @@ export type Database = {
       Args: {  }
       Returns: Json
     }
+      sync_farm_to_seller: {
+      Args: {  }
+      Returns: Json
+    }
       sync_product_images: {
       Args: { p_product: string }
       Returns: undefined
+    }
+      sync_seller_to_farm: {
+      Args: {  }
+      Returns: Json
     }
       touch_updated_at: {
       Args: {  }

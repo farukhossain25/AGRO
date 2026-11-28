@@ -500,7 +500,7 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
     "mt-2 inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-red-500/25 px-3 py-1 text-[11.5px] font-semibold text-[#c0392b] transition hover:bg-red-500/10 disabled:opacity-60";
 
   return (
-    <div className="auth-card auth-rise w-full max-w-[484px]" style={{ ["--d" as string]: "120ms" }}>
+    <div className="auth-card auth-rise w-full max-w-[440px]" style={{ ["--d" as string]: "120ms" }}>
       {/* mobile brand header (the desktop split panel carries this on ≥lg) */}
       <div className="mb-5 flex items-center gap-2.5 lg:hidden">
         <span className="auth-pulse neu-raised-xs grid h-10 w-10 place-items-center rounded-2xl bg-neu-accent-soft text-neu-accent-strong">
@@ -521,7 +521,11 @@ export function LoginForm({ admin = false }: { admin?: boolean } = {}) {
           el.style.setProperty("--auth-mx", `${e.clientX - rect.left}px`);
           el.style.setProperty("--auth-my", `${e.clientY - rect.top}px`);
         }}
-        className="auth-spot-host auth-inner relative overflow-hidden rounded-[26px] border border-white/85 bg-neu-surface/95 p-4 shadow-neu-lg sm:p-6 lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
+        // No card on mobile either: the form owns the whole screen now, so a
+        // second border inside the page frame was decoration on top of
+        // decoration — and its padding pushed "লগইন করুন" below the fold on a
+        // 640px-tall phone.
+        className="auth-spot-host auth-inner relative overflow-hidden bg-transparent p-0 sm:p-1 lg:p-0">
         {admin ? (
           <span className="neu-pill mb-2 gap-1.5 px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wider !text-neu-accent-strong">
             <ShieldCheck className="h-3.5 w-3.5" /> Secure admin access
