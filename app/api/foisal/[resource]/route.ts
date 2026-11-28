@@ -1,4 +1,5 @@
 import { revalidatePath } from "next/cache";
+import { invalidateCatalogue } from "@/lib/catalogue-cache";
 import { dbDynamic } from "@/lib/db";
 import { fail, handleError, ok, requirePermission } from "@/lib/api";
 import { slugifyAscii, toBn } from "@/lib/format";
@@ -439,6 +440,12 @@ function normalise(resource: string, input: Record<string, unknown>) {
 /** The storefront pages that read this resource are ISR-cached; drop their
  *  cache after a write so the panel's change shows up on the next visit. */
 async function afterWrite(resource: string) {
+  /* The catalogue cache (lib/catalogue-cache.ts) sits in front of every
+     storefront read. Without this line an edit reaches the customer up to 60
+     seconds later, which is exactly the "I changed the price and the site still
+     shows the old one" message the owner would send. */
+  invalidateCatalogue();
+
   if (resource === "subscription-plans") {
     /* The home page's plan strip, /subscription and the sitemap all print
        these rows, and they are ISR-cached — without this an edited price can
