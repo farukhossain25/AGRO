@@ -309,7 +309,7 @@ export function AdminShell({
       <IdleGuard />
       {/* desktop sidebar — a floating raised panel */}
       <aside className="hidden w-[264px] shrink-0 p-3 lg:block">
-        <div className="neu-raised-lg sticky top-3 h-[calc(100dvh-1.5rem)] overflow-hidden rounded-[28px]">
+        <div className="neu-raised-lg sticky top-3 h-[calc(100dvh-1.5rem)] overflow-hidden rounded-2xl">
           {sidebar}
         </div>
       </aside>
@@ -333,7 +333,7 @@ export function AdminShell({
           className="sticky top-0 z-40 px-3 pt-3 sm:px-5"
           style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
         >
-          <div className="neu-bar flex h-14 items-center gap-3 rounded-[22px] px-3 sm:px-4">
+          <div className="neu-bar flex h-14 items-center gap-3 rounded-xl px-3 sm:px-4">
             <button
               onClick={() => setOpen(true)}
               className="neu-icon-btn h-10 w-10 lg:hidden"

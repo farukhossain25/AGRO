@@ -395,7 +395,7 @@ export function PremiumManager({ initial }: { initial: AdminPremiumSub[] }) {
       {approving ? (
         <div className="fixed inset-0 z-[70] grid place-items-end bg-black/45 p-0 backdrop-blur-sm sm:place-items-center sm:p-4">
           <form
-            className="w-full max-w-md rounded-t-[24px] border border-white/80 bg-neu-surface p-4 shadow-neu animate-pop sm:rounded-[24px]"
+            className="w-full max-w-md rounded-t-xl border border-white/80 bg-neu-surface p-4 shadow-neu animate-pop sm:rounded-xl"
             onSubmit={(e) => {
               e.preventDefault();
               void decide(approving, {
@@ -472,7 +472,7 @@ export function PremiumManager({ initial }: { initial: AdminPremiumSub[] }) {
       {rejecting ? (
         <div className="fixed inset-0 z-[70] grid place-items-end bg-black/45 p-0 backdrop-blur-sm sm:place-items-center sm:p-4">
           <form
-            className="w-full max-w-md rounded-t-[24px] border border-white/80 bg-neu-surface p-4 shadow-neu animate-pop sm:rounded-[24px]"
+            className="w-full max-w-md rounded-t-xl border border-white/80 bg-neu-surface p-4 shadow-neu animate-pop sm:rounded-xl"
             onSubmit={(e) => {
               e.preventDefault();
               if (reason.trim().length < 2) return;

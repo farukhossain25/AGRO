@@ -13,8 +13,7 @@ import {
 } from "lucide-react";
 import { useCart } from "@/lib/cart";
 import { useLocale } from "@/lib/locale";
-import { nav } from "@/lib/site";
-import { Logo } from "./icon-logo";
+import { nav, site } from "@/lib/site";
 import { CartDrawer } from "./cart-drawer";
 import { UserMenu } from "./account/user-menu";
 import { SearchBox } from "./shop/search-box";
@@ -49,13 +48,17 @@ export function SiteHeader({
 
   return (
     <>
-      {/* ── Header — a floating neumorphic bar with the page scrolling behind */}
+      {/* ── Header — flat, hairline-bordered. It used to be a floating
+             neumorphic pill with a rounded-2xl border and a two-layer
+             shadow, which read as a "frame" pasted over every page. The bar is
+             now just the page's top edge: solid backdrop, one hairline, no
+             radius, no shadow. Same sticky behaviour, so nothing moves. */}
       <header
-        className="sticky top-0 z-50 px-2 pt-2 sm:px-4 sm:pt-3"
-        style={{ paddingTop: "max(0.5rem, env(safe-area-inset-top))" }}
+        className="sticky top-0 z-50 border-b border-neu-line/60 bg-neu-bg/95 backdrop-blur-sm"
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
-        <div className="container-x !px-0 sm:!px-0">
-          <div className="neu-bar flex h-[62px] items-center gap-1.5 rounded-[24px] px-2 min-[400px]:gap-2 sm:h-[70px] sm:gap-3 sm:rounded-[28px] sm:px-3.5">
+        <div className="container-x">
+          <div className="flex h-[62px] items-center gap-1.5 px-0 min-[400px]:gap-2 sm:h-[66px] sm:gap-3">
             {/* Mobile menu button */}
             <button
               onClick={() => setMenuOpen(true)}
@@ -66,9 +69,25 @@ export function SiteHeader({
               <Menu className="h-5 w-5" />
             </button>
 
-            <div className="min-w-0 shrink">
-              <Logo responsive priority />
-            </div>
+            {/* Wordmark instead of the emblem + wordmark lockup. The emblem is a
+                detailed illustration; at 44 px beside a busy nav it competed
+                with the category chips and read as a sticker rather than a
+                brand mark. Type scales cleanly from 320 px up and needs no
+                image request on the LCP path. */}
+            <Link
+              href="/"
+              className="min-w-0 shrink rounded-lg px-1 py-1 transition-colors hover:text-neu-accent-strong"
+              aria-label={`${site.nameBn} — হোম`}
+            >
+              <span className="flex min-w-0 items-baseline gap-1.5">
+                <span className="truncate text-[17px] font-extrabold leading-none tracking-tight text-neu-ink sm:text-[19px]">
+                  বিশ্বাস <span className="text-neu-accent-strong">এগ্রো</span>
+                </span>
+                <span className="hidden text-[10px] font-bold uppercase tracking-[0.18em] text-neu-muted sm:inline">
+                  Bishwas Agro
+                </span>
+              </span>
+            </Link>
 
             {/* Desktop social icons — admin-managed, hidden on small screens */}
             {socials ? <div className="ml-auto hidden items-center xl:flex">{socials}</div> : null}
@@ -86,7 +105,7 @@ export function SiteHeader({
                   <ChevronDown className={`h-3.5 w-3.5 transition ${catOpen ? "rotate-180" : ""}`} />
                 </button>
                 {catOpen ? (
-                  <div className="absolute left-0 top-full z-50 mt-3 grid w-[520px] grid-cols-2 gap-0.5 rounded-[26px] border border-white/80 bg-neu-surface p-2 shadow-neu animate-pop">
+                  <div className="absolute left-0 top-full z-50 mt-3 grid w-[520px] grid-cols-2 gap-0.5 rounded-2xl border border-white/80 bg-neu-surface p-2 shadow-neu animate-pop">
                     {categories.map((c) => (
                       <Link
                         key={c.slug}
@@ -115,7 +134,7 @@ export function SiteHeader({
                     href={item.href}
                     className={`rounded-full px-3.5 py-2 text-[13.5px] font-medium transition ${
                       active
-                        ? "bg-neu-raised text-neu-accent-strong shadow-neu-xs"
+                        ? "text-neu-accent-strong"
                         : "text-neu-muted hover:bg-white/50 hover:text-neu-ink"
                     }`}
                   >

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { BackLink } from "@/components/back-link";
 import { notFound } from "next/navigation";
 import { CalendarDays, MapPin, Phone, ShieldCheck, Sprout, Users, Video } from "lucide-react";
 import { decodeRouteParam } from "@/lib/format";
@@ -117,6 +118,7 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ slu
         </div>
 
         <div className="container-x py-10 sm:py-14">
+          <BackLink fallback="/live/farms" label="সব খামারে ফিরে যান" className="mb-4 !text-white/75 hover:!text-[#7CE3B4]" />
           <nav className="mb-4 flex items-center gap-1.5 text-[12px] text-white/55">
             <Link href="/live" className="hover:text-[#7CE3B4]">লাইভ</Link>
             <span>/</span>

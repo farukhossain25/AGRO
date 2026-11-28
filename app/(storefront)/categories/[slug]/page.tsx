@@ -7,6 +7,7 @@ import { decodeRouteParam } from "@/lib/format";
 import { getCategories, getProducts, lookupCategoryBySlug } from "@/lib/data";
 import { ProductBrowser } from "@/components/shop/product-browser";
 import { breadcrumbLd, dynamicAlternates, jsonLdScript } from "@/lib/seo";
+import { BackLink } from "@/components/back-link";
 import { site } from "@/lib/site";
 
 /* Session-aware components on this page (wishlist, review form) read the
@@ -115,6 +116,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
         </div>
 
         <div className="container-x py-10 sm:py-14">
+          <BackLink fallback="/categories" label="সব ক্যাটাগরিতে ফিরে যান" className="mb-4 !text-white/70 hover:!text-[#7CE3B4]" />
           <nav aria-label="ব্রেডক্রাম্ব" className="mb-4 flex items-center gap-1 text-[12px] text-white/55">
             <Link href="/" className="hover:text-[#7CE3B4]">হোম</Link>
             <ChevronRight className="h-3 w-3" />

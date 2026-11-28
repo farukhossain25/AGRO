@@ -86,7 +86,7 @@ export function NewsletterSignup({ variant = "section" }: { variant?: "section" 
 
   if (variant === "card") {
     return (
-      <div className="card rounded-[26px] p-5 sm:p-6">
+      <div className="card rounded-2xl p-5 sm:p-6">
         <div className="flex items-start gap-4">
           <span
             className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-leaf-600/15 text-neu-accent-strong"
@@ -121,7 +121,7 @@ export function NewsletterSignup({ variant = "section" }: { variant?: "section" 
   /* ---------------- slim homepage band ---------------- */
   return (
     <section className="container-x pb-6 pt-2" aria-labelledby="newsletter-heading">
-      <div className="card relative overflow-hidden rounded-[24px] px-4 py-4 sm:px-6 sm:py-5">
+      <div className="card relative overflow-hidden rounded-xl px-4 py-4 sm:px-6 sm:py-5">
         <div
           aria-hidden
           className="pointer-events-none absolute -right-10 -top-12 h-32 w-32 rounded-full bg-leaf-500/15 blur-2xl"

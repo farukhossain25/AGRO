@@ -1611,7 +1611,7 @@ function CheckoutShell({ children }: { children: React.ReactNode }) {
         className="sticky top-0 z-40 px-3 sm:px-6"
         style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
       >
-        <div className="neu-bar mx-auto flex max-w-[1180px] items-center justify-between rounded-[24px] px-4 py-3 sm:px-5">
+        <div className="neu-bar mx-auto flex max-w-[1180px] items-center justify-between rounded-xl px-4 py-3 sm:px-5">
           <Link href="/" className="flex items-center gap-2.5">
             <Logo size={34} href={null} />
           </Link>

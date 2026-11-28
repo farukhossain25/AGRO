@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Clock, Share2, User } from "lucide-react";
+import { BackLink } from "@/components/back-link";
 import { decodeRouteParam } from "@/lib/format";
 import { getBlogPosts, lookupBlogPost } from "@/lib/data";
 import { formatDateBn } from "@/lib/format";
@@ -164,6 +165,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       />
 
       <article className="container-x py-8 sm:py-12">
+        <BackLink fallback="/blog" label="ব্লগে ফিরে যান" className="mb-5" />
         <Link href="/blog" className="inline-flex items-center gap-1.5 text-[12px] text-sand-100/45 hover:text-leaf-200">
           <ArrowLeft className="h-3.5 w-3.5" /> সব লেখা
         </Link>

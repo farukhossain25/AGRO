@@ -69,7 +69,7 @@ export function ParcelDetails({ data }: { data: ParcelScanData }) {
   return (
     <div className="container-x max-w-md py-8 sm:py-12">
       {/* ── brand ─────────────────────────────────────────────────── */}
-      <div className="overflow-hidden rounded-[26px] border border-white/60 bg-neu-raised shadow-neu-lg">
+      <div className="overflow-hidden rounded-2xl border border-white/60 bg-neu-raised shadow-neu-lg">
         <div
           className="relative px-5 pb-5 pt-6 text-white"
           style={{ background: "linear-gradient(135deg,#06350a 0%,#0a4d0a 78%,#1f7a2b 100%)" }}
